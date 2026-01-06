@@ -40,6 +40,28 @@ export async function getAccounts(): Promise<GoogleAdsAccount[]> {
   return apiClient.get<GoogleAdsAccount[]>('/audit/accounts');
 }
 
+export interface AccountStats {
+  cost: number;
+  cpa: number;
+  conversions: number;
+  impressions: number;
+  clicks: number;
+  ctr: number;
+  roas: number;
+  urgentIssues: number;
+  totalCampaigns: number;
+  activeCampaigns: number;
+}
+
+export interface AccountWithStats extends GoogleAdsAccount {
+  stats: AccountStats | null;
+  lastImportDate: string | null;
+}
+
+export async function getAccountsWithStats(): Promise<AccountWithStats[]> {
+  return apiClient.get<AccountWithStats[]>('/audit/accounts-with-stats');
+}
+
 export async function getAccount(accountId: string): Promise<GoogleAdsAccount> {
   return apiClient.get<GoogleAdsAccount>(`/audit/accounts/${accountId}`);
 }

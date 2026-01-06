@@ -4,34 +4,20 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getAccounts } from '@/api/audit';
-import type { GoogleAdsAccount } from '@/types/audit';
+import { getAccountsWithStats, type AccountWithStats } from '@/api/audit';
 import {
   AlertTriangle,
-  TrendingUp,
-  TrendingDown,
   Eye,
   Play,
   MoreHorizontal,
   DollarSign,
   Target,
   BarChart3,
+  Calendar,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type ViewMode = 'priority' | 'dashboard';
-
-interface AccountWithStats extends GoogleAdsAccount {
-  stats?: {
-    budget?: number;
-    cpa?: number;
-    conversions?: number;
-    trend?: number;
-    urgentIssues?: number;
-    modulesCompleted?: number;
-    modulesTotal?: number;
-  };
-}
 
 export function DashboardPage() {
   const [accounts, setAccounts] = useState<AccountWithStats[]>([]);
@@ -45,21 +31,8 @@ export function DashboardPage() {
   const loadAccounts = async () => {
     setIsLoading(true);
     try {
-      const response = await getAccounts();
-      // Add mock stats for now - these would come from the API
-      const accountsWithStats = response.map((acc: GoogleAdsAccount) => ({
-        ...acc,
-        stats: {
-          budget: Math.floor(Math.random() * 50000) + 5000,
-          cpa: Math.floor(Math.random() * 100) + 10,
-          conversions: Math.floor(Math.random() * 500) + 50,
-          trend: Math.random() > 0.5 ? Math.random() * 30 : -Math.random() * 20,
-          urgentIssues: Math.floor(Math.random() * 10),
-          modulesCompleted: Math.floor(Math.random() * 23),
-          modulesTotal: 23,
-        },
-      }));
-      setAccounts(accountsWithStats);
+      const response = await getAccountsWithStats();
+      setAccounts(response);
     } catch (err) {
       console.error('Failed to load accounts:', err);
     } finally {
@@ -171,7 +144,22 @@ export function DashboardPage() {
 
 function AccountCard({ account }: { account: AccountWithStats }) {
   const stats = account.stats;
-  const trendPositive = (stats?.trend || 0) >= 0;
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('it-IT', {
+      style: 'currency',
+      currency: 'EUR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
+  };
+
+  const formatNumber = (value: number, decimals = 0) => {
+    return new Intl.NumberFormat('it-IT', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    }).format(value);
+  };
 
   return (
     <Card className="bg-card hover:border-primary/50 transition-colors">
@@ -195,33 +183,23 @@ function AccountCard({ account }: { account: AccountWithStats }) {
           </Button>
         </div>
 
-        {/* Module Progress */}
-        <div className="mb-4">
-          <div className="flex justify-between text-sm mb-1">
-            <span className="text-muted-foreground">Moduli completati</span>
-            <span className="text-foreground">
-              {stats?.modulesCompleted}/{stats?.modulesTotal}
-            </span>
+        {/* Last Import Date */}
+        {account.lastImportDate && (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground mb-4">
+            <Calendar className="h-3 w-3" />
+            <span>Ultimo audit: {new Date(account.lastImportDate).toLocaleDateString('it-IT')}</span>
           </div>
-          <div className="h-2 bg-secondary rounded-full overflow-hidden">
-            <div
-              className="h-full bg-primary rounded-full transition-all"
-              style={{
-                width: `${((stats?.modulesCompleted || 0) / (stats?.modulesTotal || 1)) * 100}%`,
-              }}
-            />
-          </div>
-        </div>
+        )}
 
         {/* KPIs */}
         <div className="grid grid-cols-3 gap-4 mb-4">
           <div>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               <DollarSign className="h-3 w-3" />
-              Budget
+              Costo
             </p>
             <p className="text-lg font-semibold text-foreground">
-              &euro;{stats?.budget?.toLocaleString('it-IT')}
+              {stats ? formatCurrency(stats.cost) : '-'}
             </p>
           </div>
           <div>
@@ -230,7 +208,7 @@ function AccountCard({ account }: { account: AccountWithStats }) {
               CPA
             </p>
             <p className="text-lg font-semibold text-foreground">
-              &euro;{stats?.cpa?.toLocaleString('it-IT')}
+              {stats ? formatCurrency(stats.cpa) : '-'}
             </p>
           </div>
           <div>
@@ -239,24 +217,21 @@ function AccountCard({ account }: { account: AccountWithStats }) {
               Conv.
             </p>
             <p className="text-lg font-semibold text-foreground">
-              {stats?.conversions?.toLocaleString('it-IT')}
+              {stats ? formatNumber(stats.conversions, 1) : '-'}
             </p>
           </div>
         </div>
 
-        {/* Trend */}
-        <div
-          className={cn(
-            'flex items-center gap-1 text-sm mb-4',
-            trendPositive ? 'trend-positive' : 'trend-negative'
-          )}
-        >
-          {trendPositive ? (
-            <TrendingUp className="h-4 w-4" />
-          ) : (
-            <TrendingDown className="h-4 w-4" />
-          )}
-          <span>{Math.abs(stats?.trend || 0).toFixed(1)}% vs mese precedente</span>
+        {/* Additional Stats */}
+        <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+          <div>
+            <span className="text-muted-foreground">Campagne attive:</span>{' '}
+            <span className="font-medium">{stats?.activeCampaigns || 0}/{stats?.totalCampaigns || 0}</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">ROAS:</span>{' '}
+            <span className="font-medium">{stats ? formatNumber(stats.roas, 2) : '-'}</span>
+          </div>
         </div>
 
         {/* Actions */}
@@ -282,6 +257,15 @@ function AccountCard({ account }: { account: AccountWithStats }) {
 function AccountRow({ account }: { account: AccountWithStats }) {
   const stats = account.stats;
 
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('it-IT', {
+      style: 'currency',
+      currency: 'EUR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
+  };
+
   return (
     <div className="flex items-center justify-between p-4 bg-card rounded-lg border border-border hover:border-primary/30 transition-colors">
       <div className="flex items-center gap-4">
@@ -295,15 +279,21 @@ function AccountRow({ account }: { account: AccountWithStats }) {
 
       <div className="flex items-center gap-8">
         <div className="text-right">
-          <p className="text-xs text-muted-foreground">Moduli</p>
+          <p className="text-xs text-muted-foreground">Campagne</p>
           <p className="text-sm font-medium text-foreground">
-            {stats?.modulesCompleted}/{stats?.modulesTotal}
+            {stats?.activeCampaigns || 0}/{stats?.totalCampaigns || 0}
           </p>
         </div>
         <div className="text-right">
-          <p className="text-xs text-muted-foreground">Budget</p>
+          <p className="text-xs text-muted-foreground">Costo</p>
           <p className="text-sm font-medium text-foreground">
-            &euro;{stats?.budget?.toLocaleString('it-IT')}
+            {stats ? formatCurrency(stats.cost) : '-'}
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs text-muted-foreground">Conv.</p>
+          <p className="text-sm font-medium text-foreground">
+            {stats?.conversions?.toLocaleString('it-IT', { maximumFractionDigits: 1 }) || '-'}
           </p>
         </div>
         <div className="flex gap-2">

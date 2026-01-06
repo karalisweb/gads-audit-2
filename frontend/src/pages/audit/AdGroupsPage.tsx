@@ -43,6 +43,11 @@ const columns: ColumnDef<AdGroup>[] = [
     ),
   },
   {
+    accessorKey: 'targetCpaMicros',
+    header: 'CPA Target',
+    cell: ({ row }) => formatCurrency(row.original.targetCpaMicros),
+  },
+  {
     accessorKey: 'impressions',
     header: 'Impr.',
     cell: ({ row }) => formatNumber(row.original.impressions),
@@ -58,6 +63,11 @@ const columns: ColumnDef<AdGroup>[] = [
     cell: ({ row }) => formatCtr(row.original.ctr),
   },
   {
+    accessorKey: 'averageCpcMicros',
+    header: 'CPC medio',
+    cell: ({ row }) => formatCurrency(row.original.averageCpcMicros),
+  },
+  {
     accessorKey: 'costMicros',
     header: 'Costo',
     cell: ({ row }) => formatCurrency(row.original.costMicros),
@@ -69,7 +79,7 @@ const columns: ColumnDef<AdGroup>[] = [
   },
   {
     id: 'cpa',
-    header: 'CPA',
+    header: 'Costo/conv',
     cell: ({ row }) => {
       const cost = parseFloat(row.original.costMicros) || 0;
       const conv = parseFloat(row.original.conversions) || 0;
@@ -77,9 +87,60 @@ const columns: ColumnDef<AdGroup>[] = [
     },
   },
   {
+    id: 'valuePerConv',
+    header: 'Val/conv',
+    cell: ({ row }) => {
+      const value = parseFloat(row.original.conversionsValue) || 0;
+      const conv = parseFloat(row.original.conversions) || 0;
+      return conv > 0 ? formatCurrency((value / conv) * 1000000) : '-';
+    },
+  },
+  {
+    id: 'convRate',
+    header: 'Tasso conv',
+    cell: ({ row }) => {
+      const clicks = parseFloat(row.original.clicks) || 0;
+      const conv = parseFloat(row.original.conversions) || 0;
+      return clicks > 0 ? `${((conv / clicks) * 100).toFixed(2)}%` : '-';
+    },
+  },
+  {
+    id: 'roas',
+    header: 'ROAS',
+    cell: ({ row }) => {
+      const value = parseFloat(row.original.conversionsValue) || 0;
+      const cost = parseFloat(row.original.costMicros) || 0;
+      return cost > 0 ? `${((value * 1000000) / cost).toFixed(2)}` : '-';
+    },
+  },
+  {
+    id: 'valuePerClick',
+    header: 'Val/click',
+    cell: ({ row }) => {
+      const value = parseFloat(row.original.conversionsValue) || 0;
+      const clicks = parseFloat(row.original.clicks) || 0;
+      return clicks > 0 ? formatCurrency((value / clicks) * 1000000) : '-';
+    },
+  },
+  {
     accessorKey: 'searchImpressionShare',
     header: 'QI',
     cell: ({ row }) => formatImpressionShare(row.original.searchImpressionShare),
+  },
+  {
+    accessorKey: 'searchImpressionShareLostRank',
+    header: 'QI persa rank',
+    cell: ({ row }) => formatImpressionShare(row.original.searchImpressionShareLostRank),
+  },
+  {
+    accessorKey: 'phoneCalls',
+    header: 'Telefonate',
+    cell: ({ row }) => formatNumber(row.original.phoneCalls),
+  },
+  {
+    accessorKey: 'messageChats',
+    header: 'Chat',
+    cell: ({ row }) => formatNumber(row.original.messageChats),
   },
 ];
 

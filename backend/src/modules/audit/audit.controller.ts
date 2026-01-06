@@ -31,6 +31,11 @@ export class AuditController {
     return this.auditService.getAccounts();
   }
 
+  @Get('accounts-with-stats')
+  async getAccountsWithStats() {
+    return this.auditService.getAccountsWithStats();
+  }
+
   @Post('accounts')
   async createAccount(@Body() dto: CreateAccountDto) {
     return this.auditService.createAccount(dto);

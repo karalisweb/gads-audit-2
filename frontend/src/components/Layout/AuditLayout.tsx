@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { getAccount, getLatestRun } from '@/api/audit';
 import type { GoogleAdsAccount, ImportRun } from '@/types/audit';
 import { cn } from '@/lib/utils';
+import { PeriodSelector } from '@/components/period';
 import {
   LayoutDashboard,
   AlertTriangle,
@@ -35,6 +36,7 @@ export function AuditLayout() {
   const { accountId } = useParams<{ accountId: string }>();
   const [account, setAccount] = useState<GoogleAdsAccount | null>(null);
   const [latestRun, setLatestRun] = useState<ImportRun | null>(null);
+  const [selectedPeriod, setSelectedPeriod] = useState<15 | 30>(30);
 
   useEffect(() => {
     if (!accountId) return;
@@ -61,13 +63,13 @@ export function AuditLayout() {
               </h1>
               <p className="text-sm text-muted-foreground">
                 ID: {account?.customerId}
-                {latestRun && (
-                  <span className="ml-4">
-                    Dati: {new Date(latestRun.completedAt!).toLocaleDateString('it-IT')}
-                  </span>
-                )}
               </p>
             </div>
+            <PeriodSelector
+              selectedPeriod={selectedPeriod}
+              onPeriodChange={setSelectedPeriod}
+              lastAuditDate={latestRun?.completedAt || null}
+            />
           </div>
         </div>
 
@@ -100,7 +102,7 @@ export function AuditLayout() {
 
       {/* Content */}
       <main className="p-6">
-        <Outlet context={{ account, latestRun }} />
+        <Outlet context={{ account, latestRun, selectedPeriod }} />
       </main>
     </div>
   );

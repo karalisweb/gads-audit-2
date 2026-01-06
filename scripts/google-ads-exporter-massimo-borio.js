@@ -26,7 +26,7 @@ var CONFIG = {
   ENDPOINT_URL: 'https://gads.karalisdemo.it/api/integrations/google-ads/ingest',
 
   // Secret condiviso per l'autenticazione HMAC (ottenuto dall'app)
-  SHARED_SECRET: '8e57affcfe217314472ae401084b23548fba6b311717e54ac14714c89e54ff16',
+  SHARED_SECRET: '04f26ea4f532443265d158da929effc6e5646b0f0b3abbafcd26974fe626f0a4',
 
   // Periodo di dati da estrarre (formato: YYYYMMDD)
   DATE_RANGE: {
@@ -620,6 +620,7 @@ function extractAssets() {
     'asset.call_asset.phone_number, ' +
     'campaign_asset.status, ' +
     'campaign.id, ' +
+    'campaign.advertising_channel_type, ' +
     'metrics.impressions, ' +
     'metrics.clicks, ' +
     'metrics.cost_micros, ' +
@@ -844,7 +845,7 @@ function sendChunk(accountId, runId, datasetName, data, chunkIndex, chunkTotal, 
 
 function computeHmacSignature(timestamp, body) {
   var payload = timestamp + body;
-  var signature = Utilities.computeHmacSha256Signature(payload, CONFIG.SHARED_SECRET);
+  var signature = Utilities.computeHmacSha256Signature(payload, CONFIG.SHARED_SECRET, Utilities.Charset.UTF_8);
   return signature.map(function(byte) {
     return ('0' + (byte & 0xFF).toString(16)).slice(-2);
   }).join('');

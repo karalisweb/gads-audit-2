@@ -18,20 +18,17 @@ import type { AIRecommendation } from '@/types/ai';
 
 const columns: ColumnDef<Ad>[] = [
   {
-    accessorKey: 'adGroupName',
-    header: 'Ad Group',
+    accessorKey: 'campaignName',
+    header: 'Campagna',
     cell: ({ row }) => (
-      <div className="max-w-[150px]">
-        <p className="text-sm truncate">{row.original.adGroupName}</p>
-        <p className="text-xs text-gray-500 truncate">{row.original.campaignName}</p>
-      </div>
+      <span className="text-xs truncate max-w-[120px] block">{row.original.campaignName}</span>
     ),
   },
   {
-    accessorKey: 'adType',
-    header: 'Tipo',
+    accessorKey: 'adGroupName',
+    header: 'Gruppo',
     cell: ({ row }) => (
-      <span className="text-xs">{row.original.adType?.replace(/_/g, ' ')}</span>
+      <span className="text-xs truncate max-w-[120px] block">{row.original.adGroupName}</span>
     ),
   },
   {
@@ -41,6 +38,13 @@ const columns: ColumnDef<Ad>[] = [
       <Badge variant={getStatusVariant(row.original.status)} className="text-xs">
         {row.original.status}
       </Badge>
+    ),
+  },
+  {
+    accessorKey: 'adType',
+    header: 'Tipo',
+    cell: ({ row }) => (
+      <span className="text-xs">{row.original.adType?.replace(/_/g, ' ')}</span>
     ),
   },
   {
@@ -54,14 +58,50 @@ const columns: ColumnDef<Ad>[] = [
   },
   {
     id: 'headlines',
-    header: 'Headlines',
+    header: 'Titoli',
     cell: ({ row }) => (
-      <div className="max-w-[200px]">
-        {row.original.headlines?.slice(0, 2).map((h, i) => (
+      <div className="max-w-[250px]">
+        {row.original.headlines?.map((h, i) => (
           <p key={i} className="text-xs truncate">{typeof h === 'object' ? h.text : h}</p>
         ))}
-        {(row.original.headlines?.length || 0) > 2 && (
-          <p className="text-xs text-gray-400">+{row.original.headlines.length - 2} altri</p>
+        {(!row.original.headlines || row.original.headlines.length === 0) && (
+          <span className="text-xs text-muted-foreground">-</span>
+        )}
+      </div>
+    ),
+  },
+  {
+    id: 'descriptions',
+    header: 'Descrizioni',
+    cell: ({ row }) => (
+      <div className="max-w-[250px]">
+        {row.original.descriptions?.map((d, i) => (
+          <p key={i} className="text-xs truncate">{typeof d === 'object' ? d.text : d}</p>
+        ))}
+        {(!row.original.descriptions || row.original.descriptions.length === 0) && (
+          <span className="text-xs text-muted-foreground">-</span>
+        )}
+      </div>
+    ),
+  },
+  {
+    id: 'finalUrls',
+    header: 'URL finale',
+    cell: ({ row }) => (
+      <div className="max-w-[200px]">
+        {row.original.finalUrls?.map((url, i) => (
+          <a
+            key={i}
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-blue-600 hover:underline truncate block"
+          >
+            {url}
+          </a>
+        ))}
+        {(!row.original.finalUrls || row.original.finalUrls.length === 0) && (
+          <span className="text-xs text-muted-foreground">-</span>
         )}
       </div>
     ),
@@ -82,6 +122,11 @@ const columns: ColumnDef<Ad>[] = [
     cell: ({ row }) => formatCtr(row.original.ctr),
   },
   {
+    accessorKey: 'averageCpcMicros',
+    header: 'CPC medio',
+    cell: ({ row }) => formatCurrency(row.original.averageCpcMicros),
+  },
+  {
     accessorKey: 'costMicros',
     header: 'Costo',
     cell: ({ row }) => formatCurrency(row.original.costMicros),
@@ -90,6 +135,52 @@ const columns: ColumnDef<Ad>[] = [
     accessorKey: 'conversions',
     header: 'Conv.',
     cell: ({ row }) => formatNumber(row.original.conversions),
+  },
+  {
+    id: 'cpa',
+    header: 'Costo/conv',
+    cell: ({ row }) => {
+      const cost = parseFloat(row.original.costMicros) || 0;
+      const conv = parseFloat(row.original.conversions) || 0;
+      return conv > 0 ? formatCurrency(cost / conv) : '-';
+    },
+  },
+  {
+    id: 'valuePerConv',
+    header: 'Val/conv',
+    cell: ({ row }) => {
+      const value = parseFloat(row.original.conversionsValue) || 0;
+      const conv = parseFloat(row.original.conversions) || 0;
+      return conv > 0 ? formatCurrency((value / conv) * 1000000) : '-';
+    },
+  },
+  {
+    id: 'convRate',
+    header: 'Tasso conv',
+    cell: ({ row }) => {
+      const clicks = parseFloat(row.original.clicks) || 0;
+      const conv = parseFloat(row.original.conversions) || 0;
+      return clicks > 0 ? `${((conv / clicks) * 100).toFixed(2)}%` : '-';
+    },
+  },
+  {
+    id: 'roas',
+    header: 'ROAS',
+    cell: ({ row }) => {
+      const value = parseFloat(row.original.conversionsValue) || 0;
+      const cost = parseFloat(row.original.costMicros) || 0;
+      return cost > 0 ? `${((value * 1000000) / cost).toFixed(2)}` : '-';
+    },
+  },
+  {
+    accessorKey: 'phoneCalls',
+    header: 'Telefonate',
+    cell: ({ row }) => formatNumber(row.original.phoneCalls),
+  },
+  {
+    accessorKey: 'messageChats',
+    header: 'Chat',
+    cell: ({ row }) => formatNumber(row.original.messageChats),
   },
 ];
 

@@ -24,10 +24,30 @@ const columns: ColumnDef<Keyword>[] = [
     accessorKey: 'keywordText',
     header: 'Keyword',
     cell: ({ row }) => (
-      <div className="max-w-[250px]">
+      <div className="max-w-[200px]">
         <p className="font-medium truncate">{row.original.keywordText}</p>
-        <p className="text-xs text-gray-500">{formatMatchType(row.original.matchType)}</p>
       </div>
+    ),
+  },
+  {
+    accessorKey: 'matchType',
+    header: 'Match',
+    cell: ({ row }) => (
+      <span className="text-xs">{formatMatchType(row.original.matchType)}</span>
+    ),
+  },
+  {
+    accessorKey: 'campaignName',
+    header: 'Campagna',
+    cell: ({ row }) => (
+      <span className="text-xs truncate max-w-[120px] block">{row.original.campaignName}</span>
+    ),
+  },
+  {
+    accessorKey: 'adGroupName',
+    header: 'Gruppo',
+    cell: ({ row }) => (
+      <span className="text-xs truncate max-w-[120px] block">{row.original.adGroupName}</span>
     ),
   },
   {
@@ -37,29 +57,6 @@ const columns: ColumnDef<Keyword>[] = [
       <Badge variant={getStatusVariant(row.original.status)} className="text-xs">
         {row.original.status}
       </Badge>
-    ),
-  },
-  {
-    accessorKey: 'qualityScore',
-    header: 'QS',
-    cell: ({ row }) => (
-      <span className={`font-semibold ${getQualityScoreColor(row.original.qualityScore)}`}>
-        {formatQualityScore(row.original.qualityScore)}
-      </span>
-    ),
-  },
-  {
-    accessorKey: 'campaignName',
-    header: 'Campagna',
-    cell: ({ row }) => (
-      <span className="text-sm truncate max-w-[150px] block">{row.original.campaignName}</span>
-    ),
-  },
-  {
-    accessorKey: 'adGroupName',
-    header: 'Ad Group',
-    cell: ({ row }) => (
-      <span className="text-sm truncate max-w-[150px] block">{row.original.adGroupName}</span>
     ),
   },
   {
@@ -78,9 +75,60 @@ const columns: ColumnDef<Keyword>[] = [
     cell: ({ row }) => formatCtr(row.original.ctr),
   },
   {
+    accessorKey: 'averageCpcMicros',
+    header: 'CPC medio',
+    cell: ({ row }) => formatCurrency(row.original.averageCpcMicros),
+  },
+  {
     accessorKey: 'costMicros',
     header: 'Costo',
     cell: ({ row }) => formatCurrency(row.original.costMicros),
+  },
+  {
+    accessorKey: 'qualityScore',
+    header: 'QS',
+    cell: ({ row }) => (
+      <span className={`font-semibold ${getQualityScoreColor(row.original.qualityScore)}`}>
+        {formatQualityScore(row.original.qualityScore)}
+      </span>
+    ),
+  },
+  {
+    accessorKey: 'finalUrl',
+    header: 'URL',
+    cell: ({ row }) => (
+      row.original.finalUrl ? (
+        <a
+          href={row.original.finalUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-blue-600 hover:underline truncate max-w-[150px] block"
+        >
+          {row.original.finalUrl}
+        </a>
+      ) : <span className="text-muted-foreground">-</span>
+    ),
+  },
+  {
+    accessorKey: 'landingPageExperience',
+    header: 'Esp. landing',
+    cell: ({ row }) => (
+      <span className="text-xs">{row.original.landingPageExperience || '-'}</span>
+    ),
+  },
+  {
+    accessorKey: 'creativeRelevance',
+    header: 'Pertinenza',
+    cell: ({ row }) => (
+      <span className="text-xs">{row.original.creativeRelevance || '-'}</span>
+    ),
+  },
+  {
+    accessorKey: 'expectedCtr',
+    header: 'CTR previsto',
+    cell: ({ row }) => (
+      <span className="text-xs">{row.original.expectedCtr || '-'}</span>
+    ),
   },
   {
     accessorKey: 'conversions',
@@ -89,7 +137,7 @@ const columns: ColumnDef<Keyword>[] = [
   },
   {
     id: 'cpa',
-    header: 'CPA',
+    header: 'Costo/conv',
     cell: ({ row }) => {
       const cost = parseFloat(row.original.costMicros) || 0;
       const conv = parseFloat(row.original.conversions) || 0;
@@ -97,9 +145,51 @@ const columns: ColumnDef<Keyword>[] = [
     },
   },
   {
+    id: 'valuePerConv',
+    header: 'Val/conv',
+    cell: ({ row }) => {
+      const value = parseFloat(row.original.conversionsValue) || 0;
+      const conv = parseFloat(row.original.conversions) || 0;
+      return conv > 0 ? formatCurrency((value / conv) * 1000000) : '-';
+    },
+  },
+  {
+    id: 'convRate',
+    header: 'Tasso conv',
+    cell: ({ row }) => {
+      const clicks = parseFloat(row.original.clicks) || 0;
+      const conv = parseFloat(row.original.conversions) || 0;
+      return clicks > 0 ? `${((conv / clicks) * 100).toFixed(2)}%` : '-';
+    },
+  },
+  {
+    id: 'roas',
+    header: 'ROAS',
+    cell: ({ row }) => {
+      const value = parseFloat(row.original.conversionsValue) || 0;
+      const cost = parseFloat(row.original.costMicros) || 0;
+      return cost > 0 ? `${((value * 1000000) / cost).toFixed(2)}` : '-';
+    },
+  },
+  {
     accessorKey: 'searchImpressionShare',
     header: 'QI',
     cell: ({ row }) => formatImpressionShare(row.original.searchImpressionShare),
+  },
+  {
+    accessorKey: 'searchImpressionShareLostRank',
+    header: 'QI persa rank',
+    cell: ({ row }) => formatImpressionShare(row.original.searchImpressionShareLostRank),
+  },
+  {
+    accessorKey: 'searchImpressionShareLostBudget',
+    header: 'QI persa budget',
+    cell: ({ row }) => formatImpressionShare(row.original.searchImpressionShareLostBudget),
+  },
+  {
+    accessorKey: 'phoneCalls',
+    header: 'Telefonate',
+    cell: ({ row }) => formatNumber(row.original.phoneCalls),
   },
 ];
 

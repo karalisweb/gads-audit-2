@@ -12,10 +12,38 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { getAssets } from '@/api/audit';
-import { getAdStrengthVariant } from '@/lib/format';
+import {
+  formatCurrency,
+  formatNumber,
+  formatCtr,
+  getAdStrengthVariant,
+} from '@/lib/format';
 import type { Asset, PaginatedResponse, AssetFilters } from '@/types/audit';
 
 const columns: ColumnDef<Asset>[] = [
+  {
+    accessorKey: 'assetText',
+    header: 'Asset',
+    cell: ({ row }) => {
+      const asset = row.original;
+      if (asset.assetText) {
+        return <p className="max-w-[200px] truncate">{asset.assetText}</p>;
+      }
+      if (asset.finalUrl) {
+        return (
+          <a
+            href={asset.finalUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:underline text-xs truncate max-w-[200px] block"
+          >
+            {asset.finalUrl}
+          </a>
+        );
+      }
+      return <span className="text-muted-foreground">-</span>;
+    },
+  },
   {
     accessorKey: 'assetType',
     header: 'Tipo',
@@ -26,26 +54,78 @@ const columns: ColumnDef<Asset>[] = [
     ),
   },
   {
-    accessorKey: 'assetText',
-    header: 'Contenuto',
+    accessorKey: 'linkedLevel',
+    header: 'Livello',
+    cell: ({ row }) => (
+      <Badge variant="outline" className="text-xs">
+        {row.original.linkedLevel || '-'}
+      </Badge>
+    ),
+  },
+  {
+    accessorKey: 'status',
+    header: 'Stato',
+    cell: ({ row }) => (
+      <span className="text-xs">{row.original.status || '-'}</span>
+    ),
+  },
+  {
+    accessorKey: 'source',
+    header: 'Origine',
+    cell: ({ row }) => (
+      <span className="text-xs">{row.original.source || '-'}</span>
+    ),
+  },
+  {
+    accessorKey: 'impressions',
+    header: 'Impr.',
+    cell: ({ row }) => formatNumber(row.original.impressions),
+  },
+  {
+    accessorKey: 'clicks',
+    header: 'Click',
+    cell: ({ row }) => formatNumber(row.original.clicks),
+  },
+  {
+    accessorKey: 'ctr',
+    header: 'CTR',
+    cell: ({ row }) => formatCtr(row.original.ctr),
+  },
+  {
+    id: 'avgCpc',
+    header: 'CPC medio',
     cell: ({ row }) => {
-      const asset = row.original;
-      if (asset.assetText) {
-        return <p className="max-w-md truncate">{asset.assetText}</p>;
-      }
-      if (asset.finalUrl) {
-        return (
-          <a
-            href={asset.finalUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 hover:underline text-sm truncate max-w-md block"
-          >
-            {asset.finalUrl}
-          </a>
-        );
-      }
-      return <span className="text-muted-foreground">-</span>;
+      const cost = parseFloat(row.original.costMicros) || 0;
+      const clicks = parseFloat(row.original.clicks) || 0;
+      return clicks > 0 ? formatCurrency(cost / clicks) : '-';
+    },
+  },
+  {
+    accessorKey: 'costMicros',
+    header: 'Costo',
+    cell: ({ row }) => formatCurrency(row.original.costMicros),
+  },
+  {
+    accessorKey: 'conversions',
+    header: 'Conv.',
+    cell: ({ row }) => formatNumber(row.original.conversions),
+  },
+  {
+    id: 'cpa',
+    header: 'Costo/conv',
+    cell: ({ row }) => {
+      const cost = parseFloat(row.original.costMicros) || 0;
+      const conv = parseFloat(row.original.conversions) || 0;
+      return conv > 0 ? formatCurrency(cost / conv) : '-';
+    },
+  },
+  {
+    id: 'convRate',
+    header: 'Tasso conv',
+    cell: ({ row }) => {
+      const clicks = parseFloat(row.original.clicks) || 0;
+      const conv = parseFloat(row.original.conversions) || 0;
+      return clicks > 0 ? `${((conv / clicks) * 100).toFixed(2)}%` : '-';
     },
   },
   {
@@ -63,22 +143,6 @@ const columns: ColumnDef<Asset>[] = [
         </Badge>
       );
     },
-  },
-  {
-    accessorKey: 'linkedLevel',
-    header: 'Livello',
-    cell: ({ row }) => (
-      <Badge variant="outline" className="text-xs">
-        {row.original.linkedLevel || '-'}
-      </Badge>
-    ),
-  },
-  {
-    accessorKey: 'status',
-    header: 'Stato',
-    cell: ({ row }) => (
-      <span className="text-sm">{row.original.status || '-'}</span>
-    ),
   },
 ];
 

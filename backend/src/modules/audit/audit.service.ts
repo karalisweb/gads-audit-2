@@ -80,6 +80,65 @@ export class AuditService {
     });
   }
 
+  async getAccountsWithStats(): Promise<any[]> {
+    const accounts = await this.getAccounts();
+
+    const accountsWithStats = await Promise.all(
+      accounts.map(async (account) => {
+        const latestRun = await this.getLatestRun(account.id);
+
+        if (!latestRun) {
+          return {
+            ...account,
+            stats: null,
+            lastImportDate: null,
+          };
+        }
+
+        // Get KPIs for this account
+        const kpis = await this.getKpis(account.id, latestRun.runId);
+
+        // Get issue count
+        const openIssueCount = await this.issueRepository.count({
+          where: {
+            accountId: account.id,
+            runId: latestRun.runId,
+            status: 'open' as any,
+            severity: 'critical' as any,
+          },
+        });
+
+        const highIssueCount = await this.issueRepository.count({
+          where: {
+            accountId: account.id,
+            runId: latestRun.runId,
+            status: 'open' as any,
+            severity: 'high' as any,
+          },
+        });
+
+        return {
+          ...account,
+          stats: {
+            cost: kpis?.performance?.cost || 0,
+            cpa: kpis?.performance?.cpa || 0,
+            conversions: kpis?.performance?.conversions || 0,
+            impressions: kpis?.performance?.impressions || 0,
+            clicks: kpis?.performance?.clicks || 0,
+            ctr: kpis?.performance?.ctr || 0,
+            roas: kpis?.performance?.roas || 0,
+            urgentIssues: openIssueCount + highIssueCount,
+            totalCampaigns: kpis?.overview?.totalCampaigns || 0,
+            activeCampaigns: kpis?.overview?.activeCampaigns || 0,
+          },
+          lastImportDate: latestRun.completedAt,
+        };
+      }),
+    );
+
+    return accountsWithStats;
+  }
+
   async createAccount(dto: CreateAccountDto): Promise<GoogleAdsAccount> {
     // Normalize customerId: remove dashes (Google Ads script sends ID without dashes)
     const normalizedCustomerId = dto.customerId.replace(/-/g, '');

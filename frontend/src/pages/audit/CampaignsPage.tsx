@@ -21,9 +21,9 @@ const columns: ColumnDef<Campaign>[] = [
     accessorKey: 'campaignName',
     header: 'Campagna',
     cell: ({ row }) => (
-      <div className="max-w-[300px]">
+      <div className="max-w-[250px]">
         <p className="font-medium truncate">{row.original.campaignName}</p>
-        <p className="text-xs text-gray-500">{row.original.campaignId}</p>
+        <p className="text-xs text-muted-foreground">{row.original.campaignId}</p>
       </div>
     ),
   },
@@ -37,15 +37,25 @@ const columns: ColumnDef<Campaign>[] = [
     ),
   },
   {
+    accessorKey: 'budgetMicros',
+    header: 'Budget',
+    cell: ({ row }) => formatCurrency(row.original.budgetMicros),
+  },
+  {
     accessorKey: 'biddingStrategyType',
     header: 'Strategia',
     cell: ({ row }) => (
-      <span className="text-sm">{row.original.biddingStrategyType?.replace(/_/g, ' ')}</span>
+      <span className="text-xs">{row.original.biddingStrategyType?.replace(/_/g, ' ')}</span>
     ),
   },
   {
+    accessorKey: 'targetCpaMicros',
+    header: 'CPA Target',
+    cell: ({ row }) => formatCurrency(row.original.targetCpaMicros),
+  },
+  {
     accessorKey: 'impressions',
-    header: 'Impressioni',
+    header: 'Impr.',
     cell: ({ row }) => formatNumber(row.original.impressions),
   },
   {
@@ -59,6 +69,11 @@ const columns: ColumnDef<Campaign>[] = [
     cell: ({ row }) => formatCtr(row.original.ctr),
   },
   {
+    accessorKey: 'averageCpcMicros',
+    header: 'CPC medio',
+    cell: ({ row }) => formatCurrency(row.original.averageCpcMicros),
+  },
+  {
     accessorKey: 'costMicros',
     header: 'Costo',
     cell: ({ row }) => formatCurrency(row.original.costMicros),
@@ -69,13 +84,8 @@ const columns: ColumnDef<Campaign>[] = [
     cell: ({ row }) => formatNumber(row.original.conversions),
   },
   {
-    accessorKey: 'conversionsValue',
-    header: 'Valore Conv.',
-    cell: ({ row }) => formatCurrency(parseFloat(row.original.conversionsValue) * 1000000),
-  },
-  {
     id: 'cpa',
-    header: 'CPA',
+    header: 'Costo/conv',
     cell: ({ row }) => {
       const cost = parseFloat(row.original.costMicros) || 0;
       const conv = parseFloat(row.original.conversions) || 0;
@@ -83,14 +93,85 @@ const columns: ColumnDef<Campaign>[] = [
     },
   },
   {
+    id: 'valuePerConv',
+    header: 'Val/conv',
+    cell: ({ row }) => {
+      const value = parseFloat(row.original.conversionsValue) || 0;
+      const conv = parseFloat(row.original.conversions) || 0;
+      return conv > 0 ? formatCurrency((value / conv) * 1000000) : '-';
+    },
+  },
+  {
+    id: 'convRate',
+    header: 'Tasso conv',
+    cell: ({ row }) => {
+      const clicks = parseFloat(row.original.clicks) || 0;
+      const conv = parseFloat(row.original.conversions) || 0;
+      return clicks > 0 ? `${((conv / clicks) * 100).toFixed(2)}%` : '-';
+    },
+  },
+  {
+    id: 'roas',
+    header: 'ROAS',
+    cell: ({ row }) => {
+      const value = parseFloat(row.original.conversionsValue) || 0;
+      const cost = parseFloat(row.original.costMicros) || 0;
+      return cost > 0 ? `${((value * 1000000) / cost).toFixed(2)}` : '-';
+    },
+  },
+  {
+    id: 'valuePerClick',
+    header: 'Val/click',
+    cell: ({ row }) => {
+      const value = parseFloat(row.original.conversionsValue) || 0;
+      const clicks = parseFloat(row.original.clicks) || 0;
+      return clicks > 0 ? formatCurrency((value / clicks) * 1000000) : '-';
+    },
+  },
+  {
     accessorKey: 'searchImpressionShare',
-    header: 'QI Ricerca',
+    header: 'QI',
     cell: ({ row }) => formatImpressionShare(row.original.searchImpressionShare),
   },
   {
     accessorKey: 'searchImpressionShareLostRank',
-    header: 'QI Persa (Rank)',
+    header: 'QI persa rank',
     cell: ({ row }) => formatImpressionShare(row.original.searchImpressionShareLostRank),
+  },
+  {
+    accessorKey: 'searchImpressionShareLostBudget',
+    header: 'QI persa budget',
+    cell: ({ row }) => formatImpressionShare(row.original.searchImpressionShareLostBudget),
+  },
+  {
+    accessorKey: 'searchAbsoluteTopImpressionShare',
+    header: '% in cima',
+    cell: ({ row }) => formatImpressionShare(row.original.searchAbsoluteTopImpressionShare),
+  },
+  {
+    accessorKey: 'searchTopImpressionShare',
+    header: '% superiore',
+    cell: ({ row }) => formatImpressionShare(row.original.searchTopImpressionShare),
+  },
+  {
+    accessorKey: 'phoneCalls',
+    header: 'Telefonate',
+    cell: ({ row }) => formatNumber(row.original.phoneCalls),
+  },
+  {
+    accessorKey: 'phoneImpressions',
+    header: 'Impr. tel.',
+    cell: ({ row }) => formatNumber(row.original.phoneImpressions),
+  },
+  {
+    accessorKey: 'messageChats',
+    header: 'Chat',
+    cell: ({ row }) => formatNumber(row.original.messageChats),
+  },
+  {
+    accessorKey: 'messageImpressions',
+    header: 'Messaggi',
+    cell: ({ row }) => formatNumber(row.original.messageImpressions),
   },
 ];
 
