@@ -3,9 +3,11 @@ import { useParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/data-table/DataTable';
 import { Input } from '@/components/ui/input';
+import { AIAnalysisPanel } from '@/components/ai';
 import { getSearchTerms } from '@/api/audit';
 import { formatCurrency, formatNumber, formatCtr } from '@/lib/format';
 import type { SearchTerm, PaginatedResponse, SearchTermFilters } from '@/types/audit';
+import type { AIRecommendation } from '@/types/ai';
 
 const columns: ColumnDef<SearchTerm>[] = [
   {
@@ -118,6 +120,11 @@ export function SearchTermsPage() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
+  const handleCreateDecisions = (recommendations: AIRecommendation[]) => {
+    console.log('Raccomandazioni approvate:', recommendations);
+    alert(`${recommendations.length} raccomandazioni approvate!`);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -129,6 +136,14 @@ export function SearchTermsPage() {
             onChange={(e) => setSearchInput(e.target.value)}
             className="w-64"
           />
+          {accountId && (
+            <AIAnalysisPanel
+              accountId={accountId}
+              moduleId={22}
+              moduleName="Analisi termini di ricerca"
+              onCreateDecisions={handleCreateDecisions}
+            />
+          )}
         </div>
       </div>
 

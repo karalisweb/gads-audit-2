@@ -4,6 +4,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/data-table/DataTable';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { AIAnalysisPanel } from '@/components/ai';
 import { getAdGroups } from '@/api/audit';
 import {
   formatCurrency,
@@ -13,6 +14,7 @@ import {
   getStatusVariant,
 } from '@/lib/format';
 import type { AdGroup, PaginatedResponse, AdGroupFilters } from '@/types/audit';
+import type { AIRecommendation } from '@/types/ai';
 
 const columns: ColumnDef<AdGroup>[] = [
   {
@@ -117,16 +119,31 @@ export function AdGroupsPage() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
+  const handleCreateDecisions = (recommendations: AIRecommendation[]) => {
+    console.log('Raccomandazioni approvate:', recommendations);
+    alert(`${recommendations.length} raccomandazioni approvate!`);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Ad Groups</h2>
-        <Input
-          placeholder="Cerca ad group..."
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          className="w-64"
-        />
+        <div className="flex items-center gap-4">
+          <Input
+            placeholder="Cerca ad group..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            className="w-64"
+          />
+          {accountId && (
+            <AIAnalysisPanel
+              accountId={accountId}
+              moduleId={7}
+              moduleName="Gruppi di annunci"
+              onCreateDecisions={handleCreateDecisions}
+            />
+          )}
+        </div>
       </div>
       <DataTable
         columns={columns}

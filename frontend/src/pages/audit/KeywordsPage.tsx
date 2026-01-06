@@ -4,6 +4,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/data-table/DataTable';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { AIAnalysisPanel } from '@/components/ai';
 import { getKeywords } from '@/api/audit';
 import {
   formatCurrency,
@@ -16,6 +17,7 @@ import {
   getQualityScoreColor,
 } from '@/lib/format';
 import type { Keyword, PaginatedResponse, KeywordFilters } from '@/types/audit';
+import type { AIRecommendation } from '@/types/ai';
 
 const columns: ColumnDef<Keyword>[] = [
   {
@@ -138,6 +140,12 @@ export function KeywordsPage() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
+  const handleCreateDecisions = (recommendations: AIRecommendation[]) => {
+    // TODO: Implementare la creazione delle decisioni
+    console.log('Raccomandazioni approvate:', recommendations);
+    alert(`${recommendations.length} raccomandazioni approvate! (funzionalita decisioni in arrivo)`);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -149,6 +157,14 @@ export function KeywordsPage() {
             onChange={(e) => setSearchInput(e.target.value)}
             className="w-64"
           />
+          {accountId && (
+            <AIAnalysisPanel
+              accountId={accountId}
+              moduleId={19}
+              moduleName="Prestazioni parole chiave"
+              onCreateDecisions={handleCreateDecisions}
+            />
+          )}
         </div>
       </div>
 

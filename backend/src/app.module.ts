@@ -4,7 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { appConfig, databaseConfig, jwtConfig } from './config';
+import { appConfig, databaseConfig, jwtConfig, aiConfig } from './config';
 import * as entities from './entities';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
@@ -12,6 +12,7 @@ import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { DecisionsModule } from './modules/decisions/decisions.module';
 import { ExportModule } from './modules/export/export.module';
+import { AIModule } from './modules/ai/ai.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { TwoFactorGuard } from './modules/auth/guards/two-factor.guard';
 
@@ -19,7 +20,7 @@ import { TwoFactorGuard } from './modules/auth/guards/two-factor.guard';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig, jwtConfig],
+      load: [appConfig, databaseConfig, jwtConfig, aiConfig],
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -44,6 +45,7 @@ import { TwoFactorGuard } from './modules/auth/guards/two-factor.guard';
     AuditModule,
     DecisionsModule,
     ExportModule,
+    AIModule,
   ],
   controllers: [AppController],
   providers: [

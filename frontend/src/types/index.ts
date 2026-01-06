@@ -196,3 +196,6 @@ export interface PaginatedResponse<T> {
   limit: number;
   totalPages: number;
 }
+
+// AI Types
+export * from './ai';

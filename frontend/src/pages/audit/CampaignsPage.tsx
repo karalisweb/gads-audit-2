@@ -4,6 +4,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/data-table/DataTable';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { AIAnalysisPanel } from '@/components/ai';
 import { getCampaigns } from '@/api/audit';
 import {
   formatCurrency,
@@ -13,6 +14,7 @@ import {
   getStatusVariant,
 } from '@/lib/format';
 import type { Campaign, PaginatedResponse, CampaignFilters } from '@/types/audit';
+import type { AIRecommendation } from '@/types/ai';
 
 const columns: ColumnDef<Campaign>[] = [
   {
@@ -130,6 +132,11 @@ export function CampaignsPage() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
+  const handleCreateDecisions = (recommendations: AIRecommendation[]) => {
+    console.log('Raccomandazioni approvate:', recommendations);
+    alert(`${recommendations.length} raccomandazioni approvate!`);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -141,6 +148,14 @@ export function CampaignsPage() {
             onChange={(e) => setSearchInput(e.target.value)}
             className="w-64"
           />
+          {accountId && (
+            <AIAnalysisPanel
+              accountId={accountId}
+              moduleId={4}
+              moduleName="Strategia di offerta"
+              onCreateDecisions={handleCreateDecisions}
+            />
+          )}
         </div>
       </div>
 
