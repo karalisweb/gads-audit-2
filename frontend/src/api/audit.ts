@@ -1,0 +1,123 @@
+import { apiClient } from './client';
+import type {
+  GoogleAdsAccount,
+  ImportRun,
+  Campaign,
+  AdGroup,
+  Ad,
+  Keyword,
+  SearchTerm,
+  NegativeKeyword,
+  Asset,
+  KpiData,
+  PaginatedResponse,
+  CampaignFilters,
+  AdGroupFilters,
+  KeywordFilters,
+  SearchTermFilters,
+  AssetFilters,
+  AdFilters,
+  NegativeKeywordFilters,
+} from '@/types/audit';
+
+// Helper to build query params
+function buildParams(filters: Record<string, unknown>): Record<string, string | number | boolean | undefined> {
+  const params: Record<string, string | number | boolean | undefined> = {};
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      if (Array.isArray(value)) {
+        params[key] = value.join(',');
+      } else if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+        params[key] = value;
+      }
+    }
+  });
+  return params;
+}
+
+// Accounts
+export async function getAccounts(): Promise<GoogleAdsAccount[]> {
+  return apiClient.get<GoogleAdsAccount[]>('/audit/accounts');
+}
+
+export async function getAccount(accountId: string): Promise<GoogleAdsAccount> {
+  return apiClient.get<GoogleAdsAccount>(`/audit/accounts/${accountId}`);
+}
+
+// Import Runs
+export async function getImportRuns(accountId: string): Promise<ImportRun[]> {
+  return apiClient.get<ImportRun[]>(`/audit/accounts/${accountId}/runs`);
+}
+
+export async function getLatestRun(accountId: string): Promise<ImportRun | null> {
+  return apiClient.get<ImportRun | null>(`/audit/accounts/${accountId}/runs/latest`);
+}
+
+// KPIs
+export async function getKpis(accountId: string, runId?: string): Promise<KpiData | null> {
+  const params = runId ? { runId } : undefined;
+  return apiClient.get<KpiData | null>(`/audit/accounts/${accountId}/kpis`, params);
+}
+
+// Campaigns
+export async function getCampaigns(
+  accountId: string,
+  filters: CampaignFilters = {},
+): Promise<PaginatedResponse<Campaign>> {
+  const params = buildParams(filters as Record<string, unknown>);
+  return apiClient.get<PaginatedResponse<Campaign>>(`/audit/accounts/${accountId}/campaigns`, params);
+}
+
+// Ad Groups
+export async function getAdGroups(
+  accountId: string,
+  filters: AdGroupFilters = {},
+): Promise<PaginatedResponse<AdGroup>> {
+  const params = buildParams(filters as Record<string, unknown>);
+  return apiClient.get<PaginatedResponse<AdGroup>>(`/audit/accounts/${accountId}/ad-groups`, params);
+}
+
+// Ads
+export async function getAds(
+  accountId: string,
+  filters: AdFilters = {},
+): Promise<PaginatedResponse<Ad>> {
+  const params = buildParams(filters as Record<string, unknown>);
+  return apiClient.get<PaginatedResponse<Ad>>(`/audit/accounts/${accountId}/ads`, params);
+}
+
+// Keywords
+export async function getKeywords(
+  accountId: string,
+  filters: KeywordFilters = {},
+): Promise<PaginatedResponse<Keyword>> {
+  const params = buildParams(filters as Record<string, unknown>);
+  return apiClient.get<PaginatedResponse<Keyword>>(`/audit/accounts/${accountId}/keywords`, params);
+}
+
+// Search Terms
+export async function getSearchTerms(
+  accountId: string,
+  filters: SearchTermFilters = {},
+): Promise<PaginatedResponse<SearchTerm>> {
+  const params = buildParams(filters as Record<string, unknown>);
+  return apiClient.get<PaginatedResponse<SearchTerm>>(`/audit/accounts/${accountId}/search-terms`, params);
+}
+
+// Negative Keywords
+export async function getNegativeKeywords(
+  accountId: string,
+  filters: NegativeKeywordFilters = {},
+): Promise<PaginatedResponse<NegativeKeyword>> {
+  const params = buildParams(filters as Record<string, unknown>);
+  return apiClient.get<PaginatedResponse<NegativeKeyword>>(`/audit/accounts/${accountId}/negative-keywords`, params);
+}
+
+// Assets
+export async function getAssets(
+  accountId: string,
+  filters: AssetFilters = {},
+): Promise<PaginatedResponse<Asset>> {
+  const params = buildParams(filters as Record<string, unknown>);
+  return apiClient.get<PaginatedResponse<Asset>>(`/audit/accounts/${accountId}/assets`, params);
+}

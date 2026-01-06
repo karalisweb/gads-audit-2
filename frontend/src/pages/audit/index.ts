@@ -1,0 +1,11 @@
+export { DashboardPage } from './DashboardPage';
+export { CampaignsPage } from './CampaignsPage';
+export { AdGroupsPage } from './AdGroupsPage';
+export { AdsPage } from './AdsPage';
+export { KeywordsPage } from './KeywordsPage';
+export { SearchTermsPage } from './SearchTermsPage';
+export { NegativeKeywordsPage } from './NegativeKeywordsPage';
+export { AssetsPage } from './AssetsPage';
+export { IssuesPage } from './IssuesPage';
+export { DecisionsPage } from './DecisionsPage';
+export { ExportPage } from './ExportPage';
