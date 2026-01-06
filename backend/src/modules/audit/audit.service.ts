@@ -81,9 +81,12 @@ export class AuditService {
   }
 
   async createAccount(dto: CreateAccountDto): Promise<GoogleAdsAccount> {
+    // Normalize customerId: remove dashes (Google Ads script sends ID without dashes)
+    const normalizedCustomerId = dto.customerId.replace(/-/g, '');
+
     // Check if account already exists
     const existing = await this.accountRepository.findOne({
-      where: { customerId: dto.customerId },
+      where: { customerId: normalizedCustomerId },
     });
     if (existing) {
       throw new ConflictException('Account with this Customer ID already exists');
@@ -93,7 +96,7 @@ export class AuditService {
     const sharedSecret = crypto.randomBytes(32).toString('hex');
 
     const account = this.accountRepository.create({
-      customerId: dto.customerId,
+      customerId: normalizedCustomerId,
       customerName: dto.customerName,
       currencyCode: dto.currencyCode || 'EUR',
       timeZone: dto.timeZone || 'Europe/Rome',
