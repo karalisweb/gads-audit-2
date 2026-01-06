@@ -16,6 +16,7 @@ import {
   IssuesPage,
   DecisionsPage,
   ExportPage,
+  ConversionsPage,
 } from '@/pages/audit';
 
 function App() {
@@ -45,6 +46,7 @@ function App() {
               <Route path="negative-keywords" element={<NegativeKeywordsPage />} />
               <Route path="assets" element={<AssetsPage />} />
               <Route path="issues" element={<IssuesPage />} />
+              <Route path="conversions" element={<ConversionsPage />} />
               <Route path="decisions" element={<DecisionsPage />} />
               <Route path="export" element={<ExportPage />} />
               <Route index element={<Navigate to="dashboard" replace />} />

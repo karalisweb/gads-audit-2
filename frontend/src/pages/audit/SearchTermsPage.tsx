@@ -20,11 +20,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { AIAnalysisPanel } from '@/components/ai';
-import { Ban, Plus } from 'lucide-react';
-import { getSearchTerms } from '@/api/audit';
+import { Ban, Plus, X } from 'lucide-react';
+import { getSearchTerms, getCampaigns, getAdGroups } from '@/api/audit';
 import { createDecision } from '@/api/decisions';
 import { formatCurrency, formatNumber } from '@/lib/format';
-import type { SearchTerm, PaginatedResponse, SearchTermFilters } from '@/types/audit';
+import type { SearchTerm, Campaign, AdGroup, PaginatedResponse, SearchTermFilters } from '@/types/audit';
 import type { AIRecommendation } from '@/types/ai';
 
 function SearchTermCard({
@@ -36,7 +36,9 @@ function SearchTermCard({
 }) {
   const cost = parseFloat(term.costMicros) || 0;
   const conv = parseFloat(term.conversions) || 0;
+  const clicks = parseFloat(term.clicks) || 0;
   const cpa = conv > 0 ? cost / conv : 0;
+  const cpc = clicks > 0 ? cost / clicks : 0;
 
   // Determine if this might be a problematic search term
   const hasSpend = cost > 0;
@@ -64,7 +66,7 @@ function SearchTermCard({
             {term.campaignName} → {term.adGroupName}
           </p>
         </div>
-        <div className="grid grid-cols-5 gap-3 text-right shrink-0">
+        <div className="grid grid-cols-6 gap-3 text-right shrink-0">
           <div>
             <p className="text-xs text-muted-foreground">Impr.</p>
             <p className="text-sm font-medium">{formatNumber(term.impressions)}</p>
@@ -72,6 +74,10 @@ function SearchTermCard({
           <div>
             <p className="text-xs text-muted-foreground">Click</p>
             <p className="text-sm font-medium">{formatNumber(term.clicks)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">CPC</p>
+            <p className="text-sm font-medium">{cpc > 0 ? formatCurrency(cpc) : '-'}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Costo</p>
@@ -116,12 +122,37 @@ export function SearchTermsPage() {
   });
   const [searchInput, setSearchInput] = useState('');
 
+  // Campaign/AdGroup filter options
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [adGroups, setAdGroups] = useState<AdGroup[]>([]);
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string>('');
+  const [selectedAdGroupId, setSelectedAdGroupId] = useState<string>('');
+
   // Negative keyword dialog state
   const [negativeDialogOpen, setNegativeDialogOpen] = useState(false);
   const [selectedTerm, setSelectedTerm] = useState<SearchTerm | null>(null);
   const [negativeLevel, setNegativeLevel] = useState<'campaign' | 'adgroup'>('campaign');
   const [negativeMatchType, setNegativeMatchType] = useState<string>('EXACT');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Load campaigns for filter
+  useEffect(() => {
+    if (!accountId) return;
+    getCampaigns(accountId, { limit: 500, sortBy: 'campaignName', sortOrder: 'ASC' })
+      .then((result) => setCampaigns(result.data))
+      .catch(console.error);
+  }, [accountId]);
+
+  // Load ad groups when campaign is selected
+  useEffect(() => {
+    if (!accountId || !selectedCampaignId) {
+      setAdGroups([]);
+      return;
+    }
+    getAdGroups(accountId, { campaignId: selectedCampaignId, limit: 500, sortBy: 'adGroupName', sortOrder: 'ASC' })
+      .then((result) => setAdGroups(result.data))
+      .catch(console.error);
+  }, [accountId, selectedCampaignId]);
 
   const loadData = useCallback(async () => {
     if (!accountId) return;
@@ -147,6 +178,38 @@ export function SearchTermsPage() {
     }, 300);
     return () => clearTimeout(timer);
   }, [searchInput]);
+
+  const handleCampaignChange = (value: string) => {
+    setSelectedCampaignId(value);
+    setSelectedAdGroupId(''); // Reset ad group when campaign changes
+    setFilters((prev) => ({
+      ...prev,
+      campaignId: value || undefined,
+      adGroupId: undefined,
+      page: 1,
+    }));
+  };
+
+  const handleAdGroupChange = (value: string) => {
+    setSelectedAdGroupId(value);
+    setFilters((prev) => ({
+      ...prev,
+      adGroupId: value || undefined,
+      page: 1,
+    }));
+  };
+
+  const clearFilters = () => {
+    setSelectedCampaignId('');
+    setSelectedAdGroupId('');
+    setSearchInput('');
+    setFilters({
+      page: 1,
+      limit: 50,
+      sortBy: 'costMicros',
+      sortOrder: 'DESC',
+    });
+  };
 
   const handleOpenNegativeDialog = (
     term: SearchTerm,
@@ -209,17 +272,13 @@ export function SearchTermsPage() {
   const pageCount = data?.meta.totalPages || 1;
   const total = data?.meta.total || 0;
 
+  const hasActiveFilters = selectedCampaignId || selectedAdGroupId || searchInput;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Search Terms</h2>
-        <div className="flex items-center gap-4">
-          <Input
-            placeholder="Cerca search term..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="w-64"
-          />
+        <div className="flex items-center gap-2">
           {accountId && (
             <AIAnalysisPanel
               accountId={accountId}
@@ -229,6 +288,55 @@ export function SearchTermsPage() {
             />
           )}
         </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-3">
+        <Select value={selectedCampaignId} onValueChange={handleCampaignChange}>
+          <SelectTrigger className="w-[250px]">
+            <SelectValue placeholder="Tutte le campagne" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Tutte le campagne</SelectItem>
+            {campaigns.map((c) => (
+              <SelectItem key={c.campaignId} value={c.campaignId}>
+                {c.campaignName}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={selectedAdGroupId}
+          onValueChange={handleAdGroupChange}
+          disabled={!selectedCampaignId}
+        >
+          <SelectTrigger className="w-[250px]">
+            <SelectValue placeholder="Tutti gli ad group" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Tutti gli ad group</SelectItem>
+            {adGroups.map((ag) => (
+              <SelectItem key={ag.adGroupId} value={ag.adGroupId}>
+                {ag.adGroupName}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Input
+          placeholder="Cerca search term..."
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          className="w-64"
+        />
+
+        {hasActiveFilters && (
+          <Button variant="ghost" size="sm" onClick={clearFilters}>
+            <X className="h-4 w-4 mr-1" />
+            Pulisci filtri
+          </Button>
+        )}
       </div>
 
       <div className="flex items-center gap-2 text-sm text-muted-foreground">

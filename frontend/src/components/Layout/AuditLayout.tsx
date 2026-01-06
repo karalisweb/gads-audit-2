@@ -16,11 +16,13 @@ import {
   Image,
   ClipboardList,
   FileDown,
+  Target,
 } from 'lucide-react';
 
 const navItems = [
   { path: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: 'issues', label: 'Problemi', icon: AlertTriangle },
+  { path: 'conversions', label: 'Conversioni', icon: Target },
   { path: 'campaigns', label: 'Campagne', icon: Megaphone },
   { path: 'ad-groups', label: 'Ad Groups', icon: Layers },
   { path: 'ads', label: 'Annunci', icon: FileText },
