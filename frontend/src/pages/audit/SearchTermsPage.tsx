@@ -47,17 +47,26 @@ function SearchTermCard({
 
   return (
     <div className={`border rounded-lg bg-card p-3 ${isPotentialNegative ? 'border-orange-300' : ''}`}>
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <p className="text-sm font-medium">{term.searchTerm}</p>
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <p className="text-sm font-medium break-words">{term.searchTerm}</p>
             {isPotentialNegative && (
               <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">
                 Potenziale negativa
               </Badge>
             )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50 ml-auto lg:hidden"
+              onClick={() => onAddNegative(term, 'campaign', 'EXACT')}
+              title="Aggiungi come negativa"
+            >
+              <Ban className="h-4 w-4" />
+            </Button>
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
             <span>Keyword: {term.keywordText || '-'}</span>
             <span>•</span>
             <span>{term.matchTypeTriggered}</span>
@@ -66,39 +75,39 @@ function SearchTermCard({
             {term.campaignName} → {term.adGroupName}
           </p>
         </div>
-        <div className="grid grid-cols-6 gap-3 text-right shrink-0">
-          <div>
-            <p className="text-xs text-muted-foreground">Impr.</p>
-            <p className="text-sm font-medium">{formatNumber(term.impressions)}</p>
+        <div className="flex items-center gap-2">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 text-right">
+            <div>
+              <p className="text-xs text-muted-foreground">Impr.</p>
+              <p className="text-sm font-medium">{formatNumber(term.impressions)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Click</p>
+              <p className="text-sm font-medium">{formatNumber(term.clicks)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Costo</p>
+              <p className="text-sm font-medium">{formatCurrency(term.costMicros)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">CPC</p>
+              <p className="text-sm font-medium">{cpc > 0 ? formatCurrency(cpc) : '-'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Conv.</p>
+              <p className={`text-sm font-medium ${noConversions && hasSpend ? 'text-orange-600' : ''}`}>
+                {formatNumber(term.conversions)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">CPA</p>
+              <p className="text-sm font-medium">{cpa > 0 ? formatCurrency(cpa) : '-'}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Click</p>
-            <p className="text-sm font-medium">{formatNumber(term.clicks)}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">CPC</p>
-            <p className="text-sm font-medium">{cpc > 0 ? formatCurrency(cpc) : '-'}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Costo</p>
-            <p className="text-sm font-medium">{formatCurrency(term.costMicros)}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Conv.</p>
-            <p className={`text-sm font-medium ${noConversions && hasSpend ? 'text-orange-600' : ''}`}>
-              {formatNumber(term.conversions)}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">CPA</p>
-            <p className="text-sm font-medium">{cpa > 0 ? formatCurrency(cpa) : '-'}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1">
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 w-8 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+            className="h-8 w-8 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50 hidden lg:flex"
             onClick={() => onAddNegative(term, 'campaign', 'EXACT')}
             title="Aggiungi come negativa"
           >

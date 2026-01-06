@@ -60,14 +60,18 @@ function EntityCard({ entity }: { entity: EntityWithConversions }) {
 
   return (
     <div className={`border rounded-lg bg-card p-4 ${!hasConversions ? 'opacity-60' : ''}`}>
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium truncate">{entity.name}</p>
           {entity.parentName && (
             <p className="text-xs text-muted-foreground truncate">{entity.parentName}</p>
           )}
+          <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground sm:hidden">
+            <span>Click: {formatNumber(entity.clicks)}</span>
+            <span>Tasso conv: {entity.convRate > 0 ? `${entity.convRate.toFixed(2)}%` : '-'}</span>
+          </div>
         </div>
-        <div className="grid grid-cols-5 gap-4 text-right shrink-0">
+        <div className="grid grid-cols-5 gap-3 text-right">
           <div>
             <p className="text-xs text-muted-foreground">Conv.</p>
             <p className={`text-sm font-semibold ${hasConversions ? 'text-green-600' : ''}`}>
@@ -98,7 +102,7 @@ function EntityCard({ entity }: { entity: EntityWithConversions }) {
           </div>
         </div>
       </div>
-      <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+      <div className="hidden sm:flex items-center gap-4 mt-2 text-xs text-muted-foreground">
         <span>Click: {formatNumber(entity.clicks)}</span>
         <span>Tasso conv: {entity.convRate > 0 ? `${entity.convRate.toFixed(2)}%` : '-'}</span>
       </div>
@@ -166,16 +170,22 @@ export function ConversionsPage() {
         };
       });
 
-      // Process ads
+      // Process ads - use first headline or ad group name to identify ads
       const processedAds: EntityWithConversions[] = adsData.data.map((ad: Ad) => {
         const conv = parseFloat(ad.conversions) || 0;
         const value = parseFloat(ad.conversionsValue) || 0;
         const cost = parseFloat(ad.costMicros) || 0;
         const clicks = parseFloat(ad.clicks) || 0;
+        // Use first headline if available, otherwise ad group name
+        const firstHeadline = ad.headlines?.[0];
+        const headlineText = firstHeadline
+          ? (typeof firstHeadline === 'object' ? firstHeadline.text : firstHeadline)
+          : null;
+        const adName = headlineText || ad.adGroupName || `Annuncio ${ad.adId}`;
         return {
           id: ad.adId,
-          name: ad.adGroupName,
-          parentName: ad.campaignName,
+          name: adName,
+          parentName: `${ad.campaignName} → ${ad.adGroupName}`,
           conversions: conv,
           conversionsValue: value,
           cost,

@@ -58,9 +58,9 @@ function AdGroupCard({
       <div className="border rounded-lg bg-card">
         <CollapsibleTrigger asChild>
           <div className="p-3 cursor-pointer hover:bg-muted/50 transition-colors">
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <Badge variant={getStatusVariant(adGroup.status)} className="text-xs">
                     {adGroup.status}
                   </Badge>
@@ -73,31 +73,33 @@ function AdGroupCard({
                 <p className="text-sm font-medium truncate">{adGroup.adGroupName}</p>
                 <p className="text-xs text-muted-foreground truncate">{adGroup.campaignName}</p>
               </div>
-              <div className="grid grid-cols-5 gap-3 text-right shrink-0">
-                <div>
-                  <p className="text-xs text-muted-foreground">Costo</p>
-                  <p className="text-sm font-medium">{formatCurrency(adGroup.costMicros)}</p>
+              <div className="flex items-center gap-2">
+                <div className="grid grid-cols-5 gap-3 text-right">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Costo</p>
+                    <p className="text-sm font-medium">{formatCurrency(adGroup.costMicros)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Click</p>
+                    <p className="text-sm font-medium">{formatNumber(adGroup.clicks)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Conv.</p>
+                    <p className="text-sm font-medium">{formatNumber(adGroup.conversions)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">CPA</p>
+                    <p className="text-sm font-medium">{cpa > 0 ? formatCurrency(cpa) : '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">ROAS</p>
+                    <p className={`text-sm font-medium ${roas >= 1 ? 'text-green-600' : roas > 0 ? 'text-orange-600' : ''}`}>
+                      {roas > 0 ? roas.toFixed(2) : '-'}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Click</p>
-                  <p className="text-sm font-medium">{formatNumber(adGroup.clicks)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Conv.</p>
-                  <p className="text-sm font-medium">{formatNumber(adGroup.conversions)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">CPA</p>
-                  <p className="text-sm font-medium">{cpa > 0 ? formatCurrency(cpa) : '-'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">ROAS</p>
-                  <p className="text-sm font-medium">{roas > 0 ? roas.toFixed(2) : '-'}</p>
-                </div>
-              </div>
-              <div className="flex items-center">
                 <svg
-                  className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                  className={`w-4 h-4 transition-transform shrink-0 ${isOpen ? 'rotate-180' : ''}`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"

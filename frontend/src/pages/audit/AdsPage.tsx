@@ -32,14 +32,17 @@ function AdCard({ ad }: { ad: Ad }) {
   const roas = cost > 0 ? (value * 1000000) / cost : 0;
   const convRate = clicks > 0 ? (conv / clicks) * 100 : 0;
 
+  const headlinesCount = ad.headlines?.length || 0;
+  const descriptionsCount = ad.descriptions?.length || 0;
+
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <div className="border rounded-lg bg-card">
         <CollapsibleTrigger asChild>
           <div className="p-3 cursor-pointer hover:bg-muted/50 transition-colors">
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <Badge variant={getStatusVariant(ad.status)} className="text-xs">
                     {ad.status}
                   </Badge>
@@ -51,29 +54,41 @@ function AdCard({ ad }: { ad: Ad }) {
                   </span>
                 </div>
                 <p className="text-sm font-medium truncate">{ad.adGroupName}</p>
-                <p className="text-xs text-muted-foreground truncate">{ad.campaignName}</p>
-              </div>
-              <div className="grid grid-cols-4 gap-4 text-right shrink-0">
-                <div>
-                  <p className="text-xs text-muted-foreground">Costo</p>
-                  <p className="text-sm font-medium">{formatCurrency(ad.costMicros)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Conv.</p>
-                  <p className="text-sm font-medium">{formatNumber(ad.conversions)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">CPA</p>
-                  <p className="text-sm font-medium">{cpa > 0 ? formatCurrency(cpa) : '-'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">ROAS</p>
-                  <p className="text-sm font-medium">{roas > 0 ? roas.toFixed(2) : '-'}</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {ad.campaignName}
+                </p>
+                <div className="flex items-center gap-3 mt-1">
+                  <span className="text-xs text-muted-foreground">
+                    Titoli ({headlinesCount})
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    Descrizioni ({descriptionsCount})
+                  </span>
                 </div>
               </div>
-              <div className="flex items-center">
+              <div className="flex items-center gap-2">
+                <div className="grid grid-cols-4 gap-3 text-right">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Costo</p>
+                    <p className="text-sm font-medium">{formatCurrency(ad.costMicros)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Conv.</p>
+                    <p className="text-sm font-medium">{formatNumber(ad.conversions)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">CPA</p>
+                    <p className="text-sm font-medium">{cpa > 0 ? formatCurrency(cpa) : '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">ROAS</p>
+                    <p className={`text-sm font-medium ${roas >= 1 ? 'text-green-600' : roas > 0 ? 'text-orange-600' : ''}`}>
+                      {roas > 0 ? roas.toFixed(2) : '-'}
+                    </p>
+                  </div>
+                </div>
                 <svg
-                  className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                  className={`w-4 h-4 transition-transform shrink-0 ${isOpen ? 'rotate-180' : ''}`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"

@@ -91,8 +91,8 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border">
-        <Table>
+      <div className="rounded-md border overflow-x-auto">
+        <Table className="min-w-[800px]">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
@@ -146,20 +146,20 @@ export function DataTable<TData, TValue>({
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between px-2">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-2">
         <div className="text-sm text-muted-foreground">
           {total > 0 ? (
             <>
-              Mostrando {pageIndex * pageSize + 1}-{Math.min((pageIndex + 1) * pageSize, total)} di{' '}
-              {total.toLocaleString()} risultati
+              {pageIndex * pageSize + 1}-{Math.min((pageIndex + 1) * pageSize, total)} di{' '}
+              {total.toLocaleString()}
             </>
           ) : (
             'Nessun risultato'
           )}
         </div>
-        <div className="flex items-center space-x-6 lg:space-x-8">
-          <div className="flex items-center space-x-2">
-            <p className="text-sm font-medium">Righe per pagina</p>
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium hidden sm:block">Righe</p>
             <select
               className="h-8 w-16 rounded-md border border-input bg-background px-2 text-sm"
               value={pageSize}
@@ -172,41 +172,45 @@ export function DataTable<TData, TValue>({
               ))}
             </select>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-1">
             <Button
               variant="outline"
               size="sm"
+              className="h-8 w-8 p-0"
               onClick={() => onPageChange?.(0)}
               disabled={pageIndex === 0}
             >
-              {'<<'}
+              {'«'}
             </Button>
             <Button
               variant="outline"
               size="sm"
+              className="h-8 w-8 p-0"
               onClick={() => onPageChange?.(pageIndex - 1)}
               disabled={pageIndex === 0}
             >
-              {'<'}
+              {'‹'}
             </Button>
-            <span className="text-sm">
-              Pagina {pageIndex + 1} di {pageCount || 1}
+            <span className="text-sm px-2">
+              {pageIndex + 1}/{pageCount || 1}
             </span>
             <Button
               variant="outline"
               size="sm"
+              className="h-8 w-8 p-0"
               onClick={() => onPageChange?.(pageIndex + 1)}
               disabled={pageIndex >= pageCount - 1}
             >
-              {'>'}
+              {'›'}
             </Button>
             <Button
               variant="outline"
               size="sm"
+              className="h-8 w-8 p-0"
               onClick={() => onPageChange?.(pageCount - 1)}
               disabled={pageIndex >= pageCount - 1}
             >
-              {'>>'}
+              {'»'}
             </Button>
           </div>
         </div>
