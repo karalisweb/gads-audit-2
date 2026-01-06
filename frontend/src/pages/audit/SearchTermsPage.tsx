@@ -301,12 +301,12 @@ export function SearchTermsPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        <Select value={selectedCampaignId} onValueChange={handleCampaignChange}>
+        <Select value={selectedCampaignId || 'all'} onValueChange={(v) => handleCampaignChange(v === 'all' ? '' : v)}>
           <SelectTrigger className="w-[250px]">
             <SelectValue placeholder="Tutte le campagne" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Tutte le campagne</SelectItem>
+            <SelectItem value="all">Tutte le campagne</SelectItem>
             {campaigns.map((c) => (
               <SelectItem key={c.campaignId} value={c.campaignId}>
                 {c.campaignName}
@@ -316,15 +316,15 @@ export function SearchTermsPage() {
         </Select>
 
         <Select
-          value={selectedAdGroupId}
-          onValueChange={handleAdGroupChange}
+          value={selectedAdGroupId || 'all'}
+          onValueChange={(v) => handleAdGroupChange(v === 'all' ? '' : v)}
           disabled={!selectedCampaignId}
         >
           <SelectTrigger className="w-[250px]">
             <SelectValue placeholder="Tutti gli ad group" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Tutti gli ad group</SelectItem>
+            <SelectItem value="all">Tutti gli ad group</SelectItem>
             {adGroups.map((ag) => (
               <SelectItem key={ag.adGroupId} value={ag.adGroupId}>
                 {ag.adGroupName}
