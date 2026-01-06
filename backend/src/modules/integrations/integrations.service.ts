@@ -541,7 +541,7 @@ export class IntegrationsService {
           locationName: String(row.location_name || row.locationName || ''),
           locationType: String(row.location_type || row.locationType || ''),
           isTargeted: Boolean(row.is_targeted || row.isTargeted),
-          bidModifier: row.bid_modifier !== undefined ? String(row.bid_modifier) : undefined,
+          bidModifier: this.parseNullableNumeric(row.bid_modifier),
           impressions: String(row.impressions || 0),
           clicks: String(row.clicks || 0),
           costMicros: String(row.cost_micros || row.costMicros || 0),
@@ -571,7 +571,7 @@ export class IntegrationsService {
           campaignId: String(row.campaign_id || row.campaignId),
           campaignName: String(row.campaign_name || row.campaignName || ''),
           device: String(row.device || ''),
-          bidModifier: row.bid_modifier !== undefined ? String(row.bid_modifier) : undefined,
+          bidModifier: this.parseNullableNumeric(row.bid_modifier),
           impressions: String(row.impressions || 0),
           clicks: String(row.clicks || 0),
           costMicros: String(row.cost_micros || row.costMicros || 0),
@@ -582,5 +582,22 @@ export class IntegrationsService {
         ['accountId', 'runId', 'campaignId', 'device'],
       );
     }
+  }
+
+  /**
+   * Parse a nullable numeric value, handling cases where the value is:
+   * - undefined or null: returns undefined
+   * - the string "null": returns undefined
+   * - a valid number or numeric string: returns the string representation
+   */
+  private parseNullableNumeric(value: unknown): string | undefined {
+    if (value === undefined || value === null || value === 'null' || value === '') {
+      return undefined;
+    }
+    const num = Number(value);
+    if (isNaN(num)) {
+      return undefined;
+    }
+    return String(value);
   }
 }
