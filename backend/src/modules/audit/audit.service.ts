@@ -98,11 +98,11 @@ export class AuditService {
         // Get KPIs for this account
         const kpis = await this.getKpis(account.id, latestRun.runId);
 
-        // Get issue count
+        // Get issue count - use latestRun.id (UUID) not latestRun.runId (string)
         const openIssueCount = await this.issueRepository.count({
           where: {
             accountId: account.id,
-            runId: latestRun.runId,
+            runId: latestRun.id,
             status: 'open' as any,
             severity: 'critical' as any,
           },
@@ -111,7 +111,7 @@ export class AuditService {
         const highIssueCount = await this.issueRepository.count({
           where: {
             accountId: account.id,
-            runId: latestRun.runId,
+            runId: latestRun.id,
             status: 'open' as any,
             severity: 'high' as any,
           },
