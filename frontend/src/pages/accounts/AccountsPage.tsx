@@ -15,34 +15,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Search, Building2, TrendingUp, MousePointer, Eye, Plus, Copy, Check, Key } from 'lucide-react';
+import { Search, Building2, TrendingUp, Target, BarChart3, Plus, Copy, Check, Key } from 'lucide-react';
 import { formatCurrency, formatNumber } from '@/lib/format';
 import { apiClient } from '@/api/client';
-
-interface AccountFromApi {
-  id: string;
-  customerId: string;
-  customerName: string;
-  currencyCode: string;
-  // These may not exist yet if no data imported
-  lastIngestionAt?: string | null;
-  campaignCount?: number;
-  totalCost?: number;
-  totalClicks?: number;
-  totalImpressions?: number;
-}
-
-interface AccountSummary {
-  accountId: string;
-  customerId: string; // Google Ads ID (816-496-5072)
-  accountName: string;
-  currencyCode: string;
-  lastIngestionAt: string | null;
-  campaignCount: number;
-  totalCost: number;
-  totalClicks: number;
-  totalImpressions: number;
-}
+import { getAccountsWithStats, type AccountWithStats } from '@/api/audit';
 
 interface CreatedAccount {
   id: string;
@@ -53,7 +29,7 @@ interface CreatedAccount {
 
 export function AccountsPage() {
   const navigate = useNavigate();
-  const [accounts, setAccounts] = useState<AccountSummary[]>([]);
+  const [accounts, setAccounts] = useState<AccountWithStats[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -84,20 +60,8 @@ export function AccountsPage() {
   const loadAccounts = async () => {
     setIsLoading(true);
     try {
-      const data = await apiClient.get<AccountFromApi[]>('/audit/accounts');
-      // Map API response to frontend format
-      const mapped: AccountSummary[] = (data || []).map((acc) => ({
-        accountId: acc.id,
-        customerId: acc.customerId, // Google Ads ID
-        accountName: acc.customerName || acc.customerId,
-        currencyCode: acc.currencyCode || 'EUR',
-        lastIngestionAt: acc.lastIngestionAt || null,
-        campaignCount: acc.campaignCount || 0,
-        totalCost: acc.totalCost || 0,
-        totalClicks: acc.totalClicks || 0,
-        totalImpressions: acc.totalImpressions || 0,
-      }));
-      setAccounts(mapped);
+      const data = await getAccountsWithStats();
+      setAccounts(data || []);
     } catch (err) {
       console.error('Failed to load accounts:', err);
       setAccounts([]);
@@ -108,8 +72,8 @@ export function AccountsPage() {
 
   const filteredAccounts = accounts.filter(
     (account) =>
-      account.accountName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      account.accountId.includes(searchQuery)
+      (account.customerName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      account.customerId.includes(searchQuery)
   );
 
   const handleCreateAccount = async () => {
@@ -348,71 +312,84 @@ export function AccountsPage() {
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredAccounts.map((account) => (
-            <Card
-              key={account.accountId}
-              className="cursor-pointer transition-shadow hover:shadow-lg"
-              onClick={() => handleSelectAccount(account.accountId)}
-            >
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5" />
-                  {account.accountName}
-                </CardTitle>
-                <CardDescription>ID: {account.customerId}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-muted-foreground">Spesa</p>
-                      <p className="font-medium">
-                        {formatCurrency(account.totalCost, account.currencyCode)}
-                      </p>
+          {filteredAccounts.map((account) => {
+            const stats = account.stats;
+            return (
+              <Card
+                key={account.id}
+                className="cursor-pointer transition-shadow hover:shadow-lg"
+                onClick={() => handleSelectAccount(account.id)}
+              >
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5" />
+                    {account.customerName || account.customerId}
+                  </CardTitle>
+                  <CardDescription>ID: {account.customerId}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-muted-foreground">Spesa</p>
+                        <p className="font-medium">
+                          {stats ? formatCurrency(stats.cost * 1000000) : '-'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Target className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-muted-foreground">CPA</p>
+                        <p className="font-medium">
+                          {stats && stats.cpa > 0 ? formatCurrency(stats.cpa * 1000000) : '-'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-muted-foreground">Conv.</p>
+                        <p className="font-medium">
+                          {stats ? formatNumber(stats.conversions) : '-'}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <MousePointer className="h-4 w-4 text-muted-foreground" />
+                  <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
                     <div>
-                      <p className="text-muted-foreground">Click</p>
-                      <p className="font-medium">{formatNumber(account.totalClicks)}</p>
+                      <span className="text-muted-foreground">Campagne attive:</span>{' '}
+                      <span className="font-medium">{stats?.activeCampaigns || 0}/{stats?.totalCampaigns || 0}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">ROAS:</span>{' '}
+                      <span className="font-medium">{stats && stats.roas > 0 ? stats.roas.toFixed(2) : '-'}</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Eye className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-muted-foreground">Impressioni</p>
-                      <p className="font-medium">{formatNumber(account.totalImpressions)}</p>
-                    </div>
+                  {account.lastImportDate && (
+                    <p className="text-xs text-muted-foreground mt-4">
+                      Ultimo aggiornamento:{' '}
+                      {new Date(account.lastImportDate).toLocaleDateString('it-IT')}
+                    </p>
+                  )}
+                  <div className="flex gap-2 mt-4">
+                    <Button className="flex-1" variant="outline">
+                      Visualizza Audit
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => handleOpenRevealDialog(e, account.id)}
+                      title="Mostra Chiave Segreta"
+                    >
+                      <Key className="h-4 w-4" />
+                    </Button>
                   </div>
-                  <div>
-                    <p className="text-muted-foreground">Campagne</p>
-                    <p className="font-medium">{account.campaignCount}</p>
-                  </div>
-                </div>
-                {account.lastIngestionAt && (
-                  <p className="text-xs text-muted-foreground mt-4">
-                    Ultimo aggiornamento:{' '}
-                    {new Date(account.lastIngestionAt).toLocaleDateString('it-IT')}
-                  </p>
-                )}
-                <div className="flex gap-2 mt-4">
-                  <Button className="flex-1" variant="outline">
-                    Visualizza Audit
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={(e) => handleOpenRevealDialog(e, account.accountId)}
-                    title="Mostra Chiave Segreta"
-                  >
-                    <Key className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
