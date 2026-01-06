@@ -143,6 +143,11 @@ export function CampaignsPage() {
       cell: ({ row }) => formatCurrency(row.original.costMicros),
     },
     {
+      accessorKey: 'averageCpcMicros',
+      header: 'CPC',
+      cell: ({ row }) => formatCurrency(row.original.averageCpcMicros),
+    },
+    {
       accessorKey: 'conversions',
       header: 'Conv.',
       cell: ({ row }) => formatNumber(row.original.conversions),

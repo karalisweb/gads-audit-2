@@ -139,6 +139,15 @@ const columns: ColumnDef<Asset>[] = [
     cell: ({ row }) => formatCurrency(row.original.costMicros),
   },
   {
+    id: 'cpc',
+    header: 'CPC',
+    cell: ({ row }) => {
+      const cost = parseFloat(row.original.costMicros) || 0;
+      const clicks = parseFloat(row.original.clicks) || 0;
+      return clicks > 0 ? formatCurrency(cost / clicks) : '-';
+    },
+  },
+  {
     accessorKey: 'conversions',
     header: 'Conv.',
     cell: ({ row }) => formatNumber(row.original.conversions),
