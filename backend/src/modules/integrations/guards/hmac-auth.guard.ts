@@ -59,6 +59,16 @@ export class HmacAuthGuard implements CanActivate {
       account.sharedSecret,
     );
 
+    // Debug logging
+    console.log('=== HMAC Debug ===');
+    console.log('Timestamp:', timestamp);
+    console.log('Received signature:', signature);
+    console.log('Expected signature:', expectedSignature);
+    console.log('Has rawBody:', !!request.rawBody);
+    console.log('Secret (first 10 chars):', account.sharedSecret.substring(0, 10));
+    console.log('Body (first 100 chars):', rawBody.substring(0, 100));
+    console.log('==================');
+
     if (!this.secureCompare(signature, expectedSignature)) {
       throw new UnauthorizedException('Invalid signature');
     }

@@ -23,7 +23,7 @@
 
 var CONFIG = {
   // URL dell'endpoint di ingestion
-  ENDPOINT_URL: 'https://gads.karalisweb.it/api/integrations/google-ads/ingest',
+  ENDPOINT_URL: 'https://gads.karalisdemo.it/api/integrations/google-ads/ingest',
 
   // Secret condiviso per l'autenticazione HMAC (ottenuto dall'app)
   SHARED_SECRET: '8e57affcfe217314472ae401084b23548fba6b311717e54ac14714c89e54ff16',
@@ -234,6 +234,7 @@ function extractCampaigns() {
 
 function extractAdGroups() {
   var adGroups = [];
+  // Note: search_budget_lost_impression_share and phone metrics are only available at campaign level
   var query = 'SELECT ' +
     'ad_group.id, ' +
     'ad_group.name, ' +
@@ -289,6 +290,7 @@ function extractAdGroups() {
 
 function extractAds() {
   var ads = [];
+  // Note: phone_calls metric is not available at ad level
   var query = 'SELECT ' +
     'ad_group_ad.ad.id, ' +
     'ad_group_ad.ad.type, ' +
@@ -378,6 +380,7 @@ function extractAds() {
 
 function extractKeywords() {
   var keywords = [];
+  // Note: search_budget_lost_impression_share is only available at campaign level, not keyword level
   var query = 'SELECT ' +
     'ad_group_criterion.criterion_id, ' +
     'ad_group_criterion.keyword.text, ' +
@@ -458,6 +461,7 @@ function extractKeywords() {
 
 function extractSearchTerms() {
   var searchTerms = [];
+  // Note: Cannot use ad_group_criterion fields with search_term_view - they are incompatible resources
   var query = 'SELECT ' +
     'search_term_view.search_term, ' +
     'search_term_view.status, ' +
