@@ -234,4 +234,13 @@ export class AuditController {
   ) {
     return this.auditService.updateIssueStatus(accountId, issueId, status);
   }
+
+  // =========================================================================
+  // DEBUG/DIAGNOSTICS
+  // =========================================================================
+
+  @Get('accounts/:accountId/debug/data-status')
+  async getDataStatus(@Param('accountId', ParseUUIDPipe) accountId: string) {
+    return this.auditService.getDataStatus(accountId);
+  }
 }

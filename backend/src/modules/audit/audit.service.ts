@@ -912,4 +912,79 @@ export class AuditService {
     const latestRun = await this.getLatestRun(accountId);
     return latestRun?.runId || null;
   }
+
+  // =========================================================================
+  // DEBUG/DIAGNOSTICS
+  // =========================================================================
+
+  async getDataStatus(accountId: string): Promise<{
+    accountId: string;
+    latestCompletedRun: { runId: string; completedAt: Date } | null;
+    allRuns: Array<{ runId: string; status: string; completedAt: Date | null; datasetsReceived: number; datasetsExpected: number }>;
+    dataCounts: {
+      campaigns: number;
+      adGroups: number;
+      ads: number;
+      keywords: number;
+      searchTerms: number;
+      negativeKeywords: number;
+    };
+    searchTermsPerRun: Array<{ runId: string; count: number }>;
+  }> {
+    // Get latest completed run
+    const latestRun = await this.getLatestRun(accountId);
+
+    // Get all runs for this account
+    const allRuns = await this.importRunRepository.find({
+      where: { accountId },
+      order: { startedAt: 'DESC' },
+      take: 10,
+    });
+
+    // Get counts for the latest run
+    const runId = latestRun?.runId;
+    let dataCounts = {
+      campaigns: 0,
+      adGroups: 0,
+      ads: 0,
+      keywords: 0,
+      searchTerms: 0,
+      negativeKeywords: 0,
+    };
+
+    if (runId) {
+      const [campaigns, adGroups, ads, keywords, searchTerms, negativeKeywords] = await Promise.all([
+        this.campaignRepository.count({ where: { accountId, runId } }),
+        this.adGroupRepository.count({ where: { accountId, runId } }),
+        this.adRepository.count({ where: { accountId, runId } }),
+        this.keywordRepository.count({ where: { accountId, runId } }),
+        this.searchTermRepository.count({ where: { accountId, runId } }),
+        this.negativeKeywordRepository.count({ where: { accountId, runId } }),
+      ]);
+      dataCounts = { campaigns, adGroups, ads, keywords, searchTerms, negativeKeywords };
+    }
+
+    // Get search terms count per run
+    const searchTermsPerRun = await this.searchTermRepository
+      .createQueryBuilder('st')
+      .select('st.runId', 'runId')
+      .addSelect('COUNT(*)', 'count')
+      .where('st.accountId = :accountId', { accountId })
+      .groupBy('st.runId')
+      .getRawMany();
+
+    return {
+      accountId,
+      latestCompletedRun: latestRun ? { runId: latestRun.runId, completedAt: latestRun.completedAt } : null,
+      allRuns: allRuns.map(r => ({
+        runId: r.runId,
+        status: r.status,
+        completedAt: r.completedAt,
+        datasetsReceived: r.datasetsReceived,
+        datasetsExpected: r.datasetsExpected,
+      })),
+      dataCounts,
+      searchTermsPerRun,
+    };
+  }
 }
