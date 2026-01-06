@@ -3,8 +3,15 @@ import { useParams, useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/data-table/DataTable';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from '@/components/ui/toggle-group';
 import { AIAnalysisPanel } from '@/components/ai';
+import { LayoutGrid, Table2 } from 'lucide-react';
 import { getCampaigns } from '@/api/audit';
 import {
   formatCurrency,
@@ -15,6 +22,63 @@ import {
 } from '@/lib/format';
 import type { Campaign, PaginatedResponse, CampaignFilters } from '@/types/audit';
 import type { AIRecommendation } from '@/types/ai';
+
+// Card component for compact view
+function CampaignCard({ campaign, onClick }: { campaign: Campaign; onClick: () => void }) {
+  const cost = parseFloat(campaign.costMicros) || 0;
+  const conv = parseFloat(campaign.conversions) || 0;
+  const value = parseFloat(campaign.conversionsValue) || 0;
+  const cpa = conv > 0 ? cost / conv : 0;
+  const roas = cost > 0 ? (value * 1000000) / cost : 0;
+
+  return (
+    <div
+      className="border rounded-lg bg-card p-3 cursor-pointer hover:bg-muted/50 transition-colors"
+      onClick={onClick}
+    >
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <Badge variant={getStatusVariant(campaign.status)} className="text-xs">
+              {campaign.status}
+            </Badge>
+            {campaign.searchImpressionShare && (
+              <span className="text-xs text-muted-foreground">
+                QI: {formatImpressionShare(campaign.searchImpressionShare)}
+              </span>
+            )}
+          </div>
+          <p className="text-sm font-medium truncate">{campaign.campaignName}</p>
+          <p className="text-xs text-muted-foreground">{campaign.biddingStrategyType?.replace(/_/g, ' ')}</p>
+        </div>
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 text-right">
+          <div>
+            <p className="text-xs text-muted-foreground">Costo</p>
+            <p className="text-sm font-medium">{formatCurrency(campaign.costMicros)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Click</p>
+            <p className="text-sm font-medium">{formatNumber(campaign.clicks)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Conv.</p>
+            <p className="text-sm font-medium">{formatNumber(campaign.conversions)}</p>
+          </div>
+          <div className="hidden sm:block">
+            <p className="text-xs text-muted-foreground">CPA</p>
+            <p className="text-sm font-medium">{cpa > 0 ? formatCurrency(cpa) : '-'}</p>
+          </div>
+          <div className="hidden sm:block">
+            <p className="text-xs text-muted-foreground">ROAS</p>
+            <p className={`text-sm font-medium ${roas >= 1 ? 'text-green-600' : roas > 0 ? 'text-orange-600' : ''}`}>
+              {roas > 0 ? roas.toFixed(2) : '-'}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function CampaignsPage() {
   const { accountId } = useParams<{ accountId: string }>();
@@ -28,6 +92,7 @@ export function CampaignsPage() {
     sortOrder: 'DESC',
   });
   const [searchInput, setSearchInput] = useState('');
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
 
   const columns: ColumnDef<Campaign>[] = [
     {
@@ -138,11 +203,24 @@ export function CampaignsPage() {
     alert(`${recommendations.length} raccomandazioni approvate!`);
   };
 
+  const pageIndex = (filters.page || 1) - 1;
+  const pageSize = filters.limit || 50;
+  const pageCount = data?.meta.totalPages || 1;
+  const total = data?.meta.total || 0;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Campagne</h2>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as 'cards' | 'table')}>
+            <ToggleGroupItem value="cards" aria-label="Vista compatta" title="Vista compatta (cards)">
+              <LayoutGrid className="h-4 w-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="table" aria-label="Vista estesa" title="Vista estesa (tabella)">
+              <Table2 className="h-4 w-4" />
+            </ToggleGroupItem>
+          </ToggleGroup>
           <Input
             placeholder="Cerca campagna..."
             value={searchInput}
@@ -160,22 +238,84 @@ export function CampaignsPage() {
         </div>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={data?.data || []}
-        isLoading={isLoading}
-        pageCount={data?.meta.totalPages || 1}
-        pageIndex={(filters.page || 1) - 1}
-        pageSize={filters.limit || 50}
-        total={data?.meta.total || 0}
-        sortBy={filters.sortBy}
-        sortOrder={filters.sortOrder}
-        onPageChange={(page) => setFilters((prev) => ({ ...prev, page: page + 1 }))}
-        onPageSizeChange={(limit) => setFilters((prev) => ({ ...prev, limit, page: 1 }))}
-        onSortChange={(sortBy, sortOrder) =>
-          setFilters((prev) => ({ ...prev, sortBy, sortOrder, page: 1 }))
-        }
-      />
+      {/* Table View */}
+      {viewMode === 'table' && (
+        <DataTable
+          columns={columns}
+          data={data?.data || []}
+          isLoading={isLoading}
+          pageCount={pageCount}
+          pageIndex={pageIndex}
+          pageSize={pageSize}
+          total={total}
+          sortBy={filters.sortBy}
+          sortOrder={filters.sortOrder}
+          onPageChange={(page) => setFilters((prev) => ({ ...prev, page: page + 1 }))}
+          onPageSizeChange={(limit) => setFilters((prev) => ({ ...prev, limit, page: 1 }))}
+          onSortChange={(sortBy, sortOrder) =>
+            setFilters((prev) => ({ ...prev, sortBy, sortOrder, page: 1 }))
+          }
+        />
+      )}
+
+      {/* Cards View */}
+      {viewMode === 'cards' && (
+        <>
+          {isLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-20 w-full" />
+              ))}
+            </div>
+          ) : (
+            <>
+              <div className="space-y-2">
+                {data?.data.map((campaign) => (
+                  <CampaignCard
+                    key={campaign.id}
+                    campaign={campaign}
+                    onClick={() => navigate(`/audit/${accountId}/ad-groups?campaignId=${campaign.campaignId}`)}
+                  />
+                ))}
+                {(!data?.data || data.data.length === 0) && (
+                  <div className="text-center py-12 text-muted-foreground">
+                    Nessuna campagna trovata
+                  </div>
+                )}
+              </div>
+
+              {/* Pagination for cards view */}
+              {total > 0 && (
+                <div className="flex items-center justify-between px-2">
+                  <div className="text-sm text-muted-foreground">
+                    {pageIndex * pageSize + 1}-{Math.min((pageIndex + 1) * pageSize, total)} di {total.toLocaleString()}
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <select
+                        className="h-8 w-16 rounded-md border border-input bg-background px-2 text-sm"
+                        value={pageSize}
+                        onChange={(e) => setFilters((prev) => ({ ...prev, limit: Number(e.target.value), page: 1 }))}
+                      >
+                        {[25, 50, 100, 200].map((size) => (
+                          <option key={size} value={size}>{size}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => setFilters((prev) => ({ ...prev, page: 1 }))} disabled={pageIndex === 0}>{'«'}</Button>
+                      <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => setFilters((prev) => ({ ...prev, page: pageIndex }))} disabled={pageIndex === 0}>{'‹'}</Button>
+                      <span className="text-sm px-2">{pageIndex + 1}/{pageCount}</span>
+                      <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => setFilters((prev) => ({ ...prev, page: pageIndex + 2 }))} disabled={pageIndex >= pageCount - 1}>{'›'}</Button>
+                      <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => setFilters((prev) => ({ ...prev, page: pageCount }))} disabled={pageIndex >= pageCount - 1}>{'»'}</Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </>
+      )}
     </div>
   );
 }

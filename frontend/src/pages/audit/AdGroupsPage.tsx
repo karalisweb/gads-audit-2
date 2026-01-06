@@ -1,10 +1,17 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import type { ColumnDef } from '@tanstack/react-table';
+import { DataTable } from '@/components/data-table/DataTable';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from '@/components/ui/toggle-group';
 import { AIAnalysisPanel } from '@/components/ai';
+import { LayoutGrid, Table2 } from 'lucide-react';
 import {
   Collapsible,
   CollapsibleContent,
@@ -21,6 +28,82 @@ import {
 } from '@/lib/format';
 import type { AdGroup, Ad, PaginatedResponse, AdGroupFilters } from '@/types/audit';
 import type { AIRecommendation } from '@/types/ai';
+
+// Table columns for extended view
+const columns: ColumnDef<AdGroup>[] = [
+  {
+    accessorKey: 'adGroupName',
+    header: 'Gruppo annunci',
+    cell: ({ row }) => (
+      <div className="max-w-[200px]">
+        <p className="font-medium truncate">{row.original.adGroupName}</p>
+        <p className="text-xs text-muted-foreground truncate">{row.original.campaignName}</p>
+      </div>
+    ),
+  },
+  {
+    accessorKey: 'status',
+    header: 'Stato',
+    cell: ({ row }) => (
+      <Badge variant={getStatusVariant(row.original.status)} className="text-xs">
+        {row.original.status}
+      </Badge>
+    ),
+  },
+  {
+    accessorKey: 'impressions',
+    header: 'Impr.',
+    cell: ({ row }) => formatNumber(row.original.impressions),
+  },
+  {
+    accessorKey: 'clicks',
+    header: 'Click',
+    cell: ({ row }) => formatNumber(row.original.clicks),
+  },
+  {
+    accessorKey: 'ctr',
+    header: 'CTR',
+    cell: ({ row }) => formatCtr(row.original.ctr),
+  },
+  {
+    accessorKey: 'costMicros',
+    header: 'Costo',
+    cell: ({ row }) => formatCurrency(row.original.costMicros),
+  },
+  {
+    accessorKey: 'averageCpcMicros',
+    header: 'CPC',
+    cell: ({ row }) => formatCurrency(row.original.averageCpcMicros),
+  },
+  {
+    accessorKey: 'conversions',
+    header: 'Conv.',
+    cell: ({ row }) => formatNumber(row.original.conversions),
+  },
+  {
+    id: 'cpa',
+    header: 'CPA',
+    cell: ({ row }) => {
+      const cost = parseFloat(row.original.costMicros) || 0;
+      const conv = parseFloat(row.original.conversions) || 0;
+      return conv > 0 ? formatCurrency(cost / conv) : '-';
+    },
+  },
+  {
+    id: 'roas',
+    header: 'ROAS',
+    cell: ({ row }) => {
+      const value = parseFloat(row.original.conversionsValue) || 0;
+      const cost = parseFloat(row.original.costMicros) || 0;
+      return cost > 0 ? `${((value * 1000000) / cost).toFixed(2)}` : '-';
+    },
+  },
+  {
+    accessorKey: 'searchImpressionShare',
+    header: 'QI',
+    cell: ({ row }) => formatImpressionShare(row.original.searchImpressionShare),
+  },
+];
 
 interface AdGroupWithAds extends AdGroup {
   ads?: Ad[];
@@ -258,6 +341,7 @@ export function AdGroupsPage() {
     sortOrder: 'DESC',
   });
   const [searchInput, setSearchInput] = useState('');
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
 
   const loadData = useCallback(async () => {
     if (!accountId) return;
@@ -356,7 +440,15 @@ export function AdGroupsPage() {
             <p className="text-sm text-muted-foreground">Filtrato per campagna</p>
           )}
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as 'cards' | 'table')}>
+            <ToggleGroupItem value="cards" aria-label="Vista compatta" title="Vista compatta (cards)">
+              <LayoutGrid className="h-4 w-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="table" aria-label="Vista estesa" title="Vista estesa (tabella)">
+              <Table2 className="h-4 w-4" />
+            </ToggleGroupItem>
+          </ToggleGroup>
           <Input
             placeholder="Cerca ad group..."
             value={searchInput}
@@ -374,91 +466,80 @@ export function AdGroupsPage() {
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 w-full" />
-          ))}
-        </div>
-      ) : (
-        <>
-          <div className="space-y-2">
-            {data?.data.map((adGroup) => (
-              <AdGroupCard
-                key={adGroup.id}
-                adGroup={adGroup}
-                accountId={accountId!}
-                onLoadAds={handleLoadAds}
-              />
-            ))}
-            {(!data?.data || data.data.length === 0) && (
-              <div className="text-center py-12 text-muted-foreground">
-                Nessun ad group trovato
-              </div>
-            )}
-          </div>
+      {/* Table View */}
+      {viewMode === 'table' && (
+        <DataTable
+          columns={columns}
+          data={data?.data || []}
+          isLoading={isLoading}
+          pageCount={pageCount}
+          pageIndex={pageIndex}
+          pageSize={pageSize}
+          total={total}
+          sortBy={filters.sortBy}
+          sortOrder={filters.sortOrder}
+          onPageChange={(page) => setFilters((prev) => ({ ...prev, page: page + 1 }))}
+          onPageSizeChange={(limit) => setFilters((prev) => ({ ...prev, limit, page: 1 }))}
+          onSortChange={(sortBy, sortOrder) =>
+            setFilters((prev) => ({ ...prev, sortBy, sortOrder, page: 1 }))
+          }
+        />
+      )}
 
-          {/* Pagination */}
-          {total > 0 && (
-            <div className="flex items-center justify-between px-2">
-              <div className="text-sm text-muted-foreground">
-                Mostrando {pageIndex * pageSize + 1}-{Math.min((pageIndex + 1) * pageSize, total)} di{' '}
-                {total.toLocaleString()} risultati
-              </div>
-              <div className="flex items-center space-x-6 lg:space-x-8">
-                <div className="flex items-center space-x-2">
-                  <p className="text-sm font-medium">Righe per pagina</p>
-                  <select
-                    className="h-8 w-16 rounded-md border border-input bg-background px-2 text-sm"
-                    value={pageSize}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, limit: Number(e.target.value), page: 1 }))}
-                  >
-                    {[25, 50, 100, 200].map((size) => (
-                      <option key={size} value={size}>
-                        {size}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setFilters((prev) => ({ ...prev, page: 1 }))}
-                    disabled={pageIndex === 0}
-                  >
-                    {'<<'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setFilters((prev) => ({ ...prev, page: pageIndex }))}
-                    disabled={pageIndex === 0}
-                  >
-                    {'<'}
-                  </Button>
-                  <span className="text-sm">
-                    Pagina {pageIndex + 1} di {pageCount || 1}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setFilters((prev) => ({ ...prev, page: pageIndex + 2 }))}
-                    disabled={pageIndex >= pageCount - 1}
-                  >
-                    {'>'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setFilters((prev) => ({ ...prev, page: pageCount }))}
-                    disabled={pageIndex >= pageCount - 1}
-                  >
-                    {'>>'}
-                  </Button>
-                </div>
-              </div>
+      {/* Cards View */}
+      {viewMode === 'cards' && (
+        <>
+          {isLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-24 w-full" />
+              ))}
             </div>
+          ) : (
+            <>
+              <div className="space-y-2">
+                {data?.data.map((adGroup) => (
+                  <AdGroupCard
+                    key={adGroup.id}
+                    adGroup={adGroup}
+                    accountId={accountId!}
+                    onLoadAds={handleLoadAds}
+                  />
+                ))}
+                {(!data?.data || data.data.length === 0) && (
+                  <div className="text-center py-12 text-muted-foreground">
+                    Nessun ad group trovato
+                  </div>
+                )}
+              </div>
+
+              {/* Pagination */}
+              {total > 0 && (
+                <div className="flex items-center justify-between px-2">
+                  <div className="text-sm text-muted-foreground">
+                    {pageIndex * pageSize + 1}-{Math.min((pageIndex + 1) * pageSize, total)} di {total.toLocaleString()}
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <select
+                      className="h-8 w-16 rounded-md border border-input bg-background px-2 text-sm"
+                      value={pageSize}
+                      onChange={(e) => setFilters((prev) => ({ ...prev, limit: Number(e.target.value), page: 1 }))}
+                    >
+                      {[25, 50, 100, 200].map((size) => (
+                        <option key={size} value={size}>{size}</option>
+                      ))}
+                    </select>
+                    <div className="flex items-center gap-1">
+                      <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => setFilters((prev) => ({ ...prev, page: 1 }))} disabled={pageIndex === 0}>{'«'}</Button>
+                      <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => setFilters((prev) => ({ ...prev, page: pageIndex }))} disabled={pageIndex === 0}>{'‹'}</Button>
+                      <span className="text-sm px-2">{pageIndex + 1}/{pageCount}</span>
+                      <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => setFilters((prev) => ({ ...prev, page: pageIndex + 2 }))} disabled={pageIndex >= pageCount - 1}>{'›'}</Button>
+                      <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => setFilters((prev) => ({ ...prev, page: pageCount }))} disabled={pageIndex >= pageCount - 1}>{'»'}</Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </>
       )}

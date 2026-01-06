@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
+import type { ColumnDef } from '@tanstack/react-table';
+import { DataTable } from '@/components/data-table/DataTable';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,10 +14,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from '@/components/ui/toggle-group';
+import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { LayoutGrid, Table2 } from 'lucide-react';
 import { getAssets } from '@/api/audit';
 import {
   formatCurrency,
@@ -67,6 +74,85 @@ const assetTypeLabels: Record<string, string> = {
   LOGO: 'Logo',
   LANDSCAPE_LOGO: 'Logo Orizzontale',
 };
+
+// Table columns for extended view
+const columns: ColumnDef<Asset>[] = [
+  {
+    accessorKey: 'assetType',
+    header: 'Tipo',
+    cell: ({ row }) => (
+      <Badge variant="outline" className="text-xs">
+        {assetTypeLabels[row.original.assetType] || row.original.assetType.replace(/_/g, ' ')}
+      </Badge>
+    ),
+  },
+  {
+    id: 'content',
+    header: 'Contenuto',
+    cell: ({ row }) => {
+      const text = row.original.assetText || row.original.description1 || row.original.finalUrl || row.original.phoneNumber;
+      return (
+        <div className="max-w-[200px]">
+          <p className="text-sm truncate">{text || '-'}</p>
+        </div>
+      );
+    },
+  },
+  {
+    accessorKey: 'linkedLevel',
+    header: 'Livello',
+    cell: ({ row }) => (
+      <span className="text-xs">{row.original.linkedLevel || '-'}</span>
+    ),
+  },
+  {
+    accessorKey: 'performanceLabel',
+    header: 'Performance',
+    cell: ({ row }) => {
+      const label = row.original.performanceLabel;
+      if (!label || label === 'UNSPECIFIED' || label === 'UNKNOWN') return '-';
+      return (
+        <Badge variant={getAdStrengthVariant(label)} className="text-xs">
+          {label.replace(/_/g, ' ')}
+        </Badge>
+      );
+    },
+  },
+  {
+    accessorKey: 'impressions',
+    header: 'Impr.',
+    cell: ({ row }) => formatNumber(row.original.impressions),
+  },
+  {
+    accessorKey: 'clicks',
+    header: 'Click',
+    cell: ({ row }) => formatNumber(row.original.clicks),
+  },
+  {
+    accessorKey: 'ctr',
+    header: 'CTR',
+    cell: ({ row }) => formatCtr(row.original.ctr),
+  },
+  {
+    accessorKey: 'costMicros',
+    header: 'Costo',
+    cell: ({ row }) => formatCurrency(row.original.costMicros),
+  },
+  {
+    accessorKey: 'conversions',
+    header: 'Conv.',
+    cell: ({ row }) => formatNumber(row.original.conversions),
+  },
+  {
+    id: 'cpa',
+    header: 'CPA',
+    cell: ({ row }) => {
+      const cost = parseFloat(row.original.costMicros) || 0;
+      const conv = parseFloat(row.original.conversions) || 0;
+      return conv > 0 ? formatCurrency(cost / conv) : '-';
+    },
+  },
+];
 
 function AssetCard({ asset }: { asset: Asset }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -256,6 +342,7 @@ export function AssetsPage() {
     sortOrder: 'DESC',
   });
   const [searchInput, setSearchInput] = useState('');
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
 
   const loadData = useCallback(async () => {
     if (!accountId) return;
@@ -318,6 +405,18 @@ export function AssetsPage() {
             onChange={(e) => setSearchInput(e.target.value)}
             className="w-64"
           />
+          <ToggleGroup
+            type="single"
+            value={viewMode}
+            onValueChange={(v) => v && setViewMode(v as 'cards' | 'table')}
+          >
+            <ToggleGroupItem value="cards" aria-label="Vista compatta" title="Vista compatta (cards)">
+              <LayoutGrid className="h-4 w-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="table" aria-label="Vista estesa" title="Vista estesa (tabella)">
+              <Table2 className="h-4 w-4" />
+            </ToggleGroupItem>
+          </ToggleGroup>
         </div>
       </div>
 
@@ -327,6 +426,17 @@ export function AssetsPage() {
             <Skeleton key={i} className="h-20 w-full" />
           ))}
         </div>
+      ) : viewMode === 'table' ? (
+        <DataTable
+          columns={columns}
+          data={data?.data || []}
+          pageIndex={pageIndex}
+          pageSize={pageSize}
+          pageCount={pageCount}
+          total={total}
+          onPageChange={(page) => setFilters((prev) => ({ ...prev, page: page + 1 }))}
+          onPageSizeChange={(size) => setFilters((prev) => ({ ...prev, limit: size, page: 1 }))}
+        />
       ) : (
         <>
           <div className="space-y-2">

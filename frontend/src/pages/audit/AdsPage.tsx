@@ -1,10 +1,17 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
+import type { ColumnDef } from '@tanstack/react-table';
+import { DataTable } from '@/components/data-table/DataTable';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { AIAnalysisPanel } from '@/components/ai';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from '@/components/ui/toggle-group';
+import { LayoutGrid, Table2 } from 'lucide-react';
 import {
   Collapsible,
   CollapsibleContent,
@@ -20,6 +27,91 @@ import {
 } from '@/lib/format';
 import type { Ad, PaginatedResponse, BaseFilters } from '@/types/audit';
 import type { AIRecommendation } from '@/types/ai';
+
+// Table columns for extended view
+const columns: ColumnDef<Ad>[] = [
+  {
+    accessorKey: 'adGroupName',
+    header: 'Gruppo annunci',
+    cell: ({ row }) => (
+      <div className="max-w-[150px]">
+        <p className="font-medium truncate">{row.original.adGroupName}</p>
+        <p className="text-xs text-muted-foreground truncate">{row.original.campaignName}</p>
+      </div>
+    ),
+  },
+  {
+    accessorKey: 'status',
+    header: 'Stato',
+    cell: ({ row }) => (
+      <Badge variant={getStatusVariant(row.original.status)} className="text-xs">
+        {row.original.status}
+      </Badge>
+    ),
+  },
+  {
+    accessorKey: 'adStrength',
+    header: 'Forza',
+    cell: ({ row }) => (
+      <Badge variant={getAdStrengthVariant(row.original.adStrength)} className="text-xs">
+        {row.original.adStrength || '-'}
+      </Badge>
+    ),
+  },
+  {
+    id: 'headlines',
+    header: 'Titoli',
+    cell: ({ row }) => <span className="text-sm">{row.original.headlines?.length || 0}</span>,
+  },
+  {
+    id: 'descriptions',
+    header: 'Descr.',
+    cell: ({ row }) => <span className="text-sm">{row.original.descriptions?.length || 0}</span>,
+  },
+  {
+    accessorKey: 'impressions',
+    header: 'Impr.',
+    cell: ({ row }) => formatNumber(row.original.impressions),
+  },
+  {
+    accessorKey: 'clicks',
+    header: 'Click',
+    cell: ({ row }) => formatNumber(row.original.clicks),
+  },
+  {
+    accessorKey: 'ctr',
+    header: 'CTR',
+    cell: ({ row }) => formatCtr(row.original.ctr),
+  },
+  {
+    accessorKey: 'costMicros',
+    header: 'Costo',
+    cell: ({ row }) => formatCurrency(row.original.costMicros),
+  },
+  {
+    accessorKey: 'conversions',
+    header: 'Conv.',
+    cell: ({ row }) => formatNumber(row.original.conversions),
+  },
+  {
+    id: 'cpa',
+    header: 'CPA',
+    cell: ({ row }) => {
+      const cost = parseFloat(row.original.costMicros) || 0;
+      const conv = parseFloat(row.original.conversions) || 0;
+      return conv > 0 ? formatCurrency(cost / conv) : '-';
+    },
+  },
+  {
+    id: 'roas',
+    header: 'ROAS',
+    cell: ({ row }) => {
+      const value = parseFloat(row.original.conversionsValue) || 0;
+      const cost = parseFloat(row.original.costMicros) || 0;
+      return cost > 0 ? `${((value * 1000000) / cost).toFixed(2)}` : '-';
+    },
+  },
+];
 
 function AdCard({ ad }: { ad: Ad }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -231,6 +323,7 @@ export function AdsPage() {
     sortOrder: 'DESC',
   });
   const [searchInput, setSearchInput] = useState('');
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
 
   const loadData = useCallback(async () => {
     if (!accountId) return;
@@ -289,6 +382,18 @@ export function AdsPage() {
             onChange={(e) => setSearchInput(e.target.value)}
             className="w-64"
           />
+          <ToggleGroup
+            type="single"
+            value={viewMode}
+            onValueChange={(v) => v && setViewMode(v as 'cards' | 'table')}
+          >
+            <ToggleGroupItem value="cards" aria-label="Vista compatta" title="Vista compatta (cards)">
+              <LayoutGrid className="h-4 w-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="table" aria-label="Vista estesa" title="Vista estesa (tabella)">
+              <Table2 className="h-4 w-4" />
+            </ToggleGroupItem>
+          </ToggleGroup>
           {accountId && (
             <AIAnalysisPanel
               accountId={accountId}
@@ -308,18 +413,31 @@ export function AdsPage() {
         </div>
       ) : (
         <>
-          <div className="space-y-2">
-            {data?.data.map((ad) => (
-              <AdCard key={ad.id} ad={ad} />
-            ))}
-            {(!data?.data || data.data.length === 0) && (
-              <div className="text-center py-12 text-muted-foreground">
-                Nessun annuncio trovato
+          {viewMode === 'table' ? (
+            <DataTable
+              columns={columns}
+              data={data?.data || []}
+              pageIndex={pageIndex}
+              pageSize={pageSize}
+              pageCount={pageCount}
+              total={total}
+              onPageChange={(page) => setFilters((prev) => ({ ...prev, page: page + 1 }))}
+              onPageSizeChange={(size) => setFilters((prev) => ({ ...prev, limit: size, page: 1 }))}
+            />
+          ) : (
+            <>
+              <div className="space-y-2">
+                {data?.data.map((ad) => (
+                  <AdCard key={ad.id} ad={ad} />
+                ))}
+                {(!data?.data || data.data.length === 0) && (
+                  <div className="text-center py-12 text-muted-foreground">
+                    Nessun annuncio trovato
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          {/* Pagination */}
+              {/* Pagination */}
           {total > 0 && (
             <div className="flex items-center justify-between px-2">
               <div className="text-sm text-muted-foreground">
@@ -380,6 +498,8 @@ export function AdsPage() {
                 </div>
               </div>
             </div>
+              )}
+            </>
           )}
         </>
       )}
