@@ -57,6 +57,8 @@ export interface Campaign {
   searchImpressionShareLostBudget: string | null;
   searchTopImpressionShare: string | null;
   searchAbsoluteTopImpressionShare: string | null;
+  topImpressionPercentage: string | null;
+  absoluteTopImpressionPercentage: string | null;
   phoneCalls: number;
   phoneImpressions: number;
   messageChats: number;
