@@ -777,16 +777,70 @@ export class AuditService {
     };
   }
 
-  async getConversionActions(accountId: string, runId?: string): Promise<ConversionAction[]> {
-    const targetRunId = runId || (await this.getLatestRunId(accountId));
+  async getConversionActions(
+    accountId: string,
+    filters: {
+      runId?: string;
+      search?: string;
+      status?: string;
+      page?: number;
+      limit?: number;
+      sortBy?: string;
+      sortOrder?: 'ASC' | 'DESC';
+    } = {},
+  ): Promise<PaginatedResponse<ConversionAction>> {
+    const targetRunId = filters.runId || (await this.getLatestRunId(accountId));
     if (!targetRunId) {
-      return [];
+      return {
+        data: [],
+        meta: { total: 0, page: 1, limit: filters.limit || 100, totalPages: 0 },
+      };
     }
 
-    return this.conversionActionRepository.find({
-      where: { accountId, runId: targetRunId },
-      order: { name: 'ASC' },
-    });
+    const page = filters.page || 1;
+    const limit = filters.limit || 100;
+    const sortBy = filters.sortBy || 'name';
+    const sortOrder = filters.sortOrder || 'ASC';
+
+    const qb = this.conversionActionRepository
+      .createQueryBuilder('ca')
+      .where('ca.accountId = :accountId', { accountId })
+      .andWhere('ca.runId = :runId', { runId: targetRunId });
+
+    // Search filter
+    if (filters.search) {
+      qb.andWhere('LOWER(ca.name) LIKE :search', {
+        search: `%${filters.search.toLowerCase()}%`,
+      });
+    }
+
+    // Status filter
+    if (filters.status) {
+      qb.andWhere('ca.status = :status', { status: filters.status });
+    }
+
+    // Count total
+    const total = await qb.getCount();
+
+    // Apply sorting and pagination
+    const validSortFields = ['name', 'status', 'type', 'category', 'origin', 'countingType', 'primaryForGoal', 'campaignsUsingCount'];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'name';
+
+    qb.orderBy(`ca.${sortField}`, sortOrder)
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const data = await qb.getMany();
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async getGeoPerformance(accountId: string, runId?: string): Promise<GeoPerformance[]> {

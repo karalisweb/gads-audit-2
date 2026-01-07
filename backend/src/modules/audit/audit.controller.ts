@@ -169,8 +169,22 @@ export class AuditController {
   async getConversionActions(
     @Param('accountId', ParseUUIDPipe) accountId: string,
     @Query('runId') runId?: string,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: 'ASC' | 'DESC',
   ) {
-    return this.auditService.getConversionActions(accountId, runId);
+    return this.auditService.getConversionActions(accountId, {
+      runId,
+      search,
+      status,
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+      sortBy,
+      sortOrder,
+    });
   }
 
   // =========================================================================

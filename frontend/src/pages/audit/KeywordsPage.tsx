@@ -114,6 +114,57 @@ const columns: ColumnDef<Keyword>[] = [
       return cost > 0 ? `${((value * 1000000) / cost).toFixed(2)}` : '-';
     },
   },
+  {
+    accessorKey: 'searchImpressionShare',
+    header: 'QI',
+    cell: ({ row }) => {
+      const val = row.original.searchImpressionShare;
+      return val ? `${(parseFloat(val) * 100).toFixed(1)}%` : '-';
+    },
+  },
+  {
+    accessorKey: 'searchImpressionShareLostRank',
+    header: 'QI persa rank',
+    cell: ({ row }) => {
+      const val = row.original.searchImpressionShareLostRank;
+      return val ? `${(parseFloat(val) * 100).toFixed(1)}%` : '-';
+    },
+  },
+  {
+    accessorKey: 'expectedCtr',
+    header: 'CTR prev.',
+    cell: ({ row }) => (
+      <span className="text-xs">{row.original.expectedCtr || '-'}</span>
+    ),
+  },
+  {
+    accessorKey: 'landingPageExperience',
+    header: 'Esp. LP',
+    cell: ({ row }) => (
+      <span className="text-xs">{row.original.landingPageExperience || '-'}</span>
+    ),
+  },
+  {
+    accessorKey: 'creativeRelevance',
+    header: 'Pert. ann.',
+    cell: ({ row }) => (
+      <span className="text-xs">{row.original.creativeRelevance || '-'}</span>
+    ),
+  },
+  {
+    accessorKey: 'phoneCalls',
+    header: 'Tel.',
+    cell: ({ row }) => formatNumber(row.original.phoneCalls),
+  },
+  {
+    id: 'convRate',
+    header: 'Tasso conv.',
+    cell: ({ row }) => {
+      const clicks = parseFloat(row.original.clicks) || 0;
+      const conv = parseFloat(row.original.conversions) || 0;
+      return clicks > 0 ? `${((conv / clicks) * 100).toFixed(2)}%` : '-';
+    },
+  },
 ];
 
 function KeywordCard({ keyword }: { keyword: Keyword }) {

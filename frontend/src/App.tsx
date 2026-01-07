@@ -17,6 +17,7 @@ import {
   DecisionsPage,
   ExportPage,
   ConversionsPage,
+  ConversionActionsPage,
 } from '@/pages/audit';
 
 function App() {
@@ -47,6 +48,7 @@ function App() {
               <Route path="assets" element={<AssetsPage />} />
               <Route path="issues" element={<IssuesPage />} />
               <Route path="conversions" element={<ConversionsPage />} />
+              <Route path="conversion-actions" element={<ConversionActionsPage />} />
               <Route path="decisions" element={<DecisionsPage />} />
               <Route path="export" element={<ExportPage />} />
               <Route index element={<Navigate to="dashboard" replace />} />

@@ -316,3 +316,28 @@ export interface NegativeKeywordFilters extends BaseFilters {
   level?: string[];
   matchType?: string[];
 }
+
+export interface ConversionAction {
+  id: string;
+  accountId: string;
+  runId: string;
+  conversionActionId: string;
+  name: string;
+  status: string;
+  type: string;
+  category: string;
+  origin: string;
+  countingType: string;
+  defaultValue: number | null;
+  alwaysUseDefaultValue: boolean;
+  primaryForGoal: boolean;
+  campaignsUsingCount: number;
+  importedAt: string;
+}
+
+export interface ConversionActionFilters extends BaseFilters {
+  status?: string[];
+  type?: string[];
+  category?: string[];
+  primaryForGoal?: boolean;
+}

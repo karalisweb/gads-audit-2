@@ -9,6 +9,7 @@ import type {
   SearchTerm,
   NegativeKeyword,
   Asset,
+  ConversionAction,
   KpiData,
   PaginatedResponse,
   CampaignFilters,
@@ -18,6 +19,7 @@ import type {
   AssetFilters,
   AdFilters,
   NegativeKeywordFilters,
+  ConversionActionFilters,
 } from '@/types/audit';
 
 // Helper to build query params
@@ -142,4 +144,13 @@ export async function getAssets(
 ): Promise<PaginatedResponse<Asset>> {
   const params = buildParams(filters as Record<string, unknown>);
   return apiClient.get<PaginatedResponse<Asset>>(`/audit/accounts/${accountId}/assets`, params);
+}
+
+// Conversion Actions
+export async function getConversionActions(
+  accountId: string,
+  filters: ConversionActionFilters = {},
+): Promise<PaginatedResponse<ConversionAction>> {
+  const params = buildParams(filters as Record<string, unknown>);
+  return apiClient.get<PaginatedResponse<ConversionAction>>(`/audit/accounts/${accountId}/conversion-actions`, params);
 }

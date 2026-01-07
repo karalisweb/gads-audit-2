@@ -50,6 +50,13 @@ const columns: ColumnDef<Ad>[] = [
     ),
   },
   {
+    accessorKey: 'adType',
+    header: 'Tipo',
+    cell: ({ row }) => (
+      <span className="text-xs">{row.original.adType?.replace(/_/g, ' ') || '-'}</span>
+    ),
+  },
+  {
     accessorKey: 'adStrength',
     header: 'Forza',
     cell: ({ row }) => (
@@ -114,6 +121,34 @@ const columns: ColumnDef<Ad>[] = [
       const value = parseFloat(row.original.conversionsValue) || 0;
       const cost = parseFloat(row.original.costMicros) || 0;
       return cost > 0 ? `${((value * 1000000) / cost).toFixed(2)}` : '-';
+    },
+  },
+  {
+    accessorKey: 'phoneCalls',
+    header: 'Tel.',
+    cell: ({ row }) => formatNumber(row.original.phoneCalls),
+  },
+  {
+    accessorKey: 'messageChats',
+    header: 'Chat',
+    cell: ({ row }) => formatNumber(row.original.messageChats),
+  },
+  {
+    id: 'convRate',
+    header: 'Tasso conv.',
+    cell: ({ row }) => {
+      const clicks = parseFloat(row.original.clicks) || 0;
+      const conv = parseFloat(row.original.conversions) || 0;
+      return clicks > 0 ? `${((conv / clicks) * 100).toFixed(2)}%` : '-';
+    },
+  },
+  {
+    id: 'valuePerConv',
+    header: 'Val/conv',
+    cell: ({ row }) => {
+      const value = parseFloat(row.original.conversionsValue) || 0;
+      const conv = parseFloat(row.original.conversions) || 0;
+      return conv > 0 ? formatCurrency((value / conv) * 1000000) : '-';
     },
   },
 ];
