@@ -6,7 +6,6 @@ import archiver from 'archiver';
 import { PassThrough } from 'stream';
 import { ChangeSet, ChangeSetStatus } from '../../entities/change-set.entity';
 import { Decision, DecisionStatus } from '../../entities/decision.entity';
-import { Audit } from '../../entities/audit.entity';
 import { GoogleAdsAccount } from '../../entities/google-ads-account.entity';
 import { CreateChangeSetDto, UpdateChangeSetDto, ChangeSetFiltersDto } from './dto';
 import { CsvGeneratorService } from './csv-generator.service';
@@ -18,28 +17,26 @@ export class ExportService {
     private changeSetsRepository: Repository<ChangeSet>,
     @InjectRepository(Decision)
     private decisionsRepository: Repository<Decision>,
-    @InjectRepository(Audit)
-    private auditsRepository: Repository<Audit>,
     @InjectRepository(GoogleAdsAccount)
     private accountsRepository: Repository<GoogleAdsAccount>,
     private csvGeneratorService: CsvGeneratorService,
     private dataSource: DataSource,
   ) {}
 
-  async findAll(auditId: string, filters: ChangeSetFiltersDto) {
-    const audit = await this.auditsRepository.findOne({
-      where: { id: auditId },
+  async findAll(accountId: string, filters: ChangeSetFiltersDto) {
+    const account = await this.accountsRepository.findOne({
+      where: { id: accountId },
     });
 
-    if (!audit) {
-      throw new NotFoundException(`Audit ${auditId} not found`);
+    if (!account) {
+      throw new NotFoundException(`Account ${accountId} not found`);
     }
 
     const queryBuilder = this.changeSetsRepository
       .createQueryBuilder('changeSet')
       .leftJoinAndSelect('changeSet.createdBy', 'createdBy')
       .loadRelationCountAndMap('changeSet.decisionsCount', 'changeSet.decisions')
-      .where('changeSet.auditId = :auditId', { auditId });
+      .where('changeSet.accountId = :accountId', { accountId });
 
     if (filters.status) {
       queryBuilder.andWhere('changeSet.status = :status', { status: filters.status });
@@ -72,7 +69,7 @@ export class ExportService {
   async findOne(id: string) {
     const changeSet = await this.changeSetsRepository.findOne({
       where: { id },
-      relations: ['createdBy', 'decisions', 'audit', 'audit.account'],
+      relations: ['createdBy', 'decisions', 'account'],
     });
 
     if (!changeSet) {
@@ -83,17 +80,16 @@ export class ExportService {
   }
 
   async create(dto: CreateChangeSetDto, userId: string) {
-    const audit = await this.auditsRepository.findOne({
-      where: { id: dto.auditId },
+    const account = await this.accountsRepository.findOne({
+      where: { id: dto.accountId },
     });
 
-    if (!audit) {
-      throw new NotFoundException(`Audit ${dto.auditId} not found`);
+    if (!account) {
+      throw new NotFoundException(`Account ${dto.accountId} not found`);
     }
 
     const changeSet = this.changeSetsRepository.create({
-      auditId: dto.auditId,
-      accountId: audit.accountId,
+      accountId: dto.accountId,
       name: dto.name,
       description: dto.description,
       status: ChangeSetStatus.DRAFT,
@@ -270,7 +266,7 @@ export class ExportService {
     const readme = this.csvGeneratorService.generateReadme(
       files,
       changeSet.name,
-      changeSet.audit?.account?.customerName || 'Unknown Account',
+      changeSet.account?.customerName || 'Unknown Account',
     );
 
     const passThrough = new PassThrough();
@@ -334,10 +330,10 @@ export class ExportService {
     return { deleted: true, id };
   }
 
-  async getExportableDecisions(auditId: string) {
+  async getExportableDecisions(accountId: string) {
     const decisions = await this.decisionsRepository.find({
       where: {
-        auditId,
+        accountId,
         isCurrent: true,
         status: In([DecisionStatus.DRAFT, DecisionStatus.APPROVED]),
         changeSetId: null as any,

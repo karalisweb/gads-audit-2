@@ -21,19 +21,19 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 export class ExportController {
   constructor(private readonly exportService: ExportService) {}
 
-  @Get('audit/:auditId/change-sets')
+  @Get('account/:accountId/change-sets')
   async findAll(
-    @Param('auditId', ParseUUIDPipe) auditId: string,
+    @Param('accountId', ParseUUIDPipe) accountId: string,
     @Query() filters: ChangeSetFiltersDto,
   ) {
-    return this.exportService.findAll(auditId, filters);
+    return this.exportService.findAll(accountId, filters);
   }
 
-  @Get('audit/:auditId/exportable-decisions')
+  @Get('account/:accountId/exportable-decisions')
   async getExportableDecisions(
-    @Param('auditId', ParseUUIDPipe) auditId: string,
+    @Param('accountId', ParseUUIDPipe) accountId: string,
   ) {
-    return this.exportService.getExportableDecisions(auditId);
+    return this.exportService.getExportableDecisions(accountId);
   }
 
   @Get('change-sets/:id')

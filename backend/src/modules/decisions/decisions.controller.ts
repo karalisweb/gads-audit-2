@@ -19,20 +19,20 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 export class DecisionsController {
   constructor(private readonly decisionsService: DecisionsService) {}
 
-  @Get('audit/:auditId')
+  @Get('account/:accountId')
   async findAll(
-    @Param('auditId', ParseUUIDPipe) auditId: string,
+    @Param('accountId', ParseUUIDPipe) accountId: string,
     @Query() filters: DecisionFiltersDto,
     @CurrentUser('id') userId: string,
   ) {
-    return this.decisionsService.findAll(auditId, filters, userId);
+    return this.decisionsService.findAll(accountId, filters, userId);
   }
 
-  @Get('audit/:auditId/summary')
+  @Get('account/:accountId/summary')
   async getSummary(
-    @Param('auditId', ParseUUIDPipe) auditId: string,
+    @Param('accountId', ParseUUIDPipe) accountId: string,
   ) {
-    return this.decisionsService.getSummary(auditId);
+    return this.decisionsService.getSummary(accountId);
   }
 
   @Get(':id')

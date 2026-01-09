@@ -59,13 +59,13 @@ export function AuditLayout() {
     <div className="min-h-screen">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-card border-b border-border">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold text-foreground">
+        <div className="px-3 sm:px-6 py-3 sm:py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold text-foreground truncate">
                 {account?.customerName || 'Loading...'}
               </h1>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 ID: {account?.customerId}
               </p>
             </div>
@@ -77,9 +77,9 @@ export function AuditLayout() {
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <nav className="px-6">
-          <div className="flex gap-1 overflow-x-auto pb-px -mb-px">
+        {/* Tab Navigation - scrollabile su mobile */}
+        <nav className="px-2 sm:px-6">
+          <div className="flex gap-0.5 sm:gap-1 overflow-x-auto pb-px -mb-px scrollbar-hide">
             {navItems.map((item) => {
               const Icon = item.icon;
               return (
@@ -88,15 +88,15 @@ export function AuditLayout() {
                   to={item.path}
                   className={({ isActive }) =>
                     cn(
-                      'flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors',
+                      'flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium whitespace-nowrap border-b-2 transition-colors',
                       isActive
                         ? 'border-primary text-primary'
                         : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                     )
                   }
                 >
-                  <Icon className="h-4 w-4" />
-                  {item.label}
+                  <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <span className="hidden xs:inline sm:inline">{item.label}</span>
                 </NavLink>
               );
             })}
@@ -105,7 +105,7 @@ export function AuditLayout() {
       </header>
 
       {/* Content */}
-      <main className="p-6">
+      <main className="p-3 sm:p-6">
         <Outlet context={{ account, latestRun, selectedPeriod }} />
       </main>
     </div>

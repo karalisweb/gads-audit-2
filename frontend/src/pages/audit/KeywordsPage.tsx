@@ -49,6 +49,35 @@ const columns: ColumnDef<Keyword>[] = [
     ),
   },
   {
+    accessorKey: 'finalUrl',
+    header: 'URL',
+    cell: ({ row }) => {
+      const url = row.original.finalUrl;
+      if (!url) return <span className="text-muted-foreground">-</span>;
+      // Estrai il dominio per mostrarlo in modo compatto
+      try {
+        const domain = new URL(url).hostname.replace('www.', '');
+        return (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:underline text-xs max-w-[150px] truncate block"
+            title={url}
+          >
+            {domain}
+          </a>
+        );
+      } catch {
+        return (
+          <span className="text-xs text-muted-foreground truncate max-w-[150px] block" title={url}>
+            {url}
+          </span>
+        );
+      }
+    },
+  },
+  {
     accessorKey: 'status',
     header: 'Stato',
     cell: ({ row }) => (

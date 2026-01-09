@@ -378,7 +378,7 @@ export function SearchTermsPage() {
         : 'negative_keyword_adgroup';
 
       await createDecision({
-        auditId: accountId,
+        accountId: accountId,
         moduleId: 22, // Search terms analysis module
         entityType,
         entityId: negativeLevel === 'campaign'

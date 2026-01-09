@@ -12,7 +12,8 @@ export function MainLayout() {
       <main
         className={cn(
           'transition-all duration-300',
-          sidebarCollapsed ? 'pl-0' : 'pl-64'
+          // Su mobile (< lg) sempre pl-0, su desktop dipende dalla sidebar
+          sidebarCollapsed ? 'pl-0' : 'pl-0 lg:pl-64'
         )}
       >
         <Outlet />

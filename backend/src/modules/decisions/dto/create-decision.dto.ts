@@ -3,7 +3,7 @@ import { IsString, IsNumber, IsOptional, IsObject, IsUUID, IsNotEmpty, MaxLength
 export class CreateDecisionDto {
   @IsUUID()
   @IsNotEmpty()
-  auditId: string;
+  accountId: string;
 
   @IsNumber()
   moduleId: number;

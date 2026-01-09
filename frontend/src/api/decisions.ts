@@ -16,16 +16,16 @@ import type {
 // Decisions API
 
 export async function getDecisions(
-  auditId: string,
+  accountId: string,
   filters: DecisionFilters = {},
 ): Promise<PaginatedResponse<Decision>> {
-  return apiClient.get<PaginatedResponse<Decision>>(`/decisions/audit/${auditId}`, {
+  return apiClient.get<PaginatedResponse<Decision>>(`/decisions/account/${accountId}`, {
     ...filters,
   });
 }
 
-export async function getDecisionSummary(auditId: string): Promise<DecisionSummary> {
-  return apiClient.get<DecisionSummary>(`/decisions/audit/${auditId}/summary`);
+export async function getDecisionSummary(accountId: string): Promise<DecisionSummary> {
+  return apiClient.get<DecisionSummary>(`/decisions/account/${accountId}/summary`);
 }
 
 export async function getDecision(id: string): Promise<Decision> {
@@ -63,16 +63,16 @@ export async function deleteDecision(id: string): Promise<{ deleted: boolean; id
 // Change Sets (Export) API
 
 export async function getChangeSets(
-  auditId: string,
+  accountId: string,
   filters: ChangeSetFilters = {},
 ): Promise<PaginatedResponse<ChangeSet>> {
-  return apiClient.get<PaginatedResponse<ChangeSet>>(`/export/audit/${auditId}/change-sets`, {
+  return apiClient.get<PaginatedResponse<ChangeSet>>(`/export/account/${accountId}/change-sets`, {
     ...filters,
   });
 }
 
-export async function getExportableDecisions(auditId: string): Promise<Decision[]> {
-  return apiClient.get<Decision[]>(`/export/audit/${auditId}/exportable-decisions`);
+export async function getExportableDecisions(accountId: string): Promise<Decision[]> {
+  return apiClient.get<Decision[]>(`/export/account/${accountId}/exportable-decisions`);
 }
 
 export async function getChangeSet(id: string): Promise<ChangeSet> {

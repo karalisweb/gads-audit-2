@@ -76,6 +76,35 @@ const columns: ColumnDef<Ad>[] = [
     cell: ({ row }) => <span className="text-sm">{row.original.descriptions?.length || 0}</span>,
   },
   {
+    id: 'finalUrl',
+    header: 'URL',
+    cell: ({ row }) => {
+      const urls = row.original.finalUrls;
+      if (!urls || urls.length === 0) return <span className="text-muted-foreground">-</span>;
+      const url = urls[0];
+      try {
+        const domain = new URL(url).hostname.replace('www.', '');
+        return (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:underline text-xs max-w-[150px] truncate block"
+            title={url}
+          >
+            {domain}
+          </a>
+        );
+      } catch {
+        return (
+          <span className="text-xs text-muted-foreground truncate max-w-[150px] block" title={url}>
+            {url}
+          </span>
+        );
+      }
+    },
+  },
+  {
     accessorKey: 'impressions',
     header: 'Impr.',
     cell: ({ row }) => formatNumber(row.original.impressions),
@@ -171,56 +200,37 @@ function AdCard({ ad }: { ad: Ad }) {
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <div className="border rounded-lg bg-card">
         <CollapsibleTrigger asChild>
-          <div className="p-3 cursor-pointer hover:bg-muted/50 transition-colors">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <Badge variant={getStatusVariant(ad.status)} className="text-xs">
-                    {ad.status}
-                  </Badge>
-                  <Badge variant={getAdStrengthVariant(ad.adStrength)} className="text-xs">
-                    {ad.adStrength || '-'}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {ad.adType?.replace(/_/g, ' ')}
-                  </span>
-                </div>
-                <p className="text-sm font-medium truncate">{ad.adGroupName}</p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {ad.campaignName}
-                </p>
-                <div className="flex items-center gap-3 mt-1">
-                  <span className="text-xs text-muted-foreground">
-                    Titoli ({headlinesCount})
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    Descrizioni ({descriptionsCount})
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="grid grid-cols-4 gap-3 text-right">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Costo</p>
-                    <p className="text-sm font-medium">{formatCurrency(ad.costMicros)}</p>
+          <div className="p-2 sm:p-3 cursor-pointer hover:bg-muted/50 transition-colors">
+            <div className="flex flex-col gap-2 sm:gap-3">
+              {/* Top row: badges, name, chevron */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 sm:gap-2 mb-1 flex-wrap">
+                    <Badge variant={getStatusVariant(ad.status)} className="text-[10px] sm:text-xs">
+                      {ad.status}
+                    </Badge>
+                    <Badge variant={getAdStrengthVariant(ad.adStrength)} className="text-[10px] sm:text-xs">
+                      {ad.adStrength || '-'}
+                    </Badge>
+                    <span className="text-[10px] sm:text-xs text-muted-foreground hidden sm:inline">
+                      {ad.adType?.replace(/_/g, ' ')}
+                    </span>
                   </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Conv.</p>
-                    <p className="text-sm font-medium">{formatNumber(ad.conversions)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">CPA</p>
-                    <p className="text-sm font-medium">{cpa > 0 ? formatCurrency(cpa) : '-'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">ROAS</p>
-                    <p className={`text-sm font-medium ${roas >= 1 ? 'text-green-600' : roas > 0 ? 'text-orange-600' : ''}`}>
-                      {roas > 0 ? roas.toFixed(2) : '-'}
-                    </p>
+                  <p className="text-xs sm:text-sm font-medium truncate">{ad.adGroupName}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
+                    {ad.campaignName}
+                  </p>
+                  <div className="flex items-center gap-2 sm:gap-3 mt-1">
+                    <span className="text-[10px] sm:text-xs text-muted-foreground">
+                      T: {headlinesCount}
+                    </span>
+                    <span className="text-[10px] sm:text-xs text-muted-foreground">
+                      D: {descriptionsCount}
+                    </span>
                   </div>
                 </div>
                 <svg
-                  className={`w-4 h-4 transition-transform shrink-0 ${isOpen ? 'rotate-180' : ''}`}
+                  className={`w-4 h-4 transition-transform shrink-0 mt-1 ${isOpen ? 'rotate-180' : ''}`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -228,72 +238,93 @@ function AdCard({ ad }: { ad: Ad }) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </div>
+              {/* Bottom row: metrics */}
+              <div className="grid grid-cols-4 gap-1.5 sm:gap-3 text-center sm:text-right">
+                <div>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Costo</p>
+                  <p className="text-xs sm:text-sm font-medium">{formatCurrency(ad.costMicros)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Conv.</p>
+                  <p className="text-xs sm:text-sm font-medium">{formatNumber(ad.conversions)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">CPA</p>
+                  <p className="text-xs sm:text-sm font-medium">{cpa > 0 ? formatCurrency(cpa) : '-'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">ROAS</p>
+                  <p className={`text-xs sm:text-sm font-medium ${roas >= 1 ? 'text-green-600' : roas > 0 ? 'text-orange-600' : ''}`}>
+                    {roas > 0 ? roas.toFixed(2) : '-'}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className="border-t p-4 bg-muted/30">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="border-t p-3 sm:p-4 bg-muted/30">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               {/* Titoli */}
               <div>
-                <h4 className="text-sm font-semibold mb-2">Titoli ({ad.headlines?.length || 0})</h4>
+                <h4 className="text-xs sm:text-sm font-semibold mb-2">Titoli ({ad.headlines?.length || 0})</h4>
                 {ad.headlines && ad.headlines.length > 0 ? (
                   <ul className="space-y-1">
                     {ad.headlines.map((h, i) => (
-                      <li key={i} className="text-sm py-1 px-2 bg-background rounded border">
+                      <li key={i} className="text-xs sm:text-sm py-1 px-2 bg-background rounded border">
                         {typeof h === 'object' ? h.text : h}
                         {typeof h === 'object' && h.pinnedField && (
-                          <span className="ml-2 text-xs text-blue-600">
-                            (Pinnato: {h.pinnedField})
+                          <span className="ml-1 sm:ml-2 text-[10px] sm:text-xs text-blue-600">
+                            (P: {h.pinnedField})
                           </span>
                         )}
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Nessun titolo</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Nessun titolo</p>
                 )}
               </div>
 
               {/* Descrizioni */}
               <div>
-                <h4 className="text-sm font-semibold mb-2">Descrizioni ({ad.descriptions?.length || 0})</h4>
+                <h4 className="text-xs sm:text-sm font-semibold mb-2">Descrizioni ({ad.descriptions?.length || 0})</h4>
                 {ad.descriptions && ad.descriptions.length > 0 ? (
                   <ul className="space-y-1">
                     {ad.descriptions.map((d, i) => (
-                      <li key={i} className="text-sm py-1 px-2 bg-background rounded border">
+                      <li key={i} className="text-xs sm:text-sm py-1 px-2 bg-background rounded border">
                         {typeof d === 'object' ? d.text : d}
                         {typeof d === 'object' && d.pinnedField && (
-                          <span className="ml-2 text-xs text-blue-600">
-                            (Pinnato: {d.pinnedField})
+                          <span className="ml-1 sm:ml-2 text-[10px] sm:text-xs text-blue-600">
+                            (P: {d.pinnedField})
                           </span>
                         )}
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Nessuna descrizione</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Nessuna descrizione</p>
                 )}
               </div>
             </div>
 
             {/* URL e Path */}
             {ad.finalUrls && ad.finalUrls.length > 0 && (
-              <div className="mt-4">
-                <h4 className="text-sm font-semibold mb-2">URL finale</h4>
+              <div className="mt-3 sm:mt-4">
+                <h4 className="text-xs sm:text-sm font-semibold mb-1 sm:mb-2">URL finale</h4>
                 {ad.finalUrls.map((url, i) => (
                   <a
                     key={i}
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-blue-600 hover:underline block truncate"
+                    className="text-xs sm:text-sm text-blue-600 hover:underline block truncate"
                   >
                     {url}
                   </a>
                 ))}
                 {(ad.path1 || ad.path2) && (
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
                     Path: /{ad.path1 || ''}{ad.path2 ? `/${ad.path2}` : ''}
                   </p>
                 )}
@@ -301,44 +332,44 @@ function AdCard({ ad }: { ad: Ad }) {
             )}
 
             {/* Metriche dettagliate */}
-            <div className="mt-4 pt-4 border-t">
-              <h4 className="text-sm font-semibold mb-2">Metriche dettagliate</h4>
-              <div className="grid grid-cols-4 md:grid-cols-8 gap-4">
+            <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t">
+              <h4 className="text-xs sm:text-sm font-semibold mb-2">Metriche dettagliate</h4>
+              <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 sm:gap-4">
                 <div>
-                  <p className="text-xs text-muted-foreground">Impr.</p>
-                  <p className="text-sm font-medium">{formatNumber(ad.impressions)}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Impr.</p>
+                  <p className="text-xs sm:text-sm font-medium">{formatNumber(ad.impressions)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Click</p>
-                  <p className="text-sm font-medium">{formatNumber(ad.clicks)}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Click</p>
+                  <p className="text-xs sm:text-sm font-medium">{formatNumber(ad.clicks)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">CTR</p>
-                  <p className="text-sm font-medium">{formatCtr(ad.ctr)}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">CTR</p>
+                  <p className="text-xs sm:text-sm font-medium">{formatCtr(ad.ctr)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">CPC medio</p>
-                  <p className="text-sm font-medium">{formatCurrency(ad.averageCpcMicros)}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">CPC</p>
+                  <p className="text-xs sm:text-sm font-medium">{formatCurrency(ad.averageCpcMicros)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Valore conv.</p>
-                  <p className="text-sm font-medium">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Val.</p>
+                  <p className="text-xs sm:text-sm font-medium">
                     {value > 0 ? formatCurrency(value * 1000000) : '-'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Tasso conv.</p>
-                  <p className="text-sm font-medium">
-                    {convRate > 0 ? `${convRate.toFixed(2)}%` : '-'}
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Conv%</p>
+                  <p className="text-xs sm:text-sm font-medium">
+                    {convRate > 0 ? `${convRate.toFixed(1)}%` : '-'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Tel.</p>
-                  <p className="text-sm font-medium">{formatNumber(ad.phoneCalls)}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Tel.</p>
+                  <p className="text-xs sm:text-sm font-medium">{formatNumber(ad.phoneCalls)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Chat</p>
-                  <p className="text-sm font-medium">{formatNumber(ad.messageChats)}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Chat</p>
+                  <p className="text-xs sm:text-sm font-medium">{formatNumber(ad.messageChats)}</p>
                 </div>
               </div>
             </div>
@@ -405,43 +436,45 @@ export function AdsPage() {
   const total = data?.meta.total || 0;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="space-y-3 sm:space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold">Annunci</h2>
+          <h2 className="text-xl sm:text-2xl font-bold">Annunci</h2>
           {(campaignIdFilter || adGroupIdFilter) && (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Filtrato per {campaignIdFilter ? 'campagna' : 'ad group'}
             </p>
           )}
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
           <Input
-            placeholder="Cerca annuncio..."
+            placeholder="Cerca..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            className="w-64"
+            className="w-full sm:w-48 md:w-64"
           />
-          <ToggleGroup
-            type="single"
-            value={viewMode}
-            onValueChange={(v) => v && setViewMode(v as 'cards' | 'table')}
-          >
-            <ToggleGroupItem value="cards" aria-label="Vista compatta" title="Vista compatta (cards)">
-              <LayoutGrid className="h-4 w-4" />
-            </ToggleGroupItem>
-            <ToggleGroupItem value="table" aria-label="Vista estesa" title="Vista estesa (tabella)">
-              <Table2 className="h-4 w-4" />
-            </ToggleGroupItem>
-          </ToggleGroup>
-          {accountId && (
-            <AIAnalysisPanel
-              accountId={accountId}
-              moduleId={15}
-              moduleName="Efficacia annunci"
-              onCreateDecisions={handleCreateDecisions}
-            />
-          )}
+          <div className="flex items-center gap-2">
+            <ToggleGroup
+              type="single"
+              value={viewMode}
+              onValueChange={(v) => v && setViewMode(v as 'cards' | 'table')}
+            >
+              <ToggleGroupItem value="cards" aria-label="Vista compatta" title="Vista compatta (cards)">
+                <LayoutGrid className="h-4 w-4" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="table" aria-label="Vista estesa" title="Vista estesa (tabella)">
+                <Table2 className="h-4 w-4" />
+              </ToggleGroupItem>
+            </ToggleGroup>
+            {accountId && (
+              <AIAnalysisPanel
+                accountId={accountId}
+                moduleId={15}
+                moduleName="Efficacia annunci"
+                onCreateDecisions={handleCreateDecisions}
+              />
+            )}
+          </div>
         </div>
       </div>
 

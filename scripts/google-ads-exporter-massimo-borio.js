@@ -36,7 +36,7 @@ var CONFIG = {
   },
 
   // Dimensione massima chunk (righe per richiesta)
-  CHUNK_SIZE: 500,
+  CHUNK_SIZE: 100,
 
   // Timeout per le richieste HTTP (millisecondi)
   HTTP_TIMEOUT: 60000,
@@ -324,29 +324,24 @@ function extractAds() {
   while (rows.hasNext()) {
     var row = rows.next();
 
-    var headlines = [];
-    var descriptions = [];
-    try {
-      var headlinesRaw = row['ad_group_ad.ad.responsive_search_ad.headlines'];
-      if (headlinesRaw) {
-        headlines = JSON.parse(headlinesRaw);
-      }
-    } catch (e) { }
-
-    try {
-      var descriptionsRaw = row['ad_group_ad.ad.responsive_search_ad.descriptions'];
-      if (descriptionsRaw) {
-        descriptions = JSON.parse(descriptionsRaw);
-      }
-    } catch (e) { }
+    // Parse headlines and descriptions - handle various formats from Google Ads API
+    var headlines = parseAdTextAssets(row['ad_group_ad.ad.responsive_search_ad.headlines']);
+    var descriptions = parseAdTextAssets(row['ad_group_ad.ad.responsive_search_ad.descriptions']);
 
     var finalUrls = [];
     try {
       var finalUrlsRaw = row['ad_group_ad.ad.final_urls'];
       if (finalUrlsRaw) {
-        finalUrls = JSON.parse(finalUrlsRaw);
+        // Google Ads returns final_urls as a string like '["url1", "url2"]' or as an array
+        if (typeof finalUrlsRaw === 'string') {
+          finalUrls = JSON.parse(finalUrlsRaw);
+        } else if (Array.isArray(finalUrlsRaw)) {
+          finalUrls = finalUrlsRaw;
+        }
       }
-    } catch (e) { }
+    } catch (e) {
+      Logger.log('Error parsing final_urls for ad ' + row['ad_group_ad.ad.id'] + ': ' + e + ', raw value: ' + finalUrlsRaw);
+    }
 
     ads.push({
       ad_id: row['ad_group_ad.ad.id'],
@@ -376,6 +371,64 @@ function extractAds() {
   }
 
   return ads;
+}
+
+/**
+ * Parse ad text assets (headlines/descriptions) from Google Ads API response.
+ * The API can return data in different formats:
+ * 1. JSON array of objects with 'text' and optional 'pinnedField' properties
+ * 2. JSON string that needs parsing
+ * 3. Already parsed array
+ * 4. Null/undefined
+ */
+function parseAdTextAssets(rawValue) {
+  if (!rawValue) {
+    return [];
+  }
+
+  try {
+    var parsed;
+
+    // If it's a string, try to parse it as JSON
+    if (typeof rawValue === 'string') {
+      // Handle empty string
+      if (rawValue.trim() === '' || rawValue === '[]') {
+        return [];
+      }
+      parsed = JSON.parse(rawValue);
+    } else {
+      // Already an object/array
+      parsed = rawValue;
+    }
+
+    // If parsed is an array, process each element
+    if (Array.isArray(parsed)) {
+      return parsed.map(function(item) {
+        // If item is already a string, wrap it in an object
+        if (typeof item === 'string') {
+          return { text: item, pinnedField: null };
+        }
+        // If item is an object with 'text' property
+        if (item && typeof item === 'object') {
+          return {
+            text: item.text || item.assetText || '',
+            pinnedField: item.pinnedField || item.pinned_field || null
+          };
+        }
+        return { text: String(item), pinnedField: null };
+      });
+    }
+
+    // If parsed is a single object
+    if (parsed && typeof parsed === 'object' && parsed.text) {
+      return [{ text: parsed.text, pinnedField: parsed.pinnedField || null }];
+    }
+
+    return [];
+  } catch (e) {
+    Logger.log('  > Warning: Could not parse ad text assets: ' + e.message + ' | Raw: ' + String(rawValue).substring(0, 100));
+    return [];
+  }
 }
 
 function extractKeywords() {
@@ -417,14 +470,22 @@ function extractKeywords() {
 
     var finalUrl = '';
     try {
-      var finalUrls = row['ad_group_criterion.final_urls'];
-      if (finalUrls) {
-        var urls = JSON.parse(finalUrls);
-        if (urls.length > 0) {
+      var finalUrlsRaw = row['ad_group_criterion.final_urls'];
+      if (finalUrlsRaw) {
+        // Google Ads returns final_urls as a string like '["url1"]' or as an array
+        var urls;
+        if (typeof finalUrlsRaw === 'string') {
+          urls = JSON.parse(finalUrlsRaw);
+        } else if (Array.isArray(finalUrlsRaw)) {
+          urls = finalUrlsRaw;
+        }
+        if (urls && urls.length > 0) {
           finalUrl = urls[0];
         }
       }
-    } catch (e) { }
+    } catch (e) {
+      Logger.log('Error parsing final_urls for keyword ' + row['ad_group_criterion.criterion_id'] + ': ' + e + ', raw value: ' + finalUrlsRaw);
+    }
 
     keywords.push({
       keyword_id: row['ad_group_criterion.criterion_id'],

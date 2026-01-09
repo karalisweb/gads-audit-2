@@ -1,5 +1,5 @@
 /**
- * Google Ads Data Exporter Script
+ * Google Ads Data Exporter Script - Officina 3MT
  *
  * Questo script estrae dati dall'account Google Ads e li invia all'app di audit
  * tramite HTTPS POST con autenticazione HMAC-SHA256.
@@ -22,11 +22,11 @@
 // =============================================================================
 
 var CONFIG = {
-  // URL dell'endpoint di ingestion (modifica con il tuo dominio)
-  ENDPOINT_URL: 'https://gads.karalisweb.it/api/integrations/google-ads/ingest',
+  // URL dell'endpoint di ingestion
+  ENDPOINT_URL: 'https://gads.karalisdemo.it/api/integrations/google-ads/ingest',
 
   // Secret condiviso per l'autenticazione HMAC (ottenuto dall'app)
-  SHARED_SECRET: 'YOUR_SHARED_SECRET_HERE',
+  SHARED_SECRET: 'a8ae36e7635ef7962679f1bd73301c289885e9ff220b28a6af3a7f19444ebbf6',
 
   // Periodo di dati da estrarre (formato: YYYYMMDD)
   DATE_RANGE: {
@@ -224,7 +224,7 @@ function extractCampaigns() {
       absolute_top_impression_percentage: parseFloat(row['metrics.absolute_top_impression_percentage']) || null,
       phone_calls: parseInt(row['metrics.phone_calls']) || 0,
       phone_impressions: parseInt(row['metrics.phone_impressions']) || 0,
-      message_chats: 0, // Not available in GAQL
+      message_chats: 0,
       message_impressions: 0
     });
   }
@@ -234,6 +234,7 @@ function extractCampaigns() {
 
 function extractAdGroups() {
   var adGroups = [];
+  // Note: search_budget_lost_impression_share and phone metrics are only available at campaign level
   var query = 'SELECT ' +
     'ad_group.id, ' +
     'ad_group.name, ' +
@@ -249,11 +250,7 @@ function extractAdGroups() {
     'metrics.conversions, ' +
     'metrics.conversions_value, ' +
     'metrics.ctr, ' +
-    'metrics.average_cpc, ' +
-    'metrics.search_impression_share, ' +
-    'metrics.search_rank_lost_impression_share, ' +
-    'metrics.search_budget_lost_impression_share, ' +
-    'metrics.phone_calls ' +
+    'metrics.average_cpc ' +
     'FROM ad_group ' +
     'WHERE segments.date BETWEEN "' + CONFIG.DATE_RANGE.START + '" AND "' + CONFIG.DATE_RANGE.END + '" ' +
     (CONFIG.EXCLUDE_PMAX ? 'AND campaign.advertising_channel_type != "PERFORMANCE_MAX" ' : '') +
@@ -280,10 +277,10 @@ function extractAdGroups() {
       conversions_value: parseFloat(row['metrics.conversions_value']) || 0,
       ctr: parseFloat(row['metrics.ctr']) || 0,
       average_cpc_micros: parseInt(row['metrics.average_cpc']) || 0,
-      search_impression_share: parseFloat(row['metrics.search_impression_share']) || null,
-      search_impression_share_lost_rank: parseFloat(row['metrics.search_rank_lost_impression_share']) || null,
-      search_impression_share_lost_budget: parseFloat(row['metrics.search_budget_lost_impression_share']) || null,
-      phone_calls: parseInt(row['metrics.phone_calls']) || 0,
+      search_impression_share: null,
+      search_impression_share_lost_rank: null,
+      search_impression_share_lost_budget: null,
+      phone_calls: 0,
       message_chats: 0
     });
   }
@@ -293,6 +290,7 @@ function extractAdGroups() {
 
 function extractAds() {
   var ads = [];
+  // Note: phone_calls metric is not available at ad level
   var query = 'SELECT ' +
     'ad_group_ad.ad.id, ' +
     'ad_group_ad.ad.type, ' +
@@ -314,8 +312,7 @@ function extractAds() {
     'metrics.conversions, ' +
     'metrics.conversions_value, ' +
     'metrics.ctr, ' +
-    'metrics.average_cpc, ' +
-    'metrics.phone_calls ' +
+    'metrics.average_cpc ' +
     'FROM ad_group_ad ' +
     'WHERE segments.date BETWEEN "' + CONFIG.DATE_RANGE.START + '" AND "' + CONFIG.DATE_RANGE.END + '" ' +
     (CONFIG.EXCLUDE_PMAX ? 'AND campaign.advertising_channel_type != "PERFORMANCE_MAX" ' : '') +
@@ -331,7 +328,6 @@ function extractAds() {
     var headlines = parseAdTextAssets(row['ad_group_ad.ad.responsive_search_ad.headlines']);
     var descriptions = parseAdTextAssets(row['ad_group_ad.ad.responsive_search_ad.descriptions']);
 
-    // Parse final URLs
     var finalUrls = [];
     try {
       var finalUrlsRaw = row['ad_group_ad.ad.final_urls'];
@@ -369,7 +365,7 @@ function extractAds() {
       conversions_value: parseFloat(row['metrics.conversions_value']) || 0,
       ctr: parseFloat(row['metrics.ctr']) || 0,
       average_cpc_micros: parseInt(row['metrics.average_cpc']) || 0,
-      phone_calls: parseInt(row['metrics.phone_calls']) || 0,
+      phone_calls: 0,
       message_chats: 0
     });
   }
@@ -437,6 +433,7 @@ function parseAdTextAssets(rawValue) {
 
 function extractKeywords() {
   var keywords = [];
+  // Note: search_budget_lost_impression_share is only available at campaign level, not keyword level
   var query = 'SELECT ' +
     'ad_group_criterion.criterion_id, ' +
     'ad_group_criterion.keyword.text, ' +
@@ -459,11 +456,7 @@ function extractKeywords() {
     'metrics.conversions, ' +
     'metrics.conversions_value, ' +
     'metrics.ctr, ' +
-    'metrics.average_cpc, ' +
-    'metrics.search_impression_share, ' +
-    'metrics.search_rank_lost_impression_share, ' +
-    'metrics.search_budget_lost_impression_share, ' +
-    'metrics.phone_calls ' +
+    'metrics.average_cpc ' +
     'FROM keyword_view ' +
     'WHERE segments.date BETWEEN "' + CONFIG.DATE_RANGE.START + '" AND "' + CONFIG.DATE_RANGE.END + '" ' +
     (CONFIG.EXCLUDE_PMAX ? 'AND campaign.advertising_channel_type != "PERFORMANCE_MAX" ' : '') +
@@ -475,7 +468,6 @@ function extractKeywords() {
   while (rows.hasNext()) {
     var row = rows.next();
 
-    // Parse final URL
     var finalUrl = '';
     try {
       var finalUrlsRaw = row['ad_group_criterion.final_urls'];
@@ -518,10 +510,10 @@ function extractKeywords() {
       conversions_value: parseFloat(row['metrics.conversions_value']) || 0,
       ctr: parseFloat(row['metrics.ctr']) || 0,
       average_cpc_micros: parseInt(row['metrics.average_cpc']) || 0,
-      search_impression_share: parseFloat(row['metrics.search_impression_share']) || null,
-      search_impression_share_lost_rank: parseFloat(row['metrics.search_rank_lost_impression_share']) || null,
-      search_impression_share_lost_budget: parseFloat(row['metrics.search_budget_lost_impression_share']) || null,
-      phone_calls: parseInt(row['metrics.phone_calls']) || 0
+      search_impression_share: null,
+      search_impression_share_lost_rank: null,
+      search_impression_share_lost_budget: null,
+      phone_calls: 0
     });
   }
 
@@ -530,10 +522,9 @@ function extractKeywords() {
 
 function extractSearchTerms() {
   var searchTerms = [];
+  // Note: Cannot use ad_group_criterion fields with search_term_view - they are incompatible resources
   var query = 'SELECT ' +
     'search_term_view.search_term, ' +
-    'ad_group_criterion.criterion_id, ' +
-    'ad_group_criterion.keyword.text, ' +
     'search_term_view.status, ' +
     'ad_group.id, ' +
     'ad_group.name, ' +
@@ -557,8 +548,8 @@ function extractSearchTerms() {
     var row = rows.next();
     searchTerms.push({
       search_term: row['search_term_view.search_term'],
-      keyword_id: row['ad_group_criterion.criterion_id'] || null,
-      keyword_text: row['ad_group_criterion.keyword.text'] || null,
+      keyword_id: null,
+      keyword_text: null,
       match_type_triggered: row['search_term_view.status'] || '',
       ad_group_id: row['ad_group.id'],
       ad_group_name: row['ad_group.name'],
@@ -580,7 +571,6 @@ function extractSearchTerms() {
 function extractNegativeKeywords() {
   var negatives = [];
 
-  // Campaign-level negatives
   var campaignQuery = 'SELECT ' +
     'campaign_criterion.criterion_id, ' +
     'campaign_criterion.keyword.text, ' +
@@ -611,7 +601,6 @@ function extractNegativeKeywords() {
     });
   }
 
-  // Ad group-level negatives
   var adGroupQuery = 'SELECT ' +
     'ad_group_criterion.criterion_id, ' +
     'ad_group_criterion.keyword.text, ' +
@@ -644,7 +633,6 @@ function extractNegativeKeywords() {
     });
   }
 
-  // Shared set negatives
   var sharedQuery = 'SELECT ' +
     'shared_criterion.criterion_id, ' +
     'shared_criterion.keyword.text, ' +
@@ -692,9 +680,8 @@ function extractAssets() {
     'asset.final_urls, ' +
     'asset.call_asset.phone_number, ' +
     'campaign_asset.status, ' +
-    'campaign_asset.performance_label, ' +
-    'campaign_asset.source, ' +
     'campaign.id, ' +
+    'campaign.advertising_channel_type, ' +
     'metrics.impressions, ' +
     'metrics.clicks, ' +
     'metrics.cost_micros, ' +
@@ -711,7 +698,6 @@ function extractAssets() {
     while (rows.hasNext()) {
       var row = rows.next();
 
-      // Parse final URL
       var finalUrl = '';
       try {
         var finalUrls = row['asset.final_urls'];
@@ -734,8 +720,8 @@ function extractAssets() {
         final_url: finalUrl,
         phone_number: row['asset.call_asset.phone_number'] || '',
         status: row['campaign_asset.status'],
-        performance_label: row['campaign_asset.performance_label'] || '',
-        source: row['campaign_asset.source'] || '',
+        performance_label: '',
+        source: '',
         linked_level: 'CAMPAIGN',
         campaign_id: row['campaign.id'],
         ad_group_id: null,
@@ -785,7 +771,7 @@ function extractConversionActions() {
       default_value: parseFloat(row['conversion_action.value_settings.default_value']) || null,
       always_use_default_value: row['conversion_action.value_settings.always_use_default_value'] === 'true',
       primary_for_goal: row['conversion_action.primary_for_goal'] === 'true',
-      campaigns_using_count: 0 // Would need separate query to calculate
+      campaigns_using_count: 0
     });
   }
 
@@ -797,6 +783,7 @@ function extractGeoPerformance() {
   var query = 'SELECT ' +
     'campaign.id, ' +
     'campaign.name, ' +
+    'campaign.advertising_channel_type, ' +
     'geographic_view.location_type, ' +
     'geographic_view.country_criterion_id, ' +
     'metrics.impressions, ' +
@@ -817,9 +804,9 @@ function extractGeoPerformance() {
         campaign_id: row['campaign.id'],
         campaign_name: row['campaign.name'],
         location_id: row['geographic_view.country_criterion_id'] || '',
-        location_name: '', // Would need geo_target_constant lookup
+        location_name: '',
         location_type: row['geographic_view.location_type'],
-        is_targeted: true, // Would need campaign criterion check
+        is_targeted: true,
         bid_modifier: null,
         impressions: parseInt(row['metrics.impressions']) || 0,
         clicks: parseInt(row['metrics.clicks']) || 0,
@@ -858,7 +845,7 @@ function extractDevicePerformance() {
       campaign_id: row['campaign.id'],
       campaign_name: row['campaign.name'],
       device: row['segments.device'],
-      bid_modifier: null, // Would need separate query
+      bid_modifier: null,
       impressions: parseInt(row['metrics.impressions']) || 0,
       clicks: parseInt(row['metrics.clicks']) || 0,
       cost_micros: parseInt(row['metrics.cost_micros']) || 0,
@@ -899,7 +886,7 @@ function sendChunk(accountId, runId, datasetName, data, chunkIndex, chunkTotal, 
     headers: {
       'X-Timestamp': timestamp,
       'X-Signature': signature,
-      'X-Account-Id': accountId.replace(/-/g, '') // Remove dashes
+      'X-Account-Id': accountId.replace(/-/g, '')
     },
     payload: bodyString,
     muteHttpExceptions: true,
@@ -919,7 +906,7 @@ function sendChunk(accountId, runId, datasetName, data, chunkIndex, chunkTotal, 
 
 function computeHmacSignature(timestamp, body) {
   var payload = timestamp + body;
-  var signature = Utilities.computeHmacSha256Signature(payload, CONFIG.SHARED_SECRET);
+  var signature = Utilities.computeHmacSha256Signature(payload, CONFIG.SHARED_SECRET, Utilities.Charset.UTF_8);
   return signature.map(function(byte) {
     return ('0' + (byte & 0xFF).toString(16)).slice(-2);
   }).join('');

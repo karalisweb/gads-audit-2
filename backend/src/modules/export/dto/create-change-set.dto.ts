@@ -3,7 +3,7 @@ import { IsString, IsOptional, IsUUID, IsNotEmpty, IsArray, MaxLength } from 'cl
 export class CreateChangeSetDto {
   @IsUUID()
   @IsNotEmpty()
-  auditId: string;
+  accountId: string;
 
   @IsString()
   @MaxLength(255)

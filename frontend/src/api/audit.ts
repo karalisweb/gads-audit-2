@@ -154,3 +154,30 @@ export async function getConversionActions(
   const params = buildParams(filters as Record<string, unknown>);
   return apiClient.get<PaginatedResponse<ConversionAction>>(`/audit/accounts/${accountId}/conversion-actions`, params);
 }
+
+// Issues Summary
+export interface IssueSummary {
+  total: number;
+  bySeverity: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    info: number;
+  };
+  byCategory: {
+    performance: number;
+    quality: number;
+    structure: number;
+    budget: number;
+    targeting: number;
+    conversion: number;
+    opportunity: number;
+  };
+  potentialSavings: number;
+}
+
+export async function getIssueSummary(accountId: string, runId?: string): Promise<IssueSummary> {
+  const params = runId ? { runId } : undefined;
+  return apiClient.get<IssueSummary>(`/audit/accounts/${accountId}/issues/summary`, params);
+}

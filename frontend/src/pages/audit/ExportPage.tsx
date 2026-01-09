@@ -63,7 +63,6 @@ const statusConfig: Record<ChangeSetStatus, { label: string; color: string; icon
 
 export function ExportPage() {
   const { accountId } = useParams<{ accountId: string }>();
-  const auditId = accountId;
 
   const [changeSets, setChangeSets] = useState<ChangeSet[]>([]);
   const [exportableDecisions, setExportableDecisions] = useState<Decision[]>([]);
@@ -84,12 +83,12 @@ export function ExportPage() {
   const [deleteChangeSetId, setDeleteChangeSetId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
-    if (!auditId) return;
+    if (!accountId) return;
     setIsLoading(true);
     try {
       const [changeSetsResult, exportableResult] = await Promise.all([
-        getChangeSets(auditId),
-        getExportableDecisions(auditId),
+        getChangeSets(accountId),
+        getExportableDecisions(accountId),
       ]);
       setChangeSets(changeSetsResult.data);
       setExportableDecisions(exportableResult);
@@ -98,18 +97,18 @@ export function ExportPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [auditId]);
+  }, [accountId]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
   const handleCreateChangeSet = async () => {
-    if (!auditId || !newChangeSetName.trim()) return;
+    if (!accountId || !newChangeSetName.trim()) return;
 
     try {
       await createChangeSet({
-        auditId,
+        accountId,
         name: newChangeSetName,
         description: newChangeSetDescription || undefined,
         decisionIds: selectedDecisionIds.length > 0 ? selectedDecisionIds : undefined,

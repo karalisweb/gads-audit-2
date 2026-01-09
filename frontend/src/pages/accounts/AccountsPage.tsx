@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Search, Building2, TrendingUp, Target, BarChart3, Plus, Copy, Check, Key } from 'lucide-react';
+import { Search, Building2, Plus, Copy, Check, Key } from 'lucide-react';
 import { formatCurrency, formatNumber } from '@/lib/format';
 import { apiClient } from '@/api/client';
 import { getAccountsWithStats, type AccountWithStats } from '@/api/audit';
@@ -160,14 +160,14 @@ export function AccountsPage() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto py-8 px-4">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold">Seleziona Account</h1>
-          <p className="text-muted-foreground mt-2">
+      <div className="container mx-auto py-4 sm:py-8 px-3 sm:px-4">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold">Seleziona Account</h1>
+          <p className="text-muted-foreground mt-1 sm:mt-2 text-sm sm:text-base">
             Scegli un account Google Ads per visualizzare l'audit
           </p>
         </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
             <Card key={i}>
               <CardHeader>
@@ -185,27 +185,28 @@ export function AccountsPage() {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Seleziona Account</h1>
-        <p className="text-muted-foreground mt-2">
+    <div className="container mx-auto py-4 sm:py-8 px-3 sm:px-4">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold">Seleziona Account</h1>
+        <p className="text-muted-foreground mt-1 sm:mt-2 text-sm sm:text-base">
           Scegli un account Google Ads per visualizzare l'audit
         </p>
       </div>
 
-      <div className="mb-6 flex items-center gap-4">
-        <div className="relative flex-1 max-w-md">
+      <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row gap-3 sm:gap-4 sm:items-center">
+        <div className="relative flex-1 sm:max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Cerca account per nome o ID..."
+            placeholder="Cerca account..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
           />
         </div>
-        <Badge variant="secondary">{filteredAccounts.length} account</Badge>
+        <div className="flex items-center gap-3">
+          <Badge variant="secondary">{filteredAccounts.length} account</Badge>
 
-        <Dialog open={isDialogOpen} onOpenChange={(open) => open ? setIsDialogOpen(true) : handleCloseDialog()}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => open ? setIsDialogOpen(true) : handleCloseDialog()}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="h-4 w-4 mr-2" />
@@ -296,14 +297,15 @@ export function AccountsPage() {
             )}
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {filteredAccounts.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center">
-            <Building2 className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium">Nessun account trovato</h3>
-            <p className="text-muted-foreground mt-2">
+          <CardContent className="py-8 sm:py-12 text-center">
+            <Building2 className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mb-3 sm:mb-4" />
+            <h3 className="text-base sm:text-lg font-medium">Nessun account trovato</h3>
+            <p className="text-muted-foreground mt-2 text-sm">
               {searchQuery
                 ? 'Prova a modificare la ricerca'
                 : 'Non ci sono account con dati importati'}
@@ -311,7 +313,7 @@ export function AccountsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
           {filteredAccounts.map((account) => {
             const stats = account.stats;
             return (
@@ -320,46 +322,37 @@ export function AccountsPage() {
                 className="cursor-pointer transition-shadow hover:shadow-lg"
                 onClick={() => handleSelectAccount(account.id)}
               >
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Building2 className="h-5 w-5" />
-                    {account.customerName || account.customerId}
+                <CardHeader className="pb-2 sm:pb-4">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <Building2 className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
+                    <span className="truncate">{account.customerName || account.customerId}</span>
                   </CardTitle>
-                  <CardDescription>ID: {account.customerId}</CardDescription>
+                  <CardDescription className="text-xs sm:text-sm">ID: {account.customerId}</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-3 gap-4 text-sm">
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-muted-foreground">Spesa</p>
-                        <p className="font-medium">
-                          {stats ? formatCurrency(stats.cost * 1000000) : '-'}
-                        </p>
-                      </div>
+                <CardContent className="pt-0">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-4 text-xs sm:text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Spesa</p>
+                      <p className="font-medium">
+                        {stats ? formatCurrency(stats.cost * 1000000) : '-'}
+                      </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Target className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-muted-foreground">CPA</p>
-                        <p className="font-medium">
-                          {stats && stats.cpa > 0 ? formatCurrency(stats.cpa * 1000000) : '-'}
-                        </p>
-                      </div>
+                    <div>
+                      <p className="text-muted-foreground">CPA</p>
+                      <p className="font-medium">
+                        {stats && stats.cpa > 0 ? formatCurrency(stats.cpa * 1000000) : '-'}
+                      </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-muted-foreground">Conv.</p>
-                        <p className="font-medium">
-                          {stats ? formatNumber(stats.conversions) : '-'}
-                        </p>
-                      </div>
+                    <div>
+                      <p className="text-muted-foreground">Conv.</p>
+                      <p className="font-medium">
+                        {stats ? formatNumber(stats.conversions) : '-'}
+                      </p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-4 mt-3 sm:mt-4 text-xs sm:text-sm">
                     <div>
-                      <span className="text-muted-foreground">Campagne attive:</span>{' '}
+                      <span className="text-muted-foreground">Campagne:</span>{' '}
                       <span className="font-medium">{stats?.activeCampaigns || 0}/{stats?.totalCampaigns || 0}</span>
                     </div>
                     <div>
@@ -368,18 +361,19 @@ export function AccountsPage() {
                     </div>
                   </div>
                   {account.lastImportDate && (
-                    <p className="text-xs text-muted-foreground mt-4">
-                      Ultimo aggiornamento:{' '}
+                    <p className="text-xs text-muted-foreground mt-3 sm:mt-4">
+                      Ultimo agg.:{' '}
                       {new Date(account.lastImportDate).toLocaleDateString('it-IT')}
                     </p>
                   )}
-                  <div className="flex gap-2 mt-4">
-                    <Button className="flex-1" variant="outline">
+                  <div className="flex gap-2 mt-3 sm:mt-4">
+                    <Button className="flex-1 text-xs sm:text-sm h-8 sm:h-9" variant="outline">
                       Visualizza Audit
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
+                      className="h-8 w-8 sm:h-9 sm:w-9"
                       onClick={(e) => handleOpenRevealDialog(e, account.id)}
                       title="Mostra Chiave Segreta"
                     >

@@ -311,6 +311,9 @@ export class IntegrationsService {
     dateEnd?: Date,
   ): Promise<void> {
     for (const row of data) {
+      // Debug logging
+      console.log('Processing ad:', row.ad_id, 'headlines:', JSON.stringify(row.headlines), 'final_urls:', JSON.stringify(row.final_urls));
+
       await manager.upsert(
         Ad,
         {
@@ -511,7 +514,7 @@ export class IntegrationsService {
           category: String(row.category || ''),
           origin: String(row.origin || ''),
           countingType: String(row.counting_type || row.countingType || ''),
-          defaultValue: row.default_value !== undefined ? String(row.default_value) : undefined,
+          defaultValue: row.default_value != null ? String(row.default_value) : null,
           alwaysUseDefaultValue: Boolean(row.always_use_default_value || row.alwaysUseDefaultValue),
           primaryForGoal: Boolean(row.primary_for_goal || row.primaryForGoal),
           campaignsUsingCount: Number(row.campaigns_using_count || row.campaignsUsingCount || 0),

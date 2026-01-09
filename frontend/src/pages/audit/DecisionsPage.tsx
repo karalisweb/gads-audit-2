@@ -73,17 +73,13 @@ export function DecisionsPage() {
     currentOnly: true,
   });
 
-  // We need to get the audit ID from the account
-  // For now, assume the accountId is the auditId (you might need to adjust this)
-  const auditId = accountId;
-
   const loadData = useCallback(async () => {
-    if (!auditId) return;
+    if (!accountId) return;
     setIsLoading(true);
     try {
       const [decisionsResult, summaryResult] = await Promise.all([
-        getDecisions(auditId, filters),
-        getDecisionSummary(auditId),
+        getDecisions(accountId, filters),
+        getDecisionSummary(accountId),
       ]);
       setData(decisionsResult);
       setSummary(summaryResult);
@@ -92,7 +88,7 @@ export function DecisionsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [auditId, filters]);
+  }, [accountId, filters]);
 
   useEffect(() => {
     loadData();

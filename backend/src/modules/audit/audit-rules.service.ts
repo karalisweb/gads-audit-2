@@ -158,7 +158,9 @@ export class AuditRulesService {
       }
 
       // RULE: High impression share lost to budget
-      const isLostBudget = parseFloat(campaign.searchImpressionShareLostBudget || '0') || 0;
+      // Data is stored as decimal (0.21 = 21%), convert to percentage
+      const isLostBudgetRaw = parseFloat(campaign.searchImpressionShareLostBudget || '0') || 0;
+      const isLostBudget = isLostBudgetRaw > 1 ? isLostBudgetRaw : isLostBudgetRaw * 100; // Handle both formats
       if (isLostBudget > 20) {
         issues.push({
           ruleId: 'CAMP_IS_LOST_BUDGET',
@@ -181,7 +183,9 @@ export class AuditRulesService {
       }
 
       // RULE: High impression share lost to rank
-      const isLostRank = parseFloat(campaign.searchImpressionShareLostRank || '0') || 0;
+      // Data is stored as decimal (0.44 = 44%), convert to percentage
+      const isLostRankRaw = parseFloat(campaign.searchImpressionShareLostRank || '0') || 0;
+      const isLostRank = isLostRankRaw > 1 ? isLostRankRaw : isLostRankRaw * 100; // Handle both formats
       if (isLostRank > 30) {
         issues.push({
           ruleId: 'CAMP_IS_LOST_RANK',

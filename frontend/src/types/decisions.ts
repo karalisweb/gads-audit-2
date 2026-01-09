@@ -48,7 +48,7 @@ export interface DecisionSummary {
 }
 
 export interface CreateDecisionDto {
-  auditId: string;
+  accountId: string;
   moduleId: number;
   entityType: string;
   entityId: string;
@@ -95,7 +95,7 @@ export interface ChangeSetFilters extends BaseFilters {
 }
 
 export interface CreateChangeSetDto {
-  auditId: string;
+  accountId: string;
   name: string;
   description?: string;
   decisionIds?: string[];

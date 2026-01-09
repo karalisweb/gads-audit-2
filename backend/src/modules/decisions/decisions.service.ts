@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { Decision, DecisionStatus } from '../../entities/decision.entity';
-import { Audit } from '../../entities/audit.entity';
+import { GoogleAdsAccount } from '../../entities/google-ads-account.entity';
 import { ChangeSet } from '../../entities/change-set.entity';
 import { CreateDecisionDto, UpdateDecisionDto, DecisionFiltersDto } from './dto';
 
@@ -12,28 +12,27 @@ export class DecisionsService {
   constructor(
     @InjectRepository(Decision)
     private decisionsRepository: Repository<Decision>,
-    @InjectRepository(Audit)
-    private auditsRepository: Repository<Audit>,
+    @InjectRepository(GoogleAdsAccount)
+    private accountsRepository: Repository<GoogleAdsAccount>,
     @InjectRepository(ChangeSet)
     private changeSetsRepository: Repository<ChangeSet>,
     private dataSource: DataSource,
   ) {}
 
-  async findAll(auditId: string, filters: DecisionFiltersDto, userId: string) {
-    const audit = await this.auditsRepository.findOne({
-      where: { id: auditId },
-      relations: ['account'],
+  async findAll(accountId: string, filters: DecisionFiltersDto, userId: string) {
+    const account = await this.accountsRepository.findOne({
+      where: { id: accountId },
     });
 
-    if (!audit) {
-      throw new NotFoundException(`Audit ${auditId} not found`);
+    if (!account) {
+      throw new NotFoundException(`Account ${accountId} not found`);
     }
 
     const queryBuilder = this.decisionsRepository
       .createQueryBuilder('decision')
       .leftJoinAndSelect('decision.createdBy', 'createdBy')
       .leftJoinAndSelect('decision.changeSet', 'changeSet')
-      .where('decision.auditId = :auditId', { auditId });
+      .where('decision.accountId = :accountId', { accountId });
 
     if (filters.currentOnly !== false) {
       queryBuilder.andWhere('decision.isCurrent = true');
@@ -93,12 +92,12 @@ export class DecisionsService {
   }
 
   async create(dto: CreateDecisionDto, userId: string) {
-    const audit = await this.auditsRepository.findOne({
-      where: { id: dto.auditId },
+    const account = await this.accountsRepository.findOne({
+      where: { id: dto.accountId },
     });
 
-    if (!audit) {
-      throw new NotFoundException(`Audit ${dto.auditId} not found`);
+    if (!account) {
+      throw new NotFoundException(`Account ${dto.accountId} not found`);
     }
 
     const decisionGroupId = uuidv4();
@@ -106,7 +105,6 @@ export class DecisionsService {
     const decision = this.decisionsRepository.create({
       ...dto,
       decisionGroupId,
-      accountId: audit.accountId,
       version: 1,
       isCurrent: true,
       status: DecisionStatus.DRAFT,
@@ -261,18 +259,18 @@ export class DecisionsService {
     return { deleted: true, id };
   }
 
-  async getSummary(auditId: string) {
-    const audit = await this.auditsRepository.findOne({
-      where: { id: auditId },
+  async getSummary(accountId: string) {
+    const account = await this.accountsRepository.findOne({
+      where: { id: accountId },
     });
 
-    if (!audit) {
-      throw new NotFoundException(`Audit ${auditId} not found`);
+    if (!account) {
+      throw new NotFoundException(`Account ${accountId} not found`);
     }
 
     const totalResult = await this.decisionsRepository
       .createQueryBuilder('decision')
-      .where('decision.auditId = :auditId', { auditId })
+      .where('decision.accountId = :accountId', { accountId })
       .andWhere('decision.isCurrent = true')
       .getCount();
 
@@ -280,7 +278,7 @@ export class DecisionsService {
       .createQueryBuilder('decision')
       .select('decision.status', 'status')
       .addSelect('COUNT(*)', 'count')
-      .where('decision.auditId = :auditId', { auditId })
+      .where('decision.accountId = :accountId', { accountId })
       .andWhere('decision.isCurrent = true')
       .groupBy('decision.status')
       .getRawMany();
@@ -289,7 +287,7 @@ export class DecisionsService {
       .createQueryBuilder('decision')
       .select('decision.moduleId', 'moduleId')
       .addSelect('COUNT(*)', 'count')
-      .where('decision.auditId = :auditId', { auditId })
+      .where('decision.accountId = :accountId', { accountId })
       .andWhere('decision.isCurrent = true')
       .groupBy('decision.moduleId')
       .orderBy('decision.moduleId', 'ASC')
@@ -299,7 +297,7 @@ export class DecisionsService {
       .createQueryBuilder('decision')
       .select('decision.entityType', 'entityType')
       .addSelect('COUNT(*)', 'count')
-      .where('decision.auditId = :auditId', { auditId })
+      .where('decision.accountId = :accountId', { accountId })
       .andWhere('decision.isCurrent = true')
       .groupBy('decision.entityType')
       .getRawMany();
@@ -308,7 +306,7 @@ export class DecisionsService {
       .createQueryBuilder('decision')
       .select('decision.actionType', 'actionType')
       .addSelect('COUNT(*)', 'count')
-      .where('decision.auditId = :auditId', { auditId })
+      .where('decision.accountId = :accountId', { accountId })
       .andWhere('decision.isCurrent = true')
       .groupBy('decision.actionType')
       .getRawMany();
