@@ -21,7 +21,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Check, X, AlertCircle, Clock, Loader2, Plus, Eye } from 'lucide-react';
+import { Check, X, AlertCircle, Clock, Loader2, Plus, Eye, Code, ExternalLink } from 'lucide-react';
 import { CreateModificationModal } from './CreateModificationModal';
 import {
   getModifications,
@@ -43,6 +43,9 @@ import {
   getModificationTypeLabel,
   getEntityTypeLabel,
 } from '@/types/modification';
+
+// URL pubblico dello script Google Ads (file statico)
+const SCRIPT_URL = '/scripts/google-ads-modifier.js';
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('it-IT', {
@@ -134,6 +137,7 @@ export function ModificationsPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [detailModification, setDetailModification] = useState<Modification | null>(null);
+  const [scriptModalOpen, setScriptModalOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!accountId) return;
@@ -408,10 +412,16 @@ export function ModificationsPage() {
             Gestisci le modifiche pendenti e visualizza lo storico
           </p>
         </div>
-        <Button onClick={() => setCreateModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nuova Modifica
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setScriptModalOpen(true)}>
+            <Code className="h-4 w-4 mr-2" />
+            Script Google Ads
+          </Button>
+          <Button onClick={() => setCreateModalOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nuova Modifica
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -579,6 +589,70 @@ export function ModificationsPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDetailModalOpen(false)}>
               Chiudi
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Script Modal */}
+      <Dialog open={scriptModalOpen} onOpenChange={setScriptModalOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Script Google Ads</DialogTitle>
+            <DialogDescription>
+              Configura lo script una sola volta per eseguire automaticamente le modifiche approvate
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-3">
+              <h4 className="font-medium">Setup iniziale (una tantum):</h4>
+              <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
+                <li>Vai su Google Ads {'>'} Strumenti e impostazioni {'>'} Script</li>
+                <li>Clicca su <strong>+</strong> per creare un nuovo script</li>
+                <li>Apri lo script dal link qui sotto e copia tutto il codice</li>
+                <li>Incolla il codice nello script Google Ads</li>
+                <li>Sostituisci <code className="bg-muted px-1 rounded">IL_TUO_SHARED_SECRET_QUI</code> con lo Shared Secret dell'account</li>
+                <li>Autorizza lo script quando richiesto</li>
+                <li>Imposta una schedulazione (es. ogni ora, ogni giorno)</li>
+              </ol>
+            </div>
+
+            <div className="bg-muted p-4 rounded-lg">
+              <p className="text-sm font-medium mb-2">Link allo script:</p>
+              <a
+                href={SCRIPT_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline flex items-center gap-2 text-sm break-all"
+              >
+                <ExternalLink className="h-4 w-4 flex-shrink-0" />
+                {window.location.origin}{SCRIPT_URL}
+              </a>
+            </div>
+
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+              <p className="text-sm text-green-800">
+                <strong>Come funziona:</strong> Una volta configurato, lo script gira automaticamente secondo la schedulazione impostata.
+                Legge le modifiche "Approvate", le esegue su Google Ads, e aggiorna lo stato nel sistema.
+              </p>
+            </div>
+
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+              <p className="text-sm text-yellow-800">
+                <strong>Nota:</strong> Lo script deve essere configurato una sola volta.
+                Dopo il setup, tutte le modifiche approvate verranno eseguite automaticamente.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setScriptModalOpen(false)}>
+              Chiudi
+            </Button>
+            <Button asChild>
+              <a href={SCRIPT_URL} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Apri Script
+              </a>
             </Button>
           </DialogFooter>
         </DialogContent>
