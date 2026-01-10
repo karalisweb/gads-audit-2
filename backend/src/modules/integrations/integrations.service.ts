@@ -514,7 +514,7 @@ export class IntegrationsService {
           category: String(row.category || ''),
           origin: String(row.origin || ''),
           countingType: String(row.counting_type || row.countingType || ''),
-          defaultValue: row.default_value != null ? String(row.default_value) : null,
+          defaultValue: row.default_value != null ? String(row.default_value) : undefined,
           alwaysUseDefaultValue: Boolean(row.always_use_default_value || row.alwaysUseDefaultValue),
           primaryForGoal: Boolean(row.primary_for_goal || row.primaryForGoal),
           campaignsUsingCount: Number(row.campaigns_using_count || row.campaignsUsingCount || 0),

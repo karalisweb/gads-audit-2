@@ -18,6 +18,7 @@ import {
   ToggleGroupItem,
 } from '@/components/ui/toggle-group';
 import { LayoutGrid, Table2, Target, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { ModifyButton } from '@/components/modifications';
 import { getConversionActions } from '@/api/audit';
 import { formatCurrency } from '@/lib/format';
 import type { ConversionAction, PaginatedResponse, ConversionActionFilters } from '@/types/audit';
@@ -91,7 +92,8 @@ const getOriginLabel = (origin: string) => {
   return labels[origin] || origin.replace(/_/g, ' ');
 };
 
-const columns: ColumnDef<ConversionAction>[] = [
+function getColumns(accountId: string, onRefresh: () => void): ColumnDef<ConversionAction>[] {
+  return [
   {
     accessorKey: 'name',
     header: 'Nome',
@@ -172,9 +174,27 @@ const columns: ColumnDef<ConversionAction>[] = [
       );
     },
   },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }) => (
+      <ModifyButton
+        accountId={accountId}
+        entityType="conversion_action"
+        entityId={row.original.conversionActionId}
+        entityName={row.original.name}
+        currentValue={{
+          primaryForGoal: row.original.primaryForGoal,
+          defaultValue: row.original.defaultValue,
+        }}
+        onSuccess={onRefresh}
+      />
+    ),
+  },
 ];
+}
 
-function ConversionActionCard({ action }: { action: ConversionAction }) {
+function ConversionActionCard({ action, accountId, onRefresh }: { action: ConversionAction; accountId: string; onRefresh: () => void }) {
   const hasIssues = !action.primaryForGoal && action.status === 'ENABLED';
   const notUsed = action.campaignsUsingCount === 0 && action.status === 'ENABLED';
   const lowValue = (action.defaultValue === 0 || action.defaultValue === 1) && action.status === 'ENABLED';
@@ -211,26 +231,39 @@ function ConversionActionCard({ action }: { action: ConversionAction }) {
             <span>{getOriginLabel(action.origin)}</span>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-4 text-right shrink-0">
-          <div>
-            <p className="text-xs text-muted-foreground">Conteggio</p>
-            <p className="text-sm font-medium">
-              {action.countingType === 'ONE_PER_CLICK' ? '1 per click' : 'Tutte'}
-            </p>
+        <div className="flex items-start gap-4">
+          <div className="grid grid-cols-3 gap-4 text-right shrink-0">
+            <div>
+              <p className="text-xs text-muted-foreground">Conteggio</p>
+              <p className="text-sm font-medium">
+                {action.countingType === 'ONE_PER_CLICK' ? '1 per click' : 'Tutte'}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Valore</p>
+              <p className={`text-sm font-medium ${lowValue ? 'text-orange-600' : ''}`}>
+                {action.defaultValue ? formatCurrency(action.defaultValue * 1000000) : '-'}
+                {action.alwaysUseDefaultValue && action.defaultValue ? ' (fisso)' : ''}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Campagne</p>
+              <p className={`text-sm font-medium ${notUsed ? 'text-orange-600' : ''}`}>
+                {action.campaignsUsingCount}
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Valore</p>
-            <p className={`text-sm font-medium ${lowValue ? 'text-orange-600' : ''}`}>
-              {action.defaultValue ? formatCurrency(action.defaultValue * 1000000) : '-'}
-              {action.alwaysUseDefaultValue && action.defaultValue ? ' (fisso)' : ''}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Campagne</p>
-            <p className={`text-sm font-medium ${notUsed ? 'text-orange-600' : ''}`}>
-              {action.campaignsUsingCount}
-            </p>
-          </div>
+          <ModifyButton
+            accountId={accountId}
+            entityType="conversion_action"
+            entityId={action.conversionActionId}
+            entityName={action.name}
+            currentValue={{
+              primaryForGoal: action.primaryForGoal,
+              defaultValue: action.defaultValue,
+            }}
+            onSuccess={onRefresh}
+          />
         </div>
       </div>
     </div>
@@ -410,7 +443,7 @@ export function ConversionActionsPage() {
         </div>
       ) : viewMode === 'table' ? (
         <DataTable
-          columns={columns}
+          columns={getColumns(accountId!, loadData)}
           data={filteredData}
           pageCount={data?.meta.totalPages || 1}
           pageIndex={(filters.page || 1) - 1}
@@ -427,7 +460,7 @@ export function ConversionActionsPage() {
       ) : (
         <div className="space-y-2">
           {filteredData.map((action) => (
-            <ConversionActionCard key={action.id} action={action} />
+            <ConversionActionCard key={action.id} action={action} accountId={accountId!} onRefresh={loadData} />
           ))}
           {filteredData.length === 0 && (
             <div className="text-center py-12 text-muted-foreground">

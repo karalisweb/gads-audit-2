@@ -11,6 +11,7 @@ import {
   ToggleGroupItem,
 } from '@/components/ui/toggle-group';
 import { AIAnalysisPanel } from '@/components/ai';
+import { ModifyButton } from '@/components/modifications';
 import { LayoutGrid, Table2 } from 'lucide-react';
 import { getCampaigns } from '@/api/audit';
 import {
@@ -93,6 +94,20 @@ export function CampaignsPage() {
   });
   const [searchInput, setSearchInput] = useState('');
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
+
+  const loadData = useCallback(async () => {
+    if (!accountId) return;
+
+    setIsLoading(true);
+    try {
+      const result = await getCampaigns(accountId, filters);
+      setData(result);
+    } catch (err) {
+      console.error('Failed to load campaigns:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [accountId, filters]);
 
   const columns: ColumnDef<Campaign>[] = [
     {
@@ -228,21 +243,24 @@ export function CampaignsPage() {
         return conv > 0 ? formatCurrency((value / conv) * 1000000) : '-';
       },
     },
+    {
+      id: 'actions',
+      header: '',
+      cell: ({ row }) => (
+        <ModifyButton
+          accountId={accountId!}
+          entityType="campaign"
+          entityId={row.original.campaignId}
+          entityName={row.original.campaignName}
+          currentValue={{
+            budget: row.original.budgetMicros,
+            status: row.original.status,
+          }}
+          onSuccess={loadData}
+        />
+      ),
+    },
   ];
-
-  const loadData = useCallback(async () => {
-    if (!accountId) return;
-
-    setIsLoading(true);
-    try {
-      const result = await getCampaigns(accountId, filters);
-      setData(result);
-    } catch (err) {
-      console.error('Failed to load campaigns:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [accountId, filters]);
 
   useEffect(() => {
     loadData();

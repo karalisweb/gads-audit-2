@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AIAnalysisPanel } from '@/components/ai';
+import { ModifyButton } from '@/components/modifications';
 import {
   ToggleGroup,
   ToggleGroupItem,
@@ -30,7 +31,8 @@ import {
 import type { Keyword, PaginatedResponse, KeywordFilters } from '@/types/audit';
 import type { AIRecommendation } from '@/types/ai';
 
-const columns: ColumnDef<Keyword>[] = [
+function getColumns(accountId: string, onRefresh: () => void): ColumnDef<Keyword>[] {
+  return [
   {
     accessorKey: 'keywordText',
     header: 'Keyword',
@@ -194,7 +196,25 @@ const columns: ColumnDef<Keyword>[] = [
       return clicks > 0 ? `${((conv / clicks) * 100).toFixed(2)}%` : '-';
     },
   },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }) => (
+      <ModifyButton
+        accountId={accountId}
+        entityType="keyword"
+        entityId={row.original.keywordId}
+        entityName={row.original.keywordText}
+        currentValue={{
+          status: row.original.status,
+          finalUrl: row.original.finalUrl,
+        }}
+        onSuccess={onRefresh}
+      />
+    ),
+  },
 ];
+}
 
 function KeywordCard({ keyword }: { keyword: Keyword }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -422,7 +442,7 @@ export function KeywordsPage() {
         </div>
       ) : viewMode === 'table' ? (
         <DataTable
-          columns={columns}
+          columns={getColumns(accountId!, loadData)}
           data={data?.data || []}
           pageCount={data?.meta.totalPages || 1}
           pageIndex={(filters.page || 1) - 1}

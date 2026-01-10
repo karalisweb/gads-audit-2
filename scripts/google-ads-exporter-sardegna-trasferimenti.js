@@ -1,20 +1,14 @@
 /**
- * Google Ads Data Exporter Script - Officina 3MT
+ * Google Ads Data Exporter Script - Sardegna Trasferimenti
  *
  * Questo script estrae dati dall'account Google Ads e li invia all'app di audit
  * tramite HTTPS POST con autenticazione HMAC-SHA256.
  *
- * CONFIGURAZIONE:
- * 1. Imposta ENDPOINT_URL con l'URL del tuo server
- * 2. Imposta SHARED_SECRET con il secret condiviso (generato dall'app)
- * 3. Imposta DATE_RANGE per il periodo di dati da estrarre
- *
  * INSTALLAZIONE:
  * 1. Vai su Google Ads > Strumenti > Script
  * 2. Crea un nuovo script e incolla questo codice
- * 3. Configura le variabili nella sezione CONFIGURAZIONE
- * 4. Autorizza lo script
- * 5. Esegui manualmente o schedula
+ * 3. Autorizza lo script
+ * 4. Esegui manualmente o schedula
  */
 
 // =============================================================================
@@ -26,7 +20,7 @@ var CONFIG = {
   ENDPOINT_URL: 'https://gads.karalisdemo.it/api/integrations/google-ads/ingest',
 
   // Secret condiviso per l'autenticazione HMAC (ottenuto dall'app)
-  SHARED_SECRET: 'a8ae36e7635ef7962679f1bd73301c289885e9ff220b28a6af3a7f19444ebbf6',
+  SHARED_SECRET: '5288817679ae8480ea0d43fc23bfd36f5720656188a6fb9841ba75a64e74ddde',
 
   // Periodo di dati da estrarre (formato: YYYYMMDD)
   DATE_RANGE: {
@@ -146,12 +140,10 @@ function exportDataset(accountId, runId, datasetName, totalDatasets) {
   Logger.log('  > Extracted ' + data.length + ' rows');
 
   if (data.length === 0) {
-    // Send empty chunk to signal dataset complete
     sendChunk(accountId, runId, datasetName, [], 0, 1, totalDatasets);
     return;
   }
 
-  // Split into chunks and send
   var chunks = chunkArray(data, CONFIG.CHUNK_SIZE);
   Logger.log('  > Sending ' + chunks.length + ' chunks');
 
@@ -159,7 +151,6 @@ function exportDataset(accountId, runId, datasetName, totalDatasets) {
     sendChunk(accountId, runId, datasetName, chunks[i], i, chunks.length, totalDatasets);
     Logger.log('    - Chunk ' + (i + 1) + '/' + chunks.length + ' sent');
 
-    // Small delay between chunks to avoid rate limiting
     if (i < chunks.length - 1) {
       Utilities.sleep(500);
     }
@@ -242,7 +233,6 @@ function extractCampaigns() {
 
 function extractAdGroups() {
   var adGroups = [];
-  // Note: search_budget_lost_impression_share and phone metrics are only available at campaign level
   var query = 'SELECT ' +
     'ad_group.id, ' +
     'ad_group.name, ' +
@@ -298,7 +288,6 @@ function extractAdGroups() {
 
 function extractAds() {
   var ads = [];
-  // Note: phone_calls metric is not available at ad level
   var query = 'SELECT ' +
     'ad_group_ad.ad.id, ' +
     'ad_group_ad.ad.type, ' +
@@ -332,7 +321,6 @@ function extractAds() {
   while (rows.hasNext()) {
     var row = rows.next();
 
-    // Parse headlines and descriptions - handle various formats from Google Ads API
     var headlines = parseAdTextAssets(row['ad_group_ad.ad.responsive_search_ad.headlines']);
     var descriptions = parseAdTextAssets(row['ad_group_ad.ad.responsive_search_ad.descriptions']);
 
@@ -340,7 +328,6 @@ function extractAds() {
     try {
       var finalUrlsRaw = row['ad_group_ad.ad.final_urls'];
       if (finalUrlsRaw) {
-        // Google Ads returns final_urls as a string like '["url1", "url2"]' or as an array
         if (typeof finalUrlsRaw === 'string') {
           finalUrls = JSON.parse(finalUrlsRaw);
         } else if (Array.isArray(finalUrlsRaw)) {
@@ -348,7 +335,7 @@ function extractAds() {
         }
       }
     } catch (e) {
-      Logger.log('Error parsing final_urls for ad ' + row['ad_group_ad.ad.id'] + ': ' + e + ', raw value: ' + finalUrlsRaw);
+      Logger.log('Error parsing final_urls for ad ' + row['ad_group_ad.ad.id'] + ': ' + e);
     }
 
     ads.push({
@@ -381,14 +368,6 @@ function extractAds() {
   return ads;
 }
 
-/**
- * Parse ad text assets (headlines/descriptions) from Google Ads API response.
- * The API can return data in different formats:
- * 1. JSON array of objects with 'text' and optional 'pinnedField' properties
- * 2. JSON string that needs parsing
- * 3. Already parsed array
- * 4. Null/undefined
- */
 function parseAdTextAssets(rawValue) {
   if (!rawValue) {
     return [];
@@ -397,26 +376,20 @@ function parseAdTextAssets(rawValue) {
   try {
     var parsed;
 
-    // If it's a string, try to parse it as JSON
     if (typeof rawValue === 'string') {
-      // Handle empty string
       if (rawValue.trim() === '' || rawValue === '[]') {
         return [];
       }
       parsed = JSON.parse(rawValue);
     } else {
-      // Already an object/array
       parsed = rawValue;
     }
 
-    // If parsed is an array, process each element
     if (Array.isArray(parsed)) {
       return parsed.map(function(item) {
-        // If item is already a string, wrap it in an object
         if (typeof item === 'string') {
           return { text: item, pinnedField: null };
         }
-        // If item is an object with 'text' property
         if (item && typeof item === 'object') {
           return {
             text: item.text || item.assetText || '',
@@ -427,21 +400,19 @@ function parseAdTextAssets(rawValue) {
       });
     }
 
-    // If parsed is a single object
     if (parsed && typeof parsed === 'object' && parsed.text) {
       return [{ text: parsed.text, pinnedField: parsed.pinnedField || null }];
     }
 
     return [];
   } catch (e) {
-    Logger.log('  > Warning: Could not parse ad text assets: ' + e.message + ' | Raw: ' + String(rawValue).substring(0, 100));
+    Logger.log('  > Warning: Could not parse ad text assets: ' + e.message);
     return [];
   }
 }
 
 function extractKeywords() {
   var keywords = [];
-  // Note: search_budget_lost_impression_share is only available at campaign level, not keyword level
   var query = 'SELECT ' +
     'ad_group_criterion.criterion_id, ' +
     'ad_group_criterion.keyword.text, ' +
@@ -480,7 +451,6 @@ function extractKeywords() {
     try {
       var finalUrlsRaw = row['ad_group_criterion.final_urls'];
       if (finalUrlsRaw) {
-        // Google Ads returns final_urls as a string like '["url1"]' or as an array
         var urls;
         if (typeof finalUrlsRaw === 'string') {
           urls = JSON.parse(finalUrlsRaw);
@@ -492,7 +462,7 @@ function extractKeywords() {
         }
       }
     } catch (e) {
-      Logger.log('Error parsing final_urls for keyword ' + row['ad_group_criterion.criterion_id'] + ': ' + e + ', raw value: ' + finalUrlsRaw);
+      Logger.log('Error parsing final_urls for keyword ' + row['ad_group_criterion.criterion_id']);
     }
 
     keywords.push({
@@ -530,7 +500,6 @@ function extractKeywords() {
 
 function extractSearchTerms() {
   var searchTerms = [];
-  // Note: Cannot use ad_group_criterion fields with search_term_view - they are incompatible resources
   var query = 'SELECT ' +
     'search_term_view.search_term, ' +
     'search_term_view.status, ' +

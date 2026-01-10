@@ -14,10 +14,9 @@ import {
   KeyRound,
   MinusCircle,
   Image,
-  ClipboardList,
-  FileDown,
   Target,
   Settings,
+  Wrench,
 } from 'lucide-react';
 
 const navItems = [
@@ -32,8 +31,7 @@ const navItems = [
   { path: 'search-terms', label: 'Search Terms', icon: Search },
   { path: 'negative-keywords', label: 'Negative KW', icon: MinusCircle },
   { path: 'assets', label: 'Assets', icon: Image },
-  { path: 'decisions', label: 'Decisioni', icon: ClipboardList },
-  { path: 'export', label: 'Export', icon: FileDown },
+  { path: 'modifications', label: 'Modifiche', icon: Wrench },
 ];
 
 export function AuditLayout() {

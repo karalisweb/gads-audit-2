@@ -13,6 +13,7 @@ import { AuditModule } from './modules/audit/audit.module';
 import { DecisionsModule } from './modules/decisions/decisions.module';
 import { ExportModule } from './modules/export/export.module';
 import { AIModule } from './modules/ai/ai.module';
+import { ModificationsModule } from './modules/modifications/modifications.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { TwoFactorGuard } from './modules/auth/guards/two-factor.guard';
 
@@ -46,6 +47,7 @@ import { TwoFactorGuard } from './modules/auth/guards/two-factor.guard';
     DecisionsModule,
     ExportModule,
     AIModule,
+    ModificationsModule,
   ],
   controllers: [AppController],
   providers: [

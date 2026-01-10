@@ -17,6 +17,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { ModifyButton } from '@/components/modifications';
 import { getAds } from '@/api/audit';
 import {
   formatCurrency,
@@ -29,7 +30,8 @@ import type { Ad, PaginatedResponse, BaseFilters } from '@/types/audit';
 import type { AIRecommendation } from '@/types/ai';
 
 // Table columns for extended view
-const columns: ColumnDef<Ad>[] = [
+function getColumns(accountId: string, onRefresh: () => void): ColumnDef<Ad>[] {
+  return [
   {
     accessorKey: 'adGroupName',
     header: 'Gruppo annunci',
@@ -180,7 +182,35 @@ const columns: ColumnDef<Ad>[] = [
       return conv > 0 ? formatCurrency((value / conv) * 1000000) : '-';
     },
   },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }) => {
+      const ad = row.original;
+      // Get first headline text for entity name
+      const firstHeadline = ad.headlines?.[0];
+      const headlineText = firstHeadline
+        ? (typeof firstHeadline === 'object' ? firstHeadline.text : firstHeadline)
+        : ad.adGroupName;
+      return (
+        <ModifyButton
+          accountId={accountId}
+          entityType="ad"
+          entityId={ad.adId}
+          entityName={headlineText}
+          currentValue={{
+            status: ad.status,
+            headlines: ad.headlines,
+            descriptions: ad.descriptions,
+            finalUrls: ad.finalUrls,
+          }}
+          onSuccess={onRefresh}
+        />
+      );
+    },
+  },
 ];
+}
 
 function AdCard({ ad }: { ad: Ad }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -488,7 +518,7 @@ export function AdsPage() {
         <>
           {viewMode === 'table' ? (
             <DataTable
-              columns={columns}
+              columns={getColumns(accountId!, loadData)}
               data={data?.data || []}
               pageIndex={pageIndex}
               pageSize={pageSize}

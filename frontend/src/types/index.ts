@@ -199,3 +199,6 @@ export interface PaginatedResponse<T> {
 
 // AI Types
 export * from './ai';
+
+// Modification Types
+export * from './modification';

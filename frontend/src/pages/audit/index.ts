@@ -7,7 +7,5 @@ export { SearchTermsPage } from './SearchTermsPage';
 export { NegativeKeywordsPage } from './NegativeKeywordsPage';
 export { AssetsPage } from './AssetsPage';
 export { IssuesPage } from './IssuesPage';
-export { DecisionsPage } from './DecisionsPage';
-export { ExportPage } from './ExportPage';
 export { ConversionsPage } from './ConversionsPage';
 export { ConversionActionsPage } from './ConversionActionsPage';

@@ -11,6 +11,7 @@ import {
   ToggleGroupItem,
 } from '@/components/ui/toggle-group';
 import { AIAnalysisPanel } from '@/components/ai';
+import { ModifyButton } from '@/components/modifications';
 import { LayoutGrid, Table2 } from 'lucide-react';
 import {
   Collapsible,
@@ -30,7 +31,8 @@ import type { AdGroup, Ad, PaginatedResponse, AdGroupFilters } from '@/types/aud
 import type { AIRecommendation } from '@/types/ai';
 
 // Table columns for extended view
-const columns: ColumnDef<AdGroup>[] = [
+function getColumns(accountId: string, onRefresh: () => void): ColumnDef<AdGroup>[] {
+  return [
   {
     accessorKey: 'adGroupName',
     header: 'Gruppo annunci',
@@ -146,7 +148,24 @@ const columns: ColumnDef<AdGroup>[] = [
       return conv > 0 ? formatCurrency((value / conv) * 1000000) : '-';
     },
   },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }) => (
+      <ModifyButton
+        accountId={accountId}
+        entityType="ad_group"
+        entityId={row.original.adGroupId}
+        entityName={row.original.adGroupName}
+        currentValue={{
+          status: row.original.status,
+        }}
+        onSuccess={onRefresh}
+      />
+    ),
+  },
 ];
+}
 
 interface AdGroupWithAds extends AdGroup {
   ads?: Ad[];
@@ -512,7 +531,7 @@ export function AdGroupsPage() {
       {/* Table View */}
       {viewMode === 'table' && (
         <DataTable
-          columns={columns}
+          columns={getColumns(accountId!, loadData)}
           data={data?.data || []}
           isLoading={isLoading}
           pageCount={pageCount}

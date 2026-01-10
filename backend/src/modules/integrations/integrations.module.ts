@@ -1,8 +1,9 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { IntegrationsController } from './integrations.controller';
 import { IntegrationsService } from './integrations.service';
 import { HmacAuthGuard } from './guards/hmac-auth.guard';
+import { ModificationsModule } from '../modifications/modifications.module';
 import {
   GoogleAdsAccount,
   ImportRun,
@@ -36,6 +37,7 @@ import {
       GeoPerformance,
       DevicePerformance,
     ]),
+    forwardRef(() => ModificationsModule),
   ],
   controllers: [IntegrationsController],
   providers: [IntegrationsService, HmacAuthGuard],

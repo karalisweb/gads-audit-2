@@ -28,7 +28,7 @@ import {
 import { AIAnalysisPanel } from '@/components/ai';
 import { Ban, Plus, X, LayoutGrid, Table2 } from 'lucide-react';
 import { getSearchTerms, getCampaigns, getAdGroups } from '@/api/audit';
-import { createDecision } from '@/api/decisions';
+import { createModification } from '@/api/modifications';
 import { formatCurrency, formatNumber, formatCtr } from '@/lib/format';
 import type { SearchTerm, Campaign, AdGroup, PaginatedResponse, SearchTermFilters } from '@/types/audit';
 import type { AIRecommendation } from '@/types/ai';
@@ -373,36 +373,32 @@ export function SearchTermsPage() {
 
     setIsSubmitting(true);
     try {
-      const entityType = negativeLevel === 'campaign'
-        ? 'negative_keyword_campaign'
-        : 'negative_keyword_adgroup';
-
-      await createDecision({
+      await createModification({
         accountId: accountId,
-        moduleId: 22, // Search terms analysis module
-        entityType,
+        entityType: 'negative_keyword',
         entityId: negativeLevel === 'campaign'
           ? selectedTerm.campaignId
           : selectedTerm.adGroupId,
         entityName: selectedTerm.searchTerm,
-        actionType: 'ADD_AS_NEGATIVE',
+        modificationType: 'negative_keyword.add',
+        beforeValue: null,
         afterValue: {
           keyword: selectedTerm.searchTerm,
           matchType: negativeMatchType,
+          level: negativeLevel,
           campaignId: selectedTerm.campaignId,
           campaignName: selectedTerm.campaignName,
           adGroupId: negativeLevel === 'adgroup' ? selectedTerm.adGroupId : undefined,
           adGroupName: negativeLevel === 'adgroup' ? selectedTerm.adGroupName : undefined,
         },
-        rationale: `Search term "${selectedTerm.searchTerm}" ha speso ${formatCurrency(selectedTerm.costMicros)} senza conversioni`,
       });
 
       setNegativeDialogOpen(false);
       setSelectedTerm(null);
-      alert('Keyword negativa aggiunta alle decisioni! Vai alla pagina Decisioni per approvarla ed esportarla.');
+      alert('Keyword negativa creata! Vai alla pagina Modifiche per approvarla.');
     } catch (err) {
-      console.error('Failed to create negative keyword decision:', err);
-      alert('Errore durante la creazione della decisione');
+      console.error('Failed to create negative keyword modification:', err);
+      alert('Errore durante la creazione della modifica');
     } finally {
       setIsSubmitting(false);
     }
@@ -678,7 +674,7 @@ export function SearchTermsPage() {
             </Button>
             <Button onClick={handleCreateNegative} disabled={isSubmitting}>
               <Plus className="h-4 w-4 mr-2" />
-              {isSubmitting ? 'Creazione...' : 'Crea Decisione'}
+              {isSubmitting ? 'Creazione...' : 'Crea Modifica'}
             </Button>
           </DialogFooter>
         </DialogContent>
