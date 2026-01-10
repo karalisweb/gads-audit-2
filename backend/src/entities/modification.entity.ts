@@ -23,6 +23,7 @@ export enum ModificationStatus {
 export enum ModificationEntityType {
   CAMPAIGN = 'campaign',
   AD_GROUP = 'ad_group',
+  AD = 'ad',
   KEYWORD = 'keyword',
   NEGATIVE_KEYWORD = 'negative_keyword',
   CONVERSION_ACTION = 'conversion_action',
@@ -39,9 +40,16 @@ export enum ModificationType {
   AD_GROUP_STATUS = 'ad_group.status',
   AD_GROUP_CPC_BID = 'ad_group.cpc_bid',
 
+  // Ad modifications
+  AD_STATUS = 'ad.status',
+  AD_HEADLINES = 'ad.headlines',
+  AD_DESCRIPTIONS = 'ad.descriptions',
+  AD_FINAL_URL = 'ad.final_url',
+
   // Keyword modifications
   KEYWORD_STATUS = 'keyword.status',
   KEYWORD_CPC_BID = 'keyword.cpc_bid',
+  KEYWORD_FINAL_URL = 'keyword.final_url',
 
   // Negative keyword modifications
   NEGATIVE_KEYWORD_ADD = 'negative_keyword.add',

@@ -21,7 +21,7 @@ export class CreateModificationDto {
   entityType: ModificationEntityType;
 
   @IsString()
-  @MaxLength(50)
+  @MaxLength(100)
   entityId: string;
 
   @IsString()

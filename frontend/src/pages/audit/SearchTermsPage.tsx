@@ -381,7 +381,7 @@ export function SearchTermsPage() {
           : selectedTerm.adGroupId,
         entityName: selectedTerm.searchTerm,
         modificationType: 'negative_keyword.add',
-        beforeValue: null,
+        beforeValue: undefined,
         afterValue: {
           keyword: selectedTerm.searchTerm,
           matchType: negativeMatchType,

@@ -21,7 +21,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Check, X, AlertCircle, Clock, Loader2, Plus } from 'lucide-react';
+import { Check, X, AlertCircle, Clock, Loader2, Plus, Eye } from 'lucide-react';
 import { CreateModificationModal } from './CreateModificationModal';
 import {
   getModifications,
@@ -64,12 +64,53 @@ function formatValue(value: unknown): string {
     if ('cpcBid' in obj) {
       return `€${(Number(obj.cpcBid) / 1000000).toFixed(2)}`;
     }
-    if ('status' in obj) {
-      return String(obj.status);
+    if ('targetCpa' in obj) {
+      return `CPA €${(Number(obj.targetCpa) / 1000000).toFixed(2)}`;
     }
-    return JSON.stringify(value);
+    if ('targetRoas' in obj) {
+      return `ROAS ${Number(obj.targetRoas).toFixed(2)}`;
+    }
+    if ('status' in obj) {
+      return obj.status === 'ENABLED' ? 'Attivo' : obj.status === 'PAUSED' ? 'In pausa' : String(obj.status);
+    }
+    if ('finalUrl' in obj) {
+      const url = String(obj.finalUrl);
+      return url.length > 30 ? url.substring(0, 30) + '...' : url;
+    }
+    if ('finalUrls' in obj && Array.isArray(obj.finalUrls)) {
+      return `${obj.finalUrls.length} URL`;
+    }
+    if ('headlines' in obj && Array.isArray(obj.headlines)) {
+      return `${obj.headlines.length} titoli`;
+    }
+    if ('descriptions' in obj && Array.isArray(obj.descriptions)) {
+      return `${obj.descriptions.length} descrizioni`;
+    }
+    if ('keyword' in obj) {
+      return String(obj.keyword);
+    }
+    if ('isPrimary' in obj) {
+      return obj.isPrimary ? 'Primaria' : 'Secondaria';
+    }
+    if ('defaultValue' in obj) {
+      return `€${Number(obj.defaultValue).toFixed(2)}`;
+    }
+    // Fallback: show key count
+    const keys = Object.keys(obj);
+    if (keys.length <= 2) {
+      return keys.map(k => `${k}: ${String(obj[k])}`).join(', ');
+    }
+    return `${keys.length} valori`;
   }
   return String(value);
+}
+
+// Check if value has complex data that needs a detail view
+function hasComplexData(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  if (typeof value !== 'object') return false;
+  const obj = value as Record<string, unknown>;
+  return 'headlines' in obj || 'descriptions' in obj || 'finalUrls' in obj;
 }
 
 export function ModificationsPage() {
@@ -91,6 +132,8 @@ export function ModificationsPage() {
   const [selectedModId, setSelectedModId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [detailModification, setDetailModification] = useState<Modification | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!accountId) return;
@@ -210,20 +253,37 @@ export function ModificationsPage() {
     {
       id: 'change',
       header: 'Modifica',
-      cell: ({ row }) => (
-        <div className="text-sm">
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">Da:</span>
-            <span>{formatValue(row.original.beforeValue)}</span>
+      cell: ({ row }) => {
+        const showDetailBtn = hasComplexData(row.original.beforeValue) || hasComplexData(row.original.afterValue);
+        return (
+          <div className="text-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">Da:</span>
+              <span>{formatValue(row.original.beforeValue)}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">A:</span>
+              <span className="font-medium text-primary">
+                {formatValue(row.original.afterValue)}
+              </span>
+              {showDetailBtn && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  onClick={() => {
+                    setDetailModification(row.original);
+                    setDetailModalOpen(true);
+                  }}
+                >
+                  <Eye className="h-3 w-3 mr-1" />
+                  Dettagli
+                </Button>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">A:</span>
-            <span className="font-medium text-primary">
-              {formatValue(row.original.afterValue)}
-            </span>
-          </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       accessorKey: 'createdBy',
@@ -432,9 +492,10 @@ export function ModificationsPage() {
         <DataTable
           columns={columns}
           data={data.data}
-          pageCount={data.totalPages || Math.ceil(data.total / filters.limit!)}
+          pageCount={data.meta?.totalPages || Math.ceil((data.meta?.total || 0) / filters.limit!)}
           pageSize={filters.limit!}
           pageIndex={(filters.page || 1) - 1}
+          total={data.meta?.total || 0}
           onPageChange={(pageIdx) => setFilters((f) => ({ ...f, page: pageIdx + 1 }))}
         />
       )}
@@ -487,6 +548,109 @@ export function ModificationsPage() {
           onSuccess={fetchData}
         />
       )}
+
+      {/* Detail Modal for complex modifications */}
+      <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Dettagli Modifica</DialogTitle>
+            <DialogDescription>
+              {detailModification?.entityName || detailModification?.entityId} - {detailModification && getModificationTypeLabel(detailModification.modificationType)}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto space-y-4 py-4">
+            {detailModification && (
+              <>
+                {/* Before Value */}
+                {detailModification.beforeValue && (
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm text-muted-foreground">Valore Precedente</h4>
+                    <ModificationValueDisplay value={detailModification.beforeValue} />
+                  </div>
+                )}
+                {/* After Value */}
+                <div className="space-y-2">
+                  <h4 className="font-medium text-sm text-primary">Nuovo Valore</h4>
+                  <ModificationValueDisplay value={detailModification.afterValue} />
+                </div>
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetailModalOpen(false)}>
+              Chiudi
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// Component to display modification values nicely
+function ModificationValueDisplay({ value }: { value: Record<string, unknown> }) {
+  // Headlines
+  if ('headlines' in value && Array.isArray(value.headlines)) {
+    const headlines = value.headlines as { text: string; pinnedField?: string | null }[];
+    return (
+      <div className="rounded-md bg-muted p-3 space-y-1">
+        {headlines.map((h, i) => (
+          <div key={i} className="flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground w-5">{i + 1}.</span>
+            <span className="flex-1">{h.text}</span>
+            {h.pinnedField && (
+              <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
+                Pin {h.pinnedField.replace('HEADLINE_', '')}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // Descriptions
+  if ('descriptions' in value && Array.isArray(value.descriptions)) {
+    const descriptions = value.descriptions as { text: string; pinnedField?: string | null }[];
+    return (
+      <div className="rounded-md bg-muted p-3 space-y-2">
+        {descriptions.map((d, i) => (
+          <div key={i} className="flex items-start gap-2 text-sm">
+            <span className="text-muted-foreground w-5">{i + 1}.</span>
+            <span className="flex-1">{d.text}</span>
+            {d.pinnedField && (
+              <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded whitespace-nowrap">
+                Pin {d.pinnedField.replace('DESCRIPTION_', '')}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // Final URLs
+  if ('finalUrls' in value && Array.isArray(value.finalUrls)) {
+    return (
+      <div className="rounded-md bg-muted p-3 space-y-1">
+        {(value.finalUrls as string[]).map((url, i) => (
+          <div key={i} className="text-sm break-all">
+            <span className="text-muted-foreground">{i + 1}.</span> {url}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // Generic display
+  return (
+    <div className="rounded-md bg-muted p-3 space-y-1">
+      {Object.entries(value).map(([key, val]) => (
+        <div key={key} className="text-sm">
+          <span className="text-muted-foreground">{key}:</span>{' '}
+          <span className="font-medium">{typeof val === 'object' ? JSON.stringify(val) : String(val)}</span>
+        </div>
+      ))}
     </div>
   );
 }
