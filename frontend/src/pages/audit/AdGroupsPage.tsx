@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/toggle-group';
 import { AIAnalysisPanel } from '@/components/ai';
 import { ModifyButton } from '@/components/modifications';
-import { LayoutGrid, Table2 } from 'lucide-react';
+import { LayoutGrid, Table2, X, ChevronRight } from 'lucide-react';
 import {
   Collapsible,
   CollapsibleContent,
@@ -31,14 +31,19 @@ import type { AdGroup, Ad, PaginatedResponse, AdGroupFilters } from '@/types/aud
 import type { AIRecommendation } from '@/types/ai';
 
 // Table columns for extended view
-function getColumns(accountId: string, onRefresh: () => void): ColumnDef<AdGroup>[] {
+function getColumns(accountId: string, onRefresh: () => void, navigate: (path: string) => void): ColumnDef<AdGroup>[] {
   return [
   {
     accessorKey: 'adGroupName',
     header: 'Gruppo annunci',
     cell: ({ row }) => (
       <div className="max-w-[200px]">
-        <p className="font-medium truncate">{row.original.adGroupName}</p>
+        <button
+          onClick={() => navigate(`/audit/${accountId}/ads?adGroupId=${row.original.adGroupId}`)}
+          className="text-left hover:text-primary transition-colors"
+        >
+          <p className="font-medium truncate hover:underline">{row.original.adGroupName}</p>
+        </button>
         <p className="text-xs text-muted-foreground truncate">{row.original.campaignName}</p>
       </div>
     ),
@@ -392,10 +397,18 @@ function AdGroupCard({
 
 export function AdGroupsPage() {
   const { accountId } = useParams<{ accountId: string }>();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [data, setData] = useState<PaginatedResponse<AdGroupWithAds> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const campaignIdFilter = searchParams.get('campaignId');
+
+  // Get campaign name from first result
+  const campaignName = data?.data?.[0]?.campaignName || null;
+
+  const clearFilter = () => {
+    setSearchParams({});
+  };
   const [filters, setFilters] = useState<AdGroupFilters>({
     page: 1,
     limit: 50,
@@ -497,9 +510,27 @@ export function AdGroupsPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Ad Groups</h2>
-          {campaignIdFilter && (
-            <p className="text-sm text-muted-foreground">Filtrato per campagna</p>
+          <h2 className="text-2xl font-bold">Gruppi di Annunci</h2>
+          {campaignIdFilter && campaignName && (
+            <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+              <button
+                onClick={() => navigate(`/audit/${accountId}/campaigns`)}
+                className="hover:text-primary hover:underline transition-colors"
+              >
+                Campagne
+              </button>
+              <ChevronRight className="h-3 w-3" />
+              <span className="font-medium text-foreground">{campaignName}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 w-5 p-0 ml-2 hover:bg-destructive/10 hover:text-destructive"
+                onClick={clearFilter}
+                title="Rimuovi filtro"
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
           )}
         </div>
         <div className="flex items-center gap-3">
@@ -531,7 +562,7 @@ export function AdGroupsPage() {
       {/* Table View */}
       {viewMode === 'table' && (
         <DataTable
-          columns={getColumns(accountId!, loadData)}
+          columns={getColumns(accountId!, loadData, navigate)}
           data={data?.data || []}
           isLoading={isLoading}
           pageCount={pageCount}

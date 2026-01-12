@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/data-table/DataTable';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +11,7 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from '@/components/ui/toggle-group';
-import { LayoutGrid, Table2 } from 'lucide-react';
+import { LayoutGrid, Table2, X, ChevronRight } from 'lucide-react';
 import {
   Collapsible,
   CollapsibleContent,
@@ -412,7 +412,8 @@ function AdCard({ ad }: { ad: Ad }) {
 
 export function AdsPage() {
   const { accountId } = useParams<{ accountId: string }>();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [data, setData] = useState<PaginatedResponse<Ad> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const campaignIdFilter = searchParams.get('campaignId');
@@ -425,6 +426,16 @@ export function AdsPage() {
   });
   const [searchInput, setSearchInput] = useState('');
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
+
+  // Get filter names from data
+  const filterInfo = data?.data?.[0] ? {
+    campaignName: data.data[0].campaignName,
+    adGroupName: data.data[0].adGroupName,
+  } : null;
+
+  const clearFilter = () => {
+    setSearchParams({});
+  };
 
   const loadData = useCallback(async () => {
     if (!accountId) return;
@@ -470,10 +481,39 @@ export function AdsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold">Annunci</h2>
-          {(campaignIdFilter || adGroupIdFilter) && (
-            <p className="text-xs sm:text-sm text-muted-foreground">
-              Filtrato per {campaignIdFilter ? 'campagna' : 'ad group'}
-            </p>
+          {(campaignIdFilter || adGroupIdFilter) && filterInfo && (
+            <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground mt-1">
+              <button
+                onClick={() => navigate(`/audit/${accountId}/campaigns`)}
+                className="hover:text-primary hover:underline transition-colors"
+              >
+                Campagne
+              </button>
+              <ChevronRight className="h-3 w-3" />
+              {adGroupIdFilter ? (
+                <>
+                  <button
+                    onClick={() => navigate(`/audit/${accountId}/ad-groups?campaignId=${campaignIdFilter || ''}`)}
+                    className="hover:text-primary hover:underline transition-colors"
+                  >
+                    {filterInfo.campaignName || 'Ad Groups'}
+                  </button>
+                  <ChevronRight className="h-3 w-3" />
+                  <span className="font-medium text-foreground">{filterInfo.adGroupName}</span>
+                </>
+              ) : (
+                <span className="font-medium text-foreground">{filterInfo.campaignName}</span>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 w-5 p-0 ml-2 hover:bg-destructive/10 hover:text-destructive"
+                onClick={clearFilter}
+                title="Rimuovi filtro"
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
           )}
         </div>
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
