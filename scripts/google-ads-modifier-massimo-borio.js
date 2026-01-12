@@ -1,22 +1,23 @@
 /**
  * GADS Audit 2.0 - Google Ads Modifier Script
  *
+ * ACCOUNT: MASSIMO BORIO (816-496-5072)
+ *
  * Questo script legge le modifiche approvate dal backend GADS Audit
  * e le applica all'account Google Ads corrente.
  *
  * ISTRUZIONI:
  * 1. Copia questo script in Google Ads > Strumenti e impostazioni > Script
- * 2. Sostituisci API_URL e SHARED_SECRET con i valori corretti
- * 3. Esegui lo script manualmente o schedulalo
+ * 2. Esegui lo script manualmente o schedulalo
  */
 
 // ============================================================================
-// CONFIGURAZIONE - MODIFICA QUESTI VALORI
+// CONFIGURAZIONE - MASSIMO BORIO
 // ============================================================================
 var CONFIG = {
   API_URL: 'https://gads.karalisdemo.it/api/integrations/google-ads',
-  SHARED_SECRET: '04f26ea4f532443265d158da929effc6e5646b0f0b3abbafcd26974fe626f0a4', // Copialo dalle impostazioni account
-  DRY_RUN: false // Imposta true per testare senza applicare modifiche
+  SHARED_SECRET: '04f26ea4f532443265d158da929effc6e5646b0f0b3abbafcd26974fe626f0a4',
+  DRY_RUN: false
 };
 
 // ============================================================================
@@ -38,7 +39,7 @@ function generateSignature(timestamp, body, secret) {
  * Effettua richiesta HTTP autenticata al backend
  */
 function apiRequest(method, endpoint, body) {
-  var customerId = AdsApp.currentAccount().getCustomerId().replace(/-/g, ''); // Senza trattini
+  var customerId = AdsApp.currentAccount().getCustomerId().replace(/-/g, '');
   var timestamp = new Date().toISOString();
   var bodyStr = body ? JSON.stringify(body) : '{}';
 
@@ -216,7 +217,6 @@ function applyAdGroupCpcBid(entityId, afterValue) {
  * Applica una modifica allo stato di una keyword
  */
 function applyKeywordStatus(entityId, afterValue) {
-  // entityId format: "adGroupId~criterionId"
   var parts = entityId.split('~');
   if (parts.length !== 2) {
     throw new Error('Formato entityId keyword non valido: ' + entityId);
@@ -287,7 +287,6 @@ function applyKeywordCpcBid(entityId, afterValue) {
  * Aggiunge una keyword negativa a livello di campagna
  */
 function applyNegativeKeywordAdd(entityId, afterValue) {
-  // entityId is the campaign ID
   var campaignIterator = AdsApp.campaigns()
     .withCondition('campaign.id = ' + entityId)
     .get();
@@ -303,7 +302,6 @@ function applyNegativeKeywordAdd(entityId, afterValue) {
     return { dryRun: true };
   }
 
-  // Determine match type
   var matchType = afterValue.matchType || 'EXACT';
   var keywordText = afterValue.keyword;
 
@@ -326,7 +324,6 @@ function applyNegativeKeywordAdd(entityId, afterValue) {
  * Applica una modifica allo stato di un annuncio
  */
 function applyAdStatus(entityId, afterValue) {
-  // entityId format: "adGroupId~adId"
   var parts = entityId.split('~');
   if (parts.length !== 2) {
     throw new Error('Formato entityId annuncio non valido: ' + entityId);
@@ -362,8 +359,6 @@ function applyAdStatus(entityId, afterValue) {
 
 /**
  * Modifica i titoli di un annuncio RSA
- * NOTA: Google Ads API non permette di modificare direttamente i titoli di un RSA esistente.
- * Questo richiede la creazione di un nuovo annuncio e la pausa del vecchio.
  */
 function applyAdHeadlines(entityId, afterValue) {
   Logger.log('ATTENZIONE: La modifica dei titoli RSA richiede la creazione di un nuovo annuncio.');
@@ -436,14 +431,22 @@ function applyModification(modification) {
 function main() {
   Logger.log('=================================================');
   Logger.log('GADS Audit 2.0 - Modifier Script');
-  Logger.log('Account: ' + AdsApp.currentAccount().getName());
+  Logger.log('ACCOUNT CONFIGURATO: MASSIMO BORIO');
+  Logger.log('Account corrente: ' + AdsApp.currentAccount().getName());
   Logger.log('Customer ID: ' + AdsApp.currentAccount().getCustomerId());
   Logger.log('Data: ' + new Date().toISOString());
   Logger.log('Dry Run: ' + CONFIG.DRY_RUN);
   Logger.log('=================================================');
 
+  // Verifica che l'account sia quello corretto
+  var currentCustomerId = AdsApp.currentAccount().getCustomerId().replace(/-/g, '');
+  if (currentCustomerId !== '8164965072') {
+    Logger.log('ATTENZIONE: Questo script è configurato per MASSIMO BORIO (8164965072)');
+    Logger.log('Account corrente: ' + currentCustomerId);
+    Logger.log('Continuando comunque...');
+  }
+
   try {
-    // 1. Recupera le modifiche approvate
     Logger.log('\n1. Recupero modifiche approvate...');
     var response = getPendingModifications();
     var modifications = response.modifications || [];
@@ -455,7 +458,6 @@ function main() {
       return;
     }
 
-    // 2. Applica ogni modifica
     var results = {
       success: 0,
       failed: 0,
@@ -470,16 +472,13 @@ function main() {
       Logger.log('Entità: ' + mod.entityName + ' (' + mod.entityId + ')');
 
       try {
-        // Segna come in elaborazione
         if (!CONFIG.DRY_RUN) {
           markAsProcessing(mod.id);
         }
 
-        // Applica la modifica
         var result = applyModification(mod);
         Logger.log('Risultato: ' + JSON.stringify(result));
 
-        // Invia risultato positivo
         if (!CONFIG.DRY_RUN) {
           sendResult(mod.id, true, 'Modifica applicata con successo', result);
         }
@@ -489,7 +488,6 @@ function main() {
       } catch (error) {
         Logger.log('ERRORE: ' + error.message);
 
-        // Invia risultato negativo
         if (!CONFIG.DRY_RUN) {
           try {
             sendResult(mod.id, false, error.message, { stack: error.stack });
@@ -502,9 +500,8 @@ function main() {
       }
     }
 
-    // 3. Riepilogo
     Logger.log('\n=================================================');
-    Logger.log('RIEPILOGO');
+    Logger.log('RIEPILOGO - MASSIMO BORIO');
     Logger.log('Successo: ' + results.success);
     Logger.log('Fallite: ' + results.failed);
     Logger.log('Saltate: ' + results.skipped);

@@ -14,7 +14,7 @@
 // CONFIGURAZIONE - MODIFICA QUESTI VALORI
 // ============================================================================
 var CONFIG = {
-  API_URL: 'https://gads.karalisdemo.it/api/integrations/google-ads',
+  API_URL: 'https://gadsaudit.karalisdemo.com/api/integrations/google-ads',
   SHARED_SECRET: '04f26ea4f532443265d158da929effc6e5646b0f0b3abbafcd26974fe626f0a4', // Copialo dalle impostazioni account
   DRY_RUN: false // Imposta true per testare senza applicare modifiche
 };
@@ -38,7 +38,7 @@ function generateSignature(timestamp, body, secret) {
  * Effettua richiesta HTTP autenticata al backend
  */
 function apiRequest(method, endpoint, body) {
-  var customerId = AdsApp.currentAccount().getCustomerId().replace(/-/g, ''); // Senza trattini
+  var customerId = AdsApp.currentAccount().getCustomerId().replace(/-/g, '');
   var timestamp = new Date().toISOString();
   var bodyStr = body ? JSON.stringify(body) : '{}';
 

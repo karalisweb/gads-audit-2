@@ -40,9 +40,12 @@ export class HmacAuthGuard implements CanActivate {
       throw new UnauthorizedException('Request timestamp is invalid or expired');
     }
 
+    // Normalize account ID (remove dashes if present)
+    const normalizedAccountId = accountId.replace(/-/g, '');
+
     // Find account
     const account = await this.accountRepository.findOne({
-      where: { customerId: accountId, isActive: true },
+      where: { customerId: normalizedAccountId, isActive: true },
     });
 
     if (!account) {
@@ -50,7 +53,11 @@ export class HmacAuthGuard implements CanActivate {
     }
 
     // Get raw body for signature verification
-    const rawBody = request.rawBody || JSON.stringify(request.body);
+    // For GET requests, body is empty, so use '{}'
+    let rawBody = '{}';
+    if (request.method !== 'GET') {
+      rawBody = request.rawBody || JSON.stringify(request.body || {});
+    }
 
     // Verify HMAC signature
     const expectedSignature = this.computeSignature(
