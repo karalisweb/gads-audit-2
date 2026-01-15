@@ -7,6 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -21,13 +26,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from '@/components/ui/toggle-group';
 import { AIAnalysisPanel } from '@/components/ai';
-import { Ban, Plus, X, LayoutGrid, Table2 } from 'lucide-react';
-import { useDefaultViewMode } from '@/hooks/useIsMobile';
+import { Ban, Plus, X, ChevronDown, ChevronRight, Search } from 'lucide-react';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { getSearchTerms, getCampaigns, getAdGroups } from '@/api/audit';
 import { createModification } from '@/api/modifications';
 import { formatCurrency, formatNumber, formatCtr } from '@/lib/format';
@@ -158,18 +159,27 @@ const createColumns = (
   },
 ];
 
-function SearchTermCard({
+// Mobile expandable card component
+function SearchTermCardMobile({
   term,
+  isOpen,
+  onToggle,
   onAddNegative,
 }: {
   term: SearchTerm;
+  isOpen: boolean;
+  onToggle: () => void;
   onAddNegative: (term: SearchTerm, level: 'campaign' | 'adgroup', matchType: string) => void;
 }) {
   const cost = parseFloat(term.costMicros) || 0;
   const conv = parseFloat(term.conversions) || 0;
   const clicks = parseFloat(term.clicks) || 0;
+  const impressions = parseFloat(term.impressions) || 0;
   const cpa = conv > 0 ? cost / conv : 0;
   const cpc = clicks > 0 ? cost / clicks : 0;
+  const value = parseFloat(term.conversionsValue) || 0;
+  const roas = cost > 0 ? (value * 1000000) / cost : 0;
+  const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
 
   // Determine if this might be a problematic search term
   const hasSpend = cost > 0;
@@ -177,82 +187,134 @@ function SearchTermCard({
   const isPotentialNegative = hasSpend && noConversions;
 
   return (
-    <div className={`border rounded-lg bg-card p-3 ${isPotentialNegative ? 'border-orange-300' : ''}`}>
-      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <p className="text-sm font-medium break-words">{term.searchTerm}</p>
-            {isPotentialNegative && (
-              <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">
-                Potenziale negativa
-              </Badge>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50 ml-auto lg:hidden"
-              onClick={() => onAddNegative(term, 'campaign', 'EXACT')}
-              title="Aggiungi come negativa"
-            >
-              <Ban className="h-4 w-4" />
-            </Button>
+    <Collapsible open={isOpen} onOpenChange={onToggle}>
+      <div className={`border rounded-lg bg-card overflow-hidden ${isPotentialNegative ? 'border-orange-300' : ''}`}>
+        <CollapsibleTrigger asChild>
+          <div className="p-3 cursor-pointer hover:bg-muted/50 transition-colors">
+            <div className="flex items-start gap-2">
+              <div className="mt-0.5">
+                {isOpen ? (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <Search className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                  <span className="font-medium text-sm truncate">{term.searchTerm}</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>{term.matchTypeTriggered || 'N/A'}</span>
+                  <span>•</span>
+                  <span className="truncate">{term.campaignName}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 flex-shrink-0">
+                {isPotentialNegative && (
+                  <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">
+                    ⚠️
+                  </Badge>
+                )}
+                <div className="text-right">
+                  <p className="font-semibold text-sm">{formatCurrency(term.costMicros)}</p>
+                  <p className="text-xs text-muted-foreground">{formatNumber(term.clicks)} click</p>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-            <span>Keyword: {term.keywordText || '-'}</span>
-            <span>•</span>
-            <span>{term.matchTypeTriggered}</span>
-          </div>
-          <p className="text-xs text-muted-foreground truncate mt-1">
-            {term.campaignName} → {term.adGroupName}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 text-right">
-            <div>
-              <p className="text-xs text-muted-foreground">Impr.</p>
-              <p className="text-sm font-medium">{formatNumber(term.impressions)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Click</p>
-              <p className="text-sm font-medium">{formatNumber(term.clicks)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Costo</p>
-              <p className="text-sm font-medium">{formatCurrency(term.costMicros)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">CPC</p>
-              <p className="text-sm font-medium">{cpc > 0 ? formatCurrency(cpc) : '-'}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Conv.</p>
-              <p className={`text-sm font-medium ${noConversions && hasSpend ? 'text-orange-600' : ''}`}>
-                {formatNumber(term.conversions)}
+        </CollapsibleTrigger>
+
+        <CollapsibleContent>
+          <div className="px-3 pb-3 pt-0 border-t bg-muted/30">
+            {/* Keyword info */}
+            <div className="py-2 border-b">
+              <p className="text-xs text-muted-foreground">Keyword attivata</p>
+              <p className="text-sm font-medium">{term.keywordText || 'N/A'}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {term.campaignName} → {term.adGroupName}
               </p>
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground">CPA</p>
-              <p className="text-sm font-medium">{cpa > 0 ? formatCurrency(cpa) : '-'}</p>
+
+            {/* Performance metrics */}
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 py-2">
+              <div>
+                <p className="text-xs text-muted-foreground">Impressioni</p>
+                <p className="text-sm font-medium">{formatNumber(term.impressions)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Click</p>
+                <p className="text-sm font-medium">{formatNumber(term.clicks)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">CTR</p>
+                <p className="text-sm font-medium">{formatCtr(ctr)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">CPC medio</p>
+                <p className="text-sm font-medium">{cpc > 0 ? formatCurrency(cpc) : '-'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Costo</p>
+                <p className="text-sm font-medium">{formatCurrency(term.costMicros)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Conversioni</p>
+                <p className={`text-sm font-medium ${noConversions && hasSpend ? 'text-orange-600' : ''}`}>
+                  {formatNumber(term.conversions)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Valore conv.</p>
+                <p className="text-sm font-medium">{formatCurrency(term.conversionsValue)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">CPA</p>
+                <p className="text-sm font-medium">{cpa > 0 ? formatCurrency(cpa) : '-'}</p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-xs text-muted-foreground">ROAS</p>
+                <p className="text-sm font-medium">{roas > 0 ? roas.toFixed(2) : '-'}</p>
+              </div>
+            </div>
+
+            {/* Warning for potential negative */}
+            {isPotentialNegative && (
+              <div className="py-2 border-t">
+                <div className="bg-orange-50 border border-orange-200 rounded-md p-2">
+                  <p className="text-xs text-orange-700">
+                    ⚠️ Questo termine ha generato spesa senza conversioni
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Action button */}
+            <div className="pt-2 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-orange-600 border-orange-300 hover:bg-orange-50"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddNegative(term, 'campaign', 'EXACT');
+                }}
+              >
+                <Ban className="h-4 w-4 mr-2" />
+                Aggiungi come negativa
+              </Button>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50 hidden lg:flex"
-            onClick={() => onAddNegative(term, 'campaign', 'EXACT')}
-            title="Aggiungi come negativa"
-          >
-            <Ban className="h-4 w-4" />
-          </Button>
-        </div>
+        </CollapsibleContent>
       </div>
-    </div>
+    </Collapsible>
   );
 }
 
+
 export function SearchTermsPage() {
   const { accountId } = useParams<{ accountId: string }>();
-  const defaultViewMode = useDefaultViewMode();
+  const isMobile = useIsMobile();
   const [data, setData] = useState<PaginatedResponse<SearchTerm> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState<SearchTermFilters>({
@@ -263,8 +325,8 @@ export function SearchTermsPage() {
   });
   const [searchInput, setSearchInput] = useState('');
 
-  // View mode: 'cards' (compact) or 'table' (extended with all columns)
-  const [viewMode, setViewMode] = useState<'cards' | 'table'>(defaultViewMode);
+  // Expanded card state for mobile
+  const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
 
   // Campaign/AdGroup filter options
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -423,14 +485,6 @@ export function SearchTermsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h2 className="text-xl sm:text-2xl font-bold">Search Terms</h2>
         <div className="flex items-center gap-2">
-          <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as 'cards' | 'table')}>
-            <ToggleGroupItem value="cards" aria-label="Vista compatta" title="Vista compatta (cards)">
-              <LayoutGrid className="h-4 w-4" />
-            </ToggleGroupItem>
-            <ToggleGroupItem value="table" aria-label="Vista estesa" title="Vista estesa (tabella)">
-              <Table2 className="h-4 w-4" />
-            </ToggleGroupItem>
-          </ToggleGroup>
           {accountId && (
             <AIAnalysisPanel
               accountId={accountId}
@@ -494,11 +548,73 @@ export function SearchTermsPage() {
 
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Ban className="h-4 w-4 text-orange-600" />
-        <span>Clicca l'icona per aggiungere un termine come keyword negativa</span>
+        <span>{isMobile ? 'Tocca una card per i dettagli' : 'Clicca l\'icona per aggiungere un termine come keyword negativa'}</span>
       </div>
 
-      {/* Table View (Extended) */}
-      {viewMode === 'table' && (
+      {/* Mobile: Expandable Cards */}
+      {isMobile && (
+        <>
+          {isLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-20 w-full" />
+              ))}
+            </div>
+          ) : (
+            <>
+              <div className="space-y-2">
+                {data?.data.map((term) => (
+                  <SearchTermCardMobile
+                    key={term.id}
+                    term={term}
+                    isOpen={expandedCardId === term.id}
+                    onToggle={() => setExpandedCardId(expandedCardId === term.id ? null : term.id)}
+                    onAddNegative={handleOpenNegativeDialog}
+                  />
+                ))}
+                {(!data?.data || data.data.length === 0) && (
+                  <div className="text-center py-12 text-muted-foreground">
+                    Nessun search term trovato
+                  </div>
+                )}
+              </div>
+
+              {/* Mobile Pagination */}
+              {total > 0 && (
+                <div className="space-y-3">
+                  <div className="text-sm text-muted-foreground text-center">
+                    {pageIndex * pageSize + 1}-{Math.min((pageIndex + 1) * pageSize, total)} di {total.toLocaleString()}
+                  </div>
+                  <div className="flex items-center justify-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setFilters((prev) => ({ ...prev, page: pageIndex }))}
+                      disabled={pageIndex === 0}
+                    >
+                      ← Prec
+                    </Button>
+                    <span className="text-sm px-2">
+                      {pageIndex + 1} / {pageCount || 1}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setFilters((prev) => ({ ...prev, page: pageIndex + 2 }))}
+                      disabled={pageIndex >= pageCount - 1}
+                    >
+                      Succ →
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </>
+      )}
+
+      {/* Desktop: Table View */}
+      {!isMobile && (
         <DataTable
           columns={columns}
           data={data?.data || []}
@@ -515,99 +631,6 @@ export function SearchTermsPage() {
             setFilters((prev) => ({ ...prev, sortBy, sortOrder, page: 1 }))
           }
         />
-      )}
-
-      {/* Cards View (Compact) */}
-      {viewMode === 'cards' && (
-        <>
-          {isLoading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-20 w-full" />
-              ))}
-            </div>
-          ) : (
-            <>
-              <div className="space-y-2">
-                {data?.data.map((term) => (
-                  <SearchTermCard
-                    key={term.id}
-                    term={term}
-                    onAddNegative={handleOpenNegativeDialog}
-                  />
-                ))}
-                {(!data?.data || data.data.length === 0) && (
-                  <div className="text-center py-12 text-muted-foreground">
-                    Nessun search term trovato
-                  </div>
-                )}
-              </div>
-
-              {/* Pagination for cards view */}
-              {total > 0 && (
-                <div className="flex items-center justify-between px-2">
-                  <div className="text-sm text-muted-foreground">
-                    Mostrando {pageIndex * pageSize + 1}-{Math.min((pageIndex + 1) * pageSize, total)} di{' '}
-                    {total.toLocaleString()} risultati
-                  </div>
-                  <div className="flex items-center space-x-6 lg:space-x-8">
-                    <div className="flex items-center space-x-2">
-                      <p className="text-sm font-medium">Righe per pagina</p>
-                      <select
-                        className="h-8 w-16 rounded-md border border-input bg-background px-2 text-sm"
-                        value={pageSize}
-                        onChange={(e) => setFilters((prev) => ({ ...prev, limit: Number(e.target.value), page: 1 }))}
-                      >
-                        {[25, 50, 100, 200].map((size) => (
-                          <option key={size} value={size}>
-                            {size}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setFilters((prev) => ({ ...prev, page: 1 }))}
-                        disabled={pageIndex === 0}
-                      >
-                        {'<<'}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setFilters((prev) => ({ ...prev, page: pageIndex }))}
-                        disabled={pageIndex === 0}
-                      >
-                        {'<'}
-                      </Button>
-                      <span className="text-sm">
-                        Pagina {pageIndex + 1} di {pageCount || 1}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setFilters((prev) => ({ ...prev, page: pageIndex + 2 }))}
-                        disabled={pageIndex >= pageCount - 1}
-                      >
-                        {'>'}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setFilters((prev) => ({ ...prev, page: pageCount }))}
-                        disabled={pageIndex >= pageCount - 1}
-                      >
-                        {'>>'}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </>
       )}
 
       {/* Negative Keyword Dialog */}
