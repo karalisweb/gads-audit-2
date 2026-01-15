@@ -14,6 +14,7 @@ import { AIAnalysisPanel } from '@/components/ai';
 import { ModifyButton } from '@/components/modifications';
 import { LayoutGrid, Table2 } from 'lucide-react';
 import { getCampaigns } from '@/api/audit';
+import { useDefaultViewMode } from '@/hooks/useIsMobile';
 import {
   formatCurrency,
   formatNumber,
@@ -84,6 +85,7 @@ function CampaignCard({ campaign, onClick }: { campaign: Campaign; onClick: () =
 export function CampaignsPage() {
   const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
+  const defaultViewMode = useDefaultViewMode();
   const [data, setData] = useState<PaginatedResponse<Campaign> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState<CampaignFilters>({
@@ -93,7 +95,7 @@ export function CampaignsPage() {
     sortOrder: 'DESC',
   });
   const [searchInput, setSearchInput] = useState('');
-  const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>(defaultViewMode);
 
   const loadData = useCallback(async () => {
     if (!accountId) return;
@@ -286,31 +288,33 @@ export function CampaignsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Campagne</h2>
-        <div className="flex items-center gap-3">
-          <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as 'cards' | 'table')}>
-            <ToggleGroupItem value="cards" aria-label="Vista compatta" title="Vista compatta (cards)">
-              <LayoutGrid className="h-4 w-4" />
-            </ToggleGroupItem>
-            <ToggleGroupItem value="table" aria-label="Vista estesa" title="Vista estesa (tabella)">
-              <Table2 className="h-4 w-4" />
-            </ToggleGroupItem>
-          </ToggleGroup>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <h2 className="text-xl sm:text-2xl font-bold">Campagne</h2>
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <Input
-            placeholder="Cerca campagna..."
+            placeholder="Cerca..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            className="w-64"
+            className="w-full sm:w-48 md:w-64 order-1 sm:order-none"
           />
-          {accountId && (
-            <AIAnalysisPanel
-              accountId={accountId}
-              moduleId={4}
-              moduleName="Strategia di offerta"
-              onCreateDecisions={handleCreateDecisions}
-            />
-          )}
+          <div className="flex items-center gap-2 order-none sm:order-1">
+            <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as 'cards' | 'table')}>
+              <ToggleGroupItem value="cards" aria-label="Vista compatta" title="Vista compatta (cards)">
+                <LayoutGrid className="h-4 w-4" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="table" aria-label="Vista estesa" title="Vista estesa (tabella)">
+                <Table2 className="h-4 w-4" />
+              </ToggleGroupItem>
+            </ToggleGroup>
+            {accountId && (
+              <AIAnalysisPanel
+                accountId={accountId}
+                moduleId={4}
+                moduleName="Strategia di offerta"
+                onCreateDecisions={handleCreateDecisions}
+              />
+            )}
+          </div>
         </div>
       </div>
 

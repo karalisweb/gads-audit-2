@@ -12,6 +12,7 @@ import {
   ToggleGroupItem,
 } from '@/components/ui/toggle-group';
 import { LayoutGrid, Table2, X, ChevronRight } from 'lucide-react';
+import { useDefaultViewMode } from '@/hooks/useIsMobile';
 import {
   Collapsible,
   CollapsibleContent,
@@ -414,6 +415,7 @@ export function AdsPage() {
   const { accountId } = useParams<{ accountId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const defaultViewMode = useDefaultViewMode();
   const [data, setData] = useState<PaginatedResponse<Ad> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const campaignIdFilter = searchParams.get('campaignId');
@@ -425,7 +427,7 @@ export function AdsPage() {
     sortOrder: 'DESC',
   });
   const [searchInput, setSearchInput] = useState('');
-  const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>(defaultViewMode);
 
   // Get filter names from data
   const filterInfo = data?.data?.[0] ? {

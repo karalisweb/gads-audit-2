@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/toggle-group';
 import { AIAnalysisPanel } from '@/components/ai';
 import { Ban, Plus, X, LayoutGrid, Table2 } from 'lucide-react';
+import { useDefaultViewMode } from '@/hooks/useIsMobile';
 import { getSearchTerms, getCampaigns, getAdGroups } from '@/api/audit';
 import { createModification } from '@/api/modifications';
 import { formatCurrency, formatNumber, formatCtr } from '@/lib/format';
@@ -251,6 +252,7 @@ function SearchTermCard({
 
 export function SearchTermsPage() {
   const { accountId } = useParams<{ accountId: string }>();
+  const defaultViewMode = useDefaultViewMode();
   const [data, setData] = useState<PaginatedResponse<SearchTerm> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState<SearchTermFilters>({
@@ -262,7 +264,7 @@ export function SearchTermsPage() {
   const [searchInput, setSearchInput] = useState('');
 
   // View mode: 'cards' (compact) or 'table' (extended with all columns)
-  const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>(defaultViewMode);
 
   // Campaign/AdGroup filter options
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -418,10 +420,9 @@ export function SearchTermsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Search Terms</h2>
-        <div className="flex items-center gap-3">
-          {/* View Mode Toggle */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <h2 className="text-xl sm:text-2xl font-bold">Search Terms</h2>
+        <div className="flex items-center gap-2">
           <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as 'cards' | 'table')}>
             <ToggleGroupItem value="cards" aria-label="Vista compatta" title="Vista compatta (cards)">
               <LayoutGrid className="h-4 w-4" />
@@ -441,10 +442,10 @@ export function SearchTermsPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
+      {/* Filters - responsive */}
+      <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 sm:gap-3">
         <Select value={selectedCampaignId || 'all'} onValueChange={(v) => handleCampaignChange(v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-[250px]">
+          <SelectTrigger className="w-full sm:w-[200px] md:w-[250px]">
             <SelectValue placeholder="Tutte le campagne" />
           </SelectTrigger>
           <SelectContent>
@@ -462,7 +463,7 @@ export function SearchTermsPage() {
           onValueChange={(v) => handleAdGroupChange(v === 'all' ? '' : v)}
           disabled={!selectedCampaignId}
         >
-          <SelectTrigger className="w-[250px]">
+          <SelectTrigger className="w-full sm:w-[200px] md:w-[250px]">
             <SelectValue placeholder="Tutti gli ad group" />
           </SelectTrigger>
           <SelectContent>
@@ -475,19 +476,20 @@ export function SearchTermsPage() {
           </SelectContent>
         </Select>
 
-        <Input
-          placeholder="Cerca search term..."
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          className="w-64"
-        />
+        <div className="flex gap-2 flex-1 sm:flex-none">
+          <Input
+            placeholder="Cerca..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            className="flex-1 sm:w-48 md:w-64"
+          />
 
-        {hasActiveFilters && (
-          <Button variant="ghost" size="sm" onClick={clearFilters}>
-            <X className="h-4 w-4 mr-1" />
-            Pulisci filtri
-          </Button>
-        )}
+          {hasActiveFilters && (
+            <Button variant="ghost" size="icon" onClick={clearFilters} className="shrink-0">
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-2 text-sm text-muted-foreground">

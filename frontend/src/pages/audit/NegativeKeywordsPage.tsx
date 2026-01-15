@@ -24,6 +24,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { LayoutGrid, Table2, List, ChevronDown } from 'lucide-react';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { getNegativeKeywords } from '@/api/audit';
 import { formatMatchType } from '@/lib/format';
 import type { NegativeKeyword, PaginatedResponse, BaseFilters } from '@/types/audit';
@@ -168,6 +169,7 @@ function NegativeKeywordCard({ keyword }: { keyword: NegativeKeyword }) {
 
 export function NegativeKeywordsPage() {
   const { accountId } = useParams<{ accountId: string }>();
+  const isMobile = useIsMobile();
   const [data, setData] = useState<PaginatedResponse<NegativeKeyword> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState<BaseFilters>({
@@ -177,7 +179,8 @@ export function NegativeKeywordsPage() {
     sortOrder: 'ASC',
   });
   const [searchInput, setSearchInput] = useState('');
-  const [viewMode, setViewMode] = useState<'grouped' | 'cards' | 'table'>('grouped');
+  // Su mobile default 'cards', su desktop 'grouped'
+  const [viewMode, setViewMode] = useState<'grouped' | 'cards' | 'table'>(isMobile ? 'cards' : 'grouped');
   const [levelFilter, setLevelFilter] = useState<string>('all');
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
 
@@ -291,26 +294,9 @@ export function NegativeKeywordsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Negative Keywords</h2>
-        <div className="flex items-center gap-4">
-          <Select value={levelFilter} onValueChange={setLevelFilter}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Filtro livello" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tutti i livelli</SelectItem>
-              <SelectItem value="SHARED_SET">Liste condivise</SelectItem>
-              <SelectItem value="CAMPAIGN">Campagna</SelectItem>
-              <SelectItem value="AD_GROUP">Ad Group</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input
-            placeholder="Cerca negativa..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="w-64"
-          />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <h2 className="text-xl sm:text-2xl font-bold">Negative Keywords</h2>
+        <div className="flex items-center gap-2">
           <ToggleGroup
             type="single"
             value={viewMode}
@@ -327,6 +313,27 @@ export function NegativeKeywordsPage() {
             </ToggleGroupItem>
           </ToggleGroup>
         </div>
+      </div>
+
+      {/* Filters - responsive */}
+      <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 sm:gap-3">
+        <Select value={levelFilter} onValueChange={setLevelFilter}>
+          <SelectTrigger className="w-full sm:w-40">
+            <SelectValue placeholder="Filtro livello" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tutti i livelli</SelectItem>
+            <SelectItem value="SHARED_SET">Liste condivise</SelectItem>
+            <SelectItem value="CAMPAIGN">Campagna</SelectItem>
+            <SelectItem value="AD_GROUP">Ad Group</SelectItem>
+          </SelectContent>
+        </Select>
+        <Input
+          placeholder="Cerca..."
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          className="flex-1 sm:w-48 md:w-64"
+        />
       </div>
 
       {/* Stats Cards */}

@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/collapsible';
 import { LayoutGrid, Table2 } from 'lucide-react';
 import { getKeywords } from '@/api/audit';
+import { useDefaultViewMode } from '@/hooks/useIsMobile';
 import {
   formatCurrency,
   formatNumber,
@@ -359,6 +360,7 @@ function KeywordCard({ keyword }: { keyword: Keyword }) {
 
 export function KeywordsPage() {
   const { accountId } = useParams<{ accountId: string }>();
+  const defaultViewMode = useDefaultViewMode();
   const [data, setData] = useState<PaginatedResponse<Keyword> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState<KeywordFilters>({
@@ -368,7 +370,7 @@ export function KeywordsPage() {
     sortOrder: 'DESC',
   });
   const [searchInput, setSearchInput] = useState('');
-  const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>(defaultViewMode);
 
   const loadData = useCallback(async () => {
     if (!accountId) return;
@@ -402,35 +404,37 @@ export function KeywordsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Keywords</h2>
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <h2 className="text-xl sm:text-2xl font-bold">Keywords</h2>
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <Input
-            placeholder="Cerca keyword..."
+            placeholder="Cerca..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            className="w-64"
+            className="w-full sm:w-48 md:w-64 order-1 sm:order-none"
           />
-          <ToggleGroup
-            type="single"
-            value={viewMode}
-            onValueChange={(v) => v && setViewMode(v as 'cards' | 'table')}
-          >
-            <ToggleGroupItem value="cards" aria-label="Vista compatta" title="Vista compatta (cards)">
-              <LayoutGrid className="h-4 w-4" />
-            </ToggleGroupItem>
-            <ToggleGroupItem value="table" aria-label="Vista estesa" title="Vista estesa (tabella)">
-              <Table2 className="h-4 w-4" />
-            </ToggleGroupItem>
-          </ToggleGroup>
-          {accountId && (
-            <AIAnalysisPanel
-              accountId={accountId}
-              moduleId={19}
-              moduleName="Prestazioni parole chiave"
-              onCreateDecisions={handleCreateDecisions}
-            />
-          )}
+          <div className="flex items-center gap-2 order-none sm:order-1">
+            <ToggleGroup
+              type="single"
+              value={viewMode}
+              onValueChange={(v) => v && setViewMode(v as 'cards' | 'table')}
+            >
+              <ToggleGroupItem value="cards" aria-label="Vista compatta" title="Vista compatta (cards)">
+                <LayoutGrid className="h-4 w-4" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="table" aria-label="Vista estesa" title="Vista estesa (tabella)">
+                <Table2 className="h-4 w-4" />
+              </ToggleGroupItem>
+            </ToggleGroup>
+            {accountId && (
+              <AIAnalysisPanel
+                accountId={accountId}
+                moduleId={19}
+                moduleName="Prestazioni parole chiave"
+                onCreateDecisions={handleCreateDecisions}
+              />
+            )}
+          </div>
         </div>
       </div>
 
