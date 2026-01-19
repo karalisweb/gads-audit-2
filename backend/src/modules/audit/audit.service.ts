@@ -194,6 +194,22 @@ export class AuditService {
     return { sharedSecret: account.sharedSecret };
   }
 
+  async deleteAccount(accountId: string): Promise<{ success: boolean; message: string }> {
+    const account = await this.accountRepository.findOne({
+      where: { id: accountId, isActive: true },
+    });
+
+    if (!account) {
+      throw new NotFoundException('Account not found');
+    }
+
+    // Soft delete - set isActive to false
+    account.isActive = false;
+    await this.accountRepository.save(account);
+
+    return { success: true, message: `Account "${account.customerName}" eliminato con successo` };
+  }
+
   async getAccount(accountId: string): Promise<GoogleAdsAccount> {
     const account = await this.accountRepository.findOne({
       where: { id: accountId, isActive: true },

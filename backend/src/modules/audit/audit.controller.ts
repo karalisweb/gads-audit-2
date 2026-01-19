@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Param, Query, Body, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Query, Body, ParseUUIDPipe } from '@nestjs/common';
 import { AuditService } from './audit.service';
 import { AuditRulesService } from './audit-rules.service';
 import { CurrentUser } from '../../common/decorators';
@@ -53,6 +53,11 @@ export class AuditController {
     @CurrentUser('id') userId: string,
   ) {
     return this.auditService.revealSharedSecret(accountId, userId, dto.password);
+  }
+
+  @Delete('accounts/:accountId')
+  async deleteAccount(@Param('accountId', ParseUUIDPipe) accountId: string) {
+    return this.auditService.deleteAccount(accountId);
   }
 
   @Get('accounts/:accountId/runs')

@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Search, Building2, Plus, Copy, Check, Key } from 'lucide-react';
+import { Search, Building2, Plus, Copy, Check, Key, Trash2 } from 'lucide-react';
 import { formatCurrency, formatNumber } from '@/lib/format';
 import { apiClient } from '@/api/client';
 import { getAccountsWithStats, type AccountWithStats } from '@/api/audit';
@@ -52,6 +52,11 @@ export function AccountsPage() {
   const [revealError, setRevealError] = useState('');
   const [isRevealing, setIsRevealing] = useState(false);
   const [copiedRevealedSecret, setCopiedRevealedSecret] = useState(false);
+
+  // Delete account state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteAccount, setDeleteAccount] = useState<AccountWithStats | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     loadAccounts();
@@ -155,6 +160,33 @@ export function AccountsPage() {
       await navigator.clipboard.writeText(revealedSecret);
       setCopiedRevealedSecret(true);
       setTimeout(() => setCopiedRevealedSecret(false), 2000);
+    }
+  };
+
+  const handleOpenDeleteDialog = (e: React.MouseEvent, account: AccountWithStats) => {
+    e.stopPropagation();
+    setDeleteAccount(account);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleCloseDeleteDialog = () => {
+    setDeleteDialogOpen(false);
+    setDeleteAccount(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteAccount) return;
+    setIsDeleting(true);
+
+    try {
+      await apiClient.delete(`/audit/accounts/${deleteAccount.id}`);
+      loadAccounts();
+      handleCloseDeleteDialog();
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      console.error('Failed to delete account:', error.message);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -379,6 +411,15 @@ export function AccountsPage() {
                     >
                       <Key className="h-4 w-4" />
                     </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 sm:h-9 sm:w-9 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={(e) => handleOpenDeleteDialog(e, account)}
+                      title="Elimina Account"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -449,6 +490,31 @@ export function AccountsPage() {
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog per eliminare account */}
+      <Dialog open={deleteDialogOpen} onOpenChange={(open) => !open && handleCloseDeleteDialog()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Elimina Account</DialogTitle>
+            <DialogDescription>
+              Sei sicuro di voler eliminare l'account "{deleteAccount?.customerName || deleteAccount?.customerId}"?
+              Questa azione non puo' essere annullata.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={handleCloseDeleteDialog}>
+              Annulla
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Eliminazione...' : 'Elimina'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
