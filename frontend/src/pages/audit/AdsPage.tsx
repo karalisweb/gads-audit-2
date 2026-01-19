@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/data-table/DataTable';
@@ -8,18 +8,22 @@ import { Button } from '@/components/ui/button';
 import { AIAnalysisPanel } from '@/components/ai';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from '@/components/ui/toggle-group';
-import { LayoutGrid, Table2, X, ChevronRight } from 'lucide-react';
-import { useDefaultViewMode } from '@/hooks/useIsMobile';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { X, ChevronRight, ChevronDown } from 'lucide-react';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { ModifyButton } from '@/components/modifications';
-import { getAds } from '@/api/audit';
+import { getAds, getCampaigns } from '@/api/audit';
+import type { Campaign } from '@/types/audit';
 import {
   formatCurrency,
   formatNumber,
@@ -213,9 +217,20 @@ function getColumns(accountId: string, onRefresh: () => void): ColumnDef<Ad>[] {
 ];
 }
 
-function AdCard({ ad }: { ad: Ad }) {
-  const [isOpen, setIsOpen] = useState(false);
-
+// Card espandibile per mobile con tutti i dati e ModifyButton
+function AdCardMobile({
+  ad,
+  isOpen,
+  onToggle,
+  accountId,
+  onRefresh,
+}: {
+  ad: Ad;
+  isOpen: boolean;
+  onToggle: () => void;
+  accountId: string;
+  onRefresh: () => void;
+}) {
   const cost = parseFloat(ad.costMicros) || 0;
   const conv = parseFloat(ad.conversions) || 0;
   const clicks = parseFloat(ad.clicks) || 0;
@@ -223,186 +238,190 @@ function AdCard({ ad }: { ad: Ad }) {
   const cpa = conv > 0 ? cost / conv : 0;
   const roas = cost > 0 ? (value * 1000000) / cost : 0;
   const convRate = clicks > 0 ? (conv / clicks) * 100 : 0;
+  const valuePerConv = conv > 0 ? (value / conv) * 1000000 : 0;
 
   const headlinesCount = ad.headlines?.length || 0;
   const descriptionsCount = ad.descriptions?.length || 0;
 
+  // Get first headline text for entity name
+  const firstHeadline = ad.headlines?.[0];
+  const headlineText = firstHeadline
+    ? (typeof firstHeadline === 'object' ? firstHeadline.text : firstHeadline)
+    : ad.adGroupName;
+
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <div className="border rounded-lg bg-card">
+    <Collapsible open={isOpen} onOpenChange={onToggle}>
+      <div className="border rounded-lg bg-card overflow-hidden">
         <CollapsibleTrigger asChild>
-          <div className="p-2 sm:p-3 cursor-pointer hover:bg-muted/50 transition-colors">
-            <div className="flex flex-col gap-2 sm:gap-3">
-              {/* Top row: badges, name, chevron */}
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 sm:gap-2 mb-1 flex-wrap">
-                    <Badge variant={getStatusVariant(ad.status)} className="text-[10px] sm:text-xs">
-                      {ad.status}
-                    </Badge>
-                    <Badge variant={getAdStrengthVariant(ad.adStrength)} className="text-[10px] sm:text-xs">
-                      {ad.adStrength || '-'}
-                    </Badge>
-                    <span className="text-[10px] sm:text-xs text-muted-foreground hidden sm:inline">
-                      {ad.adType?.replace(/_/g, ' ')}
-                    </span>
-                  </div>
-                  <p className="text-xs sm:text-sm font-medium truncate">{ad.adGroupName}</p>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
-                    {ad.campaignName}
-                  </p>
-                  <div className="flex items-center gap-2 sm:gap-3 mt-1">
-                    <span className="text-[10px] sm:text-xs text-muted-foreground">
-                      T: {headlinesCount}
-                    </span>
-                    <span className="text-[10px] sm:text-xs text-muted-foreground">
-                      D: {descriptionsCount}
-                    </span>
-                  </div>
+          <div className="p-3 cursor-pointer hover:bg-muted/50 transition-colors">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <Badge variant={getStatusVariant(ad.status)} className="text-xs shrink-0">
+                    {ad.status}
+                  </Badge>
+                  <Badge variant={getAdStrengthVariant(ad.adStrength)} className="text-xs shrink-0">
+                    {ad.adStrength || '-'}
+                  </Badge>
                 </div>
-                <svg
-                  className={`w-4 h-4 transition-transform shrink-0 mt-1 ${isOpen ? 'rotate-180' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+                <p className="text-sm font-medium truncate">{ad.adGroupName}</p>
+                <p className="text-xs text-muted-foreground truncate">{ad.campaignName}</p>
+                <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                  <span>T: {headlinesCount}</span>
+                  <span>D: {descriptionsCount}</span>
+                </div>
               </div>
-              {/* Bottom row: metrics */}
-              <div className="grid grid-cols-4 gap-1.5 sm:gap-3 text-center sm:text-right">
-                <div>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">Costo</p>
-                  <p className="text-xs sm:text-sm font-medium">{formatCurrency(ad.costMicros)}</p>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">Costo</p>
+                  <p className="text-sm font-semibold">{formatCurrency(ad.costMicros)}</p>
                 </div>
-                <div>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">Conv.</p>
-                  <p className="text-xs sm:text-sm font-medium">{formatNumber(ad.conversions)}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">CPA</p>
-                  <p className="text-xs sm:text-sm font-medium">{cpa > 0 ? formatCurrency(cpa) : '-'}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">ROAS</p>
-                  <p className={`text-xs sm:text-sm font-medium ${roas >= 1 ? 'text-green-600' : roas > 0 ? 'text-orange-600' : ''}`}>
-                    {roas > 0 ? roas.toFixed(2) : '-'}
-                  </p>
-                </div>
+                {isOpen ? (
+                  <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />
+                ) : (
+                  <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+                )}
               </div>
             </div>
           </div>
         </CollapsibleTrigger>
-        <CollapsibleContent>
-          <div className="border-t p-3 sm:p-4 bg-muted/30">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-              {/* Titoli */}
-              <div>
-                <h4 className="text-xs sm:text-sm font-semibold mb-2">Titoli ({ad.headlines?.length || 0})</h4>
-                {ad.headlines && ad.headlines.length > 0 ? (
-                  <ul className="space-y-1">
-                    {ad.headlines.map((h, i) => (
-                      <li key={i} className="text-xs sm:text-sm py-1 px-2 bg-background rounded border">
-                        {typeof h === 'object' ? h.text : h}
-                        {typeof h === 'object' && h.pinnedField && (
-                          <span className="ml-1 sm:ml-2 text-[10px] sm:text-xs text-blue-600">
-                            (P: {h.pinnedField})
-                          </span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-xs sm:text-sm text-muted-foreground">Nessun titolo</p>
-                )}
-              </div>
 
-              {/* Descrizioni */}
-              <div>
-                <h4 className="text-xs sm:text-sm font-semibold mb-2">Descrizioni ({ad.descriptions?.length || 0})</h4>
-                {ad.descriptions && ad.descriptions.length > 0 ? (
-                  <ul className="space-y-1">
-                    {ad.descriptions.map((d, i) => (
-                      <li key={i} className="text-xs sm:text-sm py-1 px-2 bg-background rounded border">
-                        {typeof d === 'object' ? d.text : d}
-                        {typeof d === 'object' && d.pinnedField && (
-                          <span className="ml-1 sm:ml-2 text-[10px] sm:text-xs text-blue-600">
-                            (P: {d.pinnedField})
-                          </span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-xs sm:text-sm text-muted-foreground">Nessuna descrizione</p>
-                )}
+        <CollapsibleContent>
+          <div className="border-t bg-muted/30 p-3 space-y-3">
+            {/* Metriche traffico */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-background rounded p-2">
+                <p className="text-xs text-muted-foreground">Impressioni</p>
+                <p className="text-sm font-medium">{formatNumber(ad.impressions)}</p>
+              </div>
+              <div className="bg-background rounded p-2">
+                <p className="text-xs text-muted-foreground">Click</p>
+                <p className="text-sm font-medium">{formatNumber(ad.clicks)}</p>
+              </div>
+              <div className="bg-background rounded p-2">
+                <p className="text-xs text-muted-foreground">CTR</p>
+                <p className="text-sm font-medium">{formatCtr(ad.ctr)}</p>
+              </div>
+              <div className="bg-background rounded p-2">
+                <p className="text-xs text-muted-foreground">CPC medio</p>
+                <p className="text-sm font-medium">{formatCurrency(ad.averageCpcMicros)}</p>
               </div>
             </div>
 
-            {/* URL e Path */}
+            {/* Conversioni */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-background rounded p-2">
+                <p className="text-xs text-muted-foreground">Conversioni</p>
+                <p className="text-sm font-medium">{formatNumber(ad.conversions)}</p>
+              </div>
+              <div className="bg-background rounded p-2">
+                <p className="text-xs text-muted-foreground">Valore conv.</p>
+                <p className="text-sm font-medium">{value > 0 ? formatCurrency(value * 1000000) : '-'}</p>
+              </div>
+              <div className="bg-background rounded p-2">
+                <p className="text-xs text-muted-foreground">CPA</p>
+                <p className="text-sm font-medium">{cpa > 0 ? formatCurrency(cpa) : '-'}</p>
+              </div>
+              <div className="bg-background rounded p-2">
+                <p className="text-xs text-muted-foreground">ROAS</p>
+                <p className={`text-sm font-medium ${roas >= 1 ? 'text-green-600' : roas > 0 ? 'text-orange-600' : ''}`}>
+                  {roas > 0 ? roas.toFixed(2) : '-'}
+                </p>
+              </div>
+            </div>
+
+            {/* Altre metriche */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-background rounded p-2">
+                <p className="text-xs text-muted-foreground">Tasso conv.</p>
+                <p className="text-sm font-medium">{convRate > 0 ? `${convRate.toFixed(2)}%` : '-'}</p>
+              </div>
+              <div className="bg-background rounded p-2">
+                <p className="text-xs text-muted-foreground">Val/conv</p>
+                <p className="text-sm font-medium">{valuePerConv > 0 ? formatCurrency(valuePerConv) : '-'}</p>
+              </div>
+              <div className="bg-background rounded p-2">
+                <p className="text-xs text-muted-foreground">Tel./Chat</p>
+                <p className="text-sm font-medium">{formatNumber(ad.phoneCalls)}/{formatNumber(ad.messageChats)}</p>
+              </div>
+            </div>
+
+            {/* Titoli */}
+            <div className="border-t pt-3">
+              <h4 className="text-xs font-semibold mb-2">Titoli ({headlinesCount})</h4>
+              {ad.headlines && ad.headlines.length > 0 ? (
+                <div className="space-y-1">
+                  {ad.headlines.map((h, i) => (
+                    <div key={i} className="text-xs py-1 px-2 bg-background rounded border">
+                      {typeof h === 'object' ? h.text : h}
+                      {typeof h === 'object' && h.pinnedField && (
+                        <span className="ml-1 text-[10px] text-blue-600">(P: {h.pinnedField})</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">Nessun titolo</p>
+              )}
+            </div>
+
+            {/* Descrizioni */}
+            <div className="border-t pt-3">
+              <h4 className="text-xs font-semibold mb-2">Descrizioni ({descriptionsCount})</h4>
+              {ad.descriptions && ad.descriptions.length > 0 ? (
+                <div className="space-y-1">
+                  {ad.descriptions.map((d, i) => (
+                    <div key={i} className="text-xs py-1 px-2 bg-background rounded border">
+                      {typeof d === 'object' ? d.text : d}
+                      {typeof d === 'object' && d.pinnedField && (
+                        <span className="ml-1 text-[10px] text-blue-600">(P: {d.pinnedField})</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">Nessuna descrizione</p>
+              )}
+            </div>
+
+            {/* URL */}
             {ad.finalUrls && ad.finalUrls.length > 0 && (
-              <div className="mt-3 sm:mt-4">
-                <h4 className="text-xs sm:text-sm font-semibold mb-1 sm:mb-2">URL finale</h4>
+              <div className="border-t pt-3">
+                <h4 className="text-xs font-semibold mb-1">URL finale</h4>
                 {ad.finalUrls.map((url, i) => (
                   <a
                     key={i}
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs sm:text-sm text-blue-600 hover:underline block truncate"
+                    className="text-xs text-blue-600 hover:underline block break-all"
                   >
                     {url}
                   </a>
                 ))}
                 {(ad.path1 || ad.path2) && (
-                  <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">
+                  <p className="text-[10px] text-muted-foreground mt-1">
                     Path: /{ad.path1 || ''}{ad.path2 ? `/${ad.path2}` : ''}
                   </p>
                 )}
               </div>
             )}
 
-            {/* Metriche dettagliate */}
-            <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t">
-              <h4 className="text-xs sm:text-sm font-semibold mb-2">Metriche dettagliate</h4>
-              <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 sm:gap-4">
-                <div>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">Impr.</p>
-                  <p className="text-xs sm:text-sm font-medium">{formatNumber(ad.impressions)}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">Click</p>
-                  <p className="text-xs sm:text-sm font-medium">{formatNumber(ad.clicks)}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">CTR</p>
-                  <p className="text-xs sm:text-sm font-medium">{formatCtr(ad.ctr)}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">CPC</p>
-                  <p className="text-xs sm:text-sm font-medium">{formatCurrency(ad.averageCpcMicros)}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">Val.</p>
-                  <p className="text-xs sm:text-sm font-medium">
-                    {value > 0 ? formatCurrency(value * 1000000) : '-'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">Conv%</p>
-                  <p className="text-xs sm:text-sm font-medium">
-                    {convRate > 0 ? `${convRate.toFixed(1)}%` : '-'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">Tel.</p>
-                  <p className="text-xs sm:text-sm font-medium">{formatNumber(ad.phoneCalls)}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">Chat</p>
-                  <p className="text-xs sm:text-sm font-medium">{formatNumber(ad.messageChats)}</p>
-                </div>
-              </div>
+            {/* Azione */}
+            <div className="pt-2 border-t">
+              <ModifyButton
+                accountId={accountId}
+                entityType="ad"
+                entityId={ad.adId}
+                entityName={headlineText}
+                currentValue={{
+                  status: ad.status,
+                  headlines: ad.headlines,
+                  descriptions: ad.descriptions,
+                  finalUrls: ad.finalUrls,
+                }}
+                onSuccess={onRefresh}
+              />
             </div>
           </div>
         </CollapsibleContent>
@@ -415,7 +434,7 @@ export function AdsPage() {
   const { accountId } = useParams<{ accountId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const defaultViewMode = useDefaultViewMode();
+  const isMobile = useIsMobile();
   const [data, setData] = useState<PaginatedResponse<Ad> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const campaignIdFilter = searchParams.get('campaignId');
@@ -427,7 +446,13 @@ export function AdsPage() {
     sortOrder: 'DESC',
   });
   const [searchInput, setSearchInput] = useState('');
-  const [viewMode, setViewMode] = useState<'cards' | 'table'>(defaultViewMode);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [openCards, setOpenCards] = useState<Set<string>>(new Set());
+
+  // Campaign selector state
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string>('all');
+  const [isLoadingCampaigns, setIsLoadingCampaigns] = useState(true);
 
   // Get filter names from data
   const filterInfo = data?.data?.[0] ? {
@@ -437,15 +462,59 @@ export function AdsPage() {
 
   const clearFilter = () => {
     setSearchParams({});
+    setSelectedCampaignId('all');
+  };
+
+  // Load campaigns for the selector
+  const loadCampaigns = useCallback(async () => {
+    if (!accountId) return;
+    setIsLoadingCampaigns(true);
+    try {
+      const result = await getCampaigns(accountId, { limit: 200, sortBy: 'costMicros', sortOrder: 'DESC' });
+      // Filter only ENABLED campaigns for the selector
+      const enabledCampaigns = result.data.filter(c => c.status === 'ENABLED');
+      setCampaigns(enabledCampaigns);
+    } catch (err) {
+      console.error('Failed to load campaigns:', err);
+    } finally {
+      setIsLoadingCampaigns(false);
+    }
+  }, [accountId]);
+
+  useEffect(() => {
+    loadCampaigns();
+  }, [loadCampaigns]);
+
+  // Sync selectedCampaignId with URL param
+  useEffect(() => {
+    if (campaignIdFilter) {
+      setSelectedCampaignId(campaignIdFilter);
+    }
+  }, [campaignIdFilter]);
+
+  const handleCampaignChange = (value: string) => {
+    setSelectedCampaignId(value);
+    if (value === 'all') {
+      // Remove campaignId from URL params
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('campaignId');
+      newParams.delete('adGroupId');
+      setSearchParams(newParams);
+    } else {
+      // Set campaignId in URL params
+      setSearchParams({ campaignId: value });
+    }
+    setFilters(prev => ({ ...prev, page: 1 }));
   };
 
   const loadData = useCallback(async () => {
     if (!accountId) return;
     setIsLoading(true);
     try {
+      const activeCampaignId = selectedCampaignId !== 'all' ? selectedCampaignId : campaignIdFilter;
       const apiFilters = {
         ...filters,
-        ...(campaignIdFilter && { campaignId: campaignIdFilter }),
+        ...(activeCampaignId && { campaignId: activeCampaignId }),
         ...(adGroupIdFilter && { adGroupId: adGroupIdFilter }),
       };
       const result = await getAds(accountId, apiFilters);
@@ -455,7 +524,7 @@ export function AdsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [accountId, filters, campaignIdFilter, adGroupIdFilter]);
+  }, [accountId, filters, campaignIdFilter, adGroupIdFilter, selectedCampaignId]);
 
   useEffect(() => {
     loadData();
@@ -473,13 +542,41 @@ export function AdsPage() {
     alert(`${recommendations.length} raccomandazioni approvate!`);
   };
 
+  // Filtra per stato (client-side)
+  const filteredData = useMemo(() => {
+    if (!data?.data) return [];
+    if (statusFilter === 'all') return data.data;
+    return data.data.filter(ad => ad.status === statusFilter);
+  }, [data, statusFilter]);
+
+  // Conta per stato
+  const statusCounts = useMemo(() => {
+    if (!data?.data) return { ENABLED: 0, PAUSED: 0, REMOVED: 0 };
+    return data.data.reduce((acc, ad) => {
+      acc[ad.status] = (acc[ad.status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+  }, [data]);
+
+  const toggleCard = (id: string) => {
+    setOpenCards(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
   const pageIndex = (filters.page || 1) - 1;
   const pageSize = filters.limit || 50;
   const pageCount = data?.meta.totalPages || 1;
   const total = data?.meta.total || 0;
 
   return (
-    <div className="space-y-3 sm:space-y-4">
+    <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold">Annunci</h2>
@@ -501,10 +598,10 @@ export function AdsPage() {
                     {filterInfo.campaignName || 'Ad Groups'}
                   </button>
                   <ChevronRight className="h-3 w-3" />
-                  <span className="font-medium text-foreground">{filterInfo.adGroupName}</span>
+                  <span className="font-medium text-foreground truncate max-w-[150px]">{filterInfo.adGroupName}</span>
                 </>
               ) : (
-                <span className="font-medium text-foreground">{filterInfo.campaignName}</span>
+                <span className="font-medium text-foreground truncate max-w-[200px]">{filterInfo.campaignName}</span>
               )}
               <Button
                 variant="ghost"
@@ -518,135 +615,117 @@ export function AdsPage() {
             </div>
           )}
         </div>
-        <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
-          <Input
-            placeholder="Cerca..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="w-full sm:w-48 md:w-64"
-          />
-          <div className="flex items-center gap-2">
-            <ToggleGroup
-              type="single"
-              value={viewMode}
-              onValueChange={(v) => v && setViewMode(v as 'cards' | 'table')}
-            >
-              <ToggleGroupItem value="cards" aria-label="Vista compatta" title="Vista compatta (cards)">
-                <LayoutGrid className="h-4 w-4" />
-              </ToggleGroupItem>
-              <ToggleGroupItem value="table" aria-label="Vista estesa" title="Vista estesa (tabella)">
-                <Table2 className="h-4 w-4" />
-              </ToggleGroupItem>
-            </ToggleGroup>
-            {accountId && (
-              <AIAnalysisPanel
-                accountId={accountId}
-                moduleId={15}
-                moduleName="Efficacia annunci"
-                onCreateDecisions={handleCreateDecisions}
-              />
-            )}
-          </div>
+        <div className="flex items-center gap-2">
+          {accountId && (
+            <AIAnalysisPanel
+              accountId={accountId}
+              moduleId={15}
+              moduleName="Efficacia annunci"
+              onCreateDecisions={handleCreateDecisions}
+            />
+          )}
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 w-full" />
-          ))}
-        </div>
-      ) : (
+      {/* Filtri */}
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+        {/* Campaign selector */}
+        <Select
+          value={selectedCampaignId}
+          onValueChange={handleCampaignChange}
+          disabled={isLoadingCampaigns}
+        >
+          <SelectTrigger className="w-full sm:w-72">
+            <SelectValue placeholder="Seleziona campagna..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">
+              <span className="font-medium">Tutte le campagne</span>
+              <span className="text-muted-foreground ml-1">({campaigns.length})</span>
+            </SelectItem>
+            {campaigns.map((campaign) => (
+              <SelectItem key={campaign.campaignId} value={campaign.campaignId}>
+                <div className="flex items-center gap-2">
+                  <span className="truncate max-w-[200px]">{campaign.campaignName}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {formatCurrency(campaign.costMicros)}
+                  </span>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-full sm:w-44">
+            <SelectValue placeholder="Stato" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tutti ({data?.data?.length || 0})</SelectItem>
+            <SelectItem value="ENABLED">Attivi ({statusCounts.ENABLED || 0})</SelectItem>
+            <SelectItem value="PAUSED">In pausa ({statusCounts.PAUSED || 0})</SelectItem>
+            <SelectItem value="REMOVED">Rimossi ({statusCounts.REMOVED || 0})</SelectItem>
+          </SelectContent>
+        </Select>
+        <Input
+          placeholder="Cerca annuncio..."
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          className="flex-1"
+        />
+      </div>
+
+      {/* Mobile: Card espandibili */}
+      {isMobile ? (
         <>
-          {viewMode === 'table' ? (
-            <DataTable
-              columns={getColumns(accountId!, loadData)}
-              data={data?.data || []}
-              pageIndex={pageIndex}
-              pageSize={pageSize}
-              pageCount={pageCount}
-              total={total}
-              onPageChange={(page) => setFilters((prev) => ({ ...prev, page: page + 1 }))}
-              onPageSizeChange={(size) => setFilters((prev) => ({ ...prev, limit: size, page: 1 }))}
-            />
+          {isLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-24 w-full" />
+              ))}
+            </div>
           ) : (
             <>
               <div className="space-y-2">
-                {data?.data.map((ad) => (
-                  <AdCard key={ad.id} ad={ad} />
+                {filteredData.map((ad) => (
+                  <AdCardMobile
+                    key={ad.id}
+                    ad={ad}
+                    isOpen={openCards.has(ad.id)}
+                    onToggle={() => toggleCard(ad.id)}
+                    accountId={accountId!}
+                    onRefresh={loadData}
+                  />
                 ))}
-                {(!data?.data || data.data.length === 0) && (
+                {filteredData.length === 0 && (
                   <div className="text-center py-12 text-muted-foreground">
                     Nessun annuncio trovato
                   </div>
                 )}
               </div>
 
-              {/* Pagination */}
-          {total > 0 && (
-            <div className="flex items-center justify-between px-2">
-              <div className="text-sm text-muted-foreground">
-                Mostrando {pageIndex * pageSize + 1}-{Math.min((pageIndex + 1) * pageSize, total)} di{' '}
-                {total.toLocaleString()} risultati
-              </div>
-              <div className="flex items-center space-x-6 lg:space-x-8">
-                <div className="flex items-center space-x-2">
-                  <p className="text-sm font-medium">Righe per pagina</p>
-                  <select
-                    className="h-8 w-16 rounded-md border border-input bg-background px-2 text-sm"
-                    value={pageSize}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, limit: Number(e.target.value), page: 1 }))}
-                  >
-                    {[25, 50, 100, 200].map((size) => (
-                      <option key={size} value={size}>
-                        {size}
-                      </option>
-                    ))}
-                  </select>
+              {/* Info risultati */}
+              {filteredData.length > 0 && (
+                <div className="text-sm text-muted-foreground text-center">
+                  {filteredData.length} annunci
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setFilters((prev) => ({ ...prev, page: 1 }))}
-                    disabled={pageIndex === 0}
-                  >
-                    {'<<'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setFilters((prev) => ({ ...prev, page: pageIndex }))}
-                    disabled={pageIndex === 0}
-                  >
-                    {'<'}
-                  </Button>
-                  <span className="text-sm">
-                    Pagina {pageIndex + 1} di {pageCount || 1}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setFilters((prev) => ({ ...prev, page: pageIndex + 2 }))}
-                    disabled={pageIndex >= pageCount - 1}
-                  >
-                    {'>'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setFilters((prev) => ({ ...prev, page: pageCount }))}
-                    disabled={pageIndex >= pageCount - 1}
-                  >
-                    {'>>'}
-                  </Button>
-                </div>
-              </div>
-            </div>
               )}
             </>
           )}
         </>
+      ) : (
+        /* Desktop: Tabella */
+        <DataTable
+          columns={getColumns(accountId!, loadData)}
+          data={filteredData}
+          isLoading={isLoading}
+          pageIndex={pageIndex}
+          pageSize={pageSize}
+          pageCount={pageCount}
+          total={total}
+          onPageChange={(page) => setFilters((prev) => ({ ...prev, page: page + 1 }))}
+          onPageSizeChange={(size) => setFilters((prev) => ({ ...prev, limit: size, page: 1 }))}
+        />
       )}
     </div>
   );
