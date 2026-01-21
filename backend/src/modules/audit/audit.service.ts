@@ -455,6 +455,14 @@ export class AuditService {
     qb.where('kw.accountId = :accountId', { accountId });
     qb.andWhere('kw.runId = :runId', { runId });
 
+    // Exclude keywords that exist in negative_keywords table (same text + same ad group or campaign)
+    qb.andWhere(`NOT EXISTS (
+      SELECT 1 FROM negative_keywords nk
+      WHERE nk.keyword_text = kw.keyword_text
+      AND nk.account_id = kw.account_id
+      AND (nk.ad_group_id = kw.ad_group_id OR nk.campaign_id = kw.campaign_id)
+    )`);
+
     if (filters.search) {
       qb.andWhere('kw.keywordText ILIKE :search', { search: `%${filters.search}%` });
     }
