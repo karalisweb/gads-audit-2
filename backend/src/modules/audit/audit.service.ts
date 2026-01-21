@@ -456,9 +456,10 @@ export class AuditService {
     qb.andWhere('kw.runId = :runId', { runId });
 
     // Exclude keywords that exist in negative_keywords table (same text + same ad group or campaign)
+    // Note: Use snake_case for raw SQL column names since TypeORM aliases use camelCase but actual DB columns are snake_case
     qb.andWhere(`NOT EXISTS (
       SELECT 1 FROM negative_keywords nk
-      WHERE nk.keyword_text = kw.keyword_text
+      WHERE LOWER(nk.keyword_text) = LOWER(kw.keyword_text)
       AND nk.account_id = kw.account_id
       AND (nk.ad_group_id = kw.ad_group_id OR nk.campaign_id = kw.campaign_id)
     )`);
