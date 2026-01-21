@@ -1,31 +1,29 @@
 /**
  * GADS Audit 2.0 - Google Ads Modifier Script
  *
+ * ACCOUNT: CASA BULLDOG
+ *
  * Questo script legge le modifiche approvate dal backend GADS Audit
  * e le applica all'account Google Ads corrente.
  *
  * ISTRUZIONI:
  * 1. Copia questo script in Google Ads > Strumenti e impostazioni > Script
- * 2. Sostituisci API_URL e SHARED_SECRET con i valori corretti
- * 3. Esegui lo script manualmente o schedulalo
+ * 2. Esegui lo script manualmente o schedulalo
  */
 
 // ============================================================================
-// CONFIGURAZIONE - MODIFICA QUESTI VALORI
+// CONFIGURAZIONE - CASA BULLDOG
 // ============================================================================
 var CONFIG = {
-  API_URL: 'https://gadsaudit.karalisdemo.com/api/integrations/google-ads',
-  SHARED_SECRET: '04f26ea4f532443265d158da929effc6e5646b0f0b3abbafcd26974fe626f0a4', // Copialo dalle impostazioni account
-  DRY_RUN: false // Imposta true per testare senza applicare modifiche
+  API_URL: 'https://gads.karalisdemo.it/api/integrations/google-ads',
+  SHARED_SECRET: '07d58eab9931bf88638be45e876fa353dd99228e40af9370660afd143f1d7402',
+  DRY_RUN: false
 };
 
 // ============================================================================
 // FUNZIONI HELPER
 // ============================================================================
 
-/**
- * Genera firma HMAC per autenticazione
- */
 function generateSignature(timestamp, body, secret) {
   var payload = timestamp + body;
   var signature = Utilities.computeHmacSha256Signature(payload, secret);
@@ -34,9 +32,6 @@ function generateSignature(timestamp, body, secret) {
   }).join('');
 }
 
-/**
- * Effettua richiesta HTTP autenticata al backend
- */
 function apiRequest(method, endpoint, body) {
   var customerId = AdsApp.currentAccount().getCustomerId().replace(/-/g, '');
   var timestamp = new Date().toISOString();
@@ -74,23 +69,14 @@ function apiRequest(method, endpoint, body) {
   }
 }
 
-/**
- * Recupera le modifiche approvate dal backend
- */
 function getPendingModifications() {
   return apiRequest('GET', '/modifications/pending', null);
 }
 
-/**
- * Segna una modifica come in elaborazione
- */
 function markAsProcessing(modificationId) {
   return apiRequest('POST', '/modifications/' + modificationId + '/start', {});
 }
 
-/**
- * Invia il risultato di una modifica al backend
- */
 function sendResult(modificationId, success, message, details) {
   return apiRequest('POST', '/modifications/' + modificationId + '/result', {
     success: success,
@@ -103,9 +89,6 @@ function sendResult(modificationId, success, message, details) {
 // FUNZIONI DI MODIFICA GOOGLE ADS
 // ============================================================================
 
-/**
- * Applica una modifica al budget di una campagna
- */
 function applyCampaignBudget(entityId, afterValue) {
   var campaignIterator = AdsApp.campaigns()
     .withCondition('campaign.id = ' + entityId)
@@ -132,9 +115,6 @@ function applyCampaignBudget(entityId, afterValue) {
   };
 }
 
-/**
- * Applica una modifica allo stato di una campagna
- */
 function applyCampaignStatus(entityId, afterValue) {
   var campaignIterator = AdsApp.campaigns()
     .withCondition('campaign.id = ' + entityId)
@@ -160,9 +140,6 @@ function applyCampaignStatus(entityId, afterValue) {
   return { newStatus: afterValue.status };
 }
 
-/**
- * Applica una modifica allo stato di un gruppo annunci
- */
 function applyAdGroupStatus(entityId, afterValue) {
   var adGroupIterator = AdsApp.adGroups()
     .withCondition('ad_group.id = ' + entityId)
@@ -188,9 +165,6 @@ function applyAdGroupStatus(entityId, afterValue) {
   return { newStatus: afterValue.status };
 }
 
-/**
- * Applica una modifica al CPC bid di un gruppo annunci
- */
 function applyAdGroupCpcBid(entityId, afterValue) {
   var adGroupIterator = AdsApp.adGroups()
     .withCondition('ad_group.id = ' + entityId)
@@ -212,11 +186,7 @@ function applyAdGroupCpcBid(entityId, afterValue) {
   return { newCpcBid: afterValue.cpcBidMicros / 1000000 };
 }
 
-/**
- * Applica una modifica allo stato di una keyword
- */
 function applyKeywordStatus(entityId, afterValue) {
-  // entityId format: "adGroupId~criterionId"
   var parts = entityId.split('~');
   if (parts.length !== 2) {
     throw new Error('Formato entityId keyword non valido: ' + entityId);
@@ -250,9 +220,6 @@ function applyKeywordStatus(entityId, afterValue) {
   return { newStatus: afterValue.status };
 }
 
-/**
- * Applica una modifica al CPC bid di una keyword
- */
 function applyKeywordCpcBid(entityId, afterValue) {
   var parts = entityId.split('~');
   if (parts.length !== 2) {
@@ -283,11 +250,7 @@ function applyKeywordCpcBid(entityId, afterValue) {
   return { newCpcBid: afterValue.cpcBidMicros / 1000000 };
 }
 
-/**
- * Aggiunge una keyword negativa a livello di campagna
- */
 function applyNegativeKeywordAdd(entityId, afterValue) {
-  // entityId is the campaign ID
   var campaignIterator = AdsApp.campaigns()
     .withCondition('campaign.id = ' + entityId)
     .get();
@@ -303,7 +266,6 @@ function applyNegativeKeywordAdd(entityId, afterValue) {
     return { dryRun: true };
   }
 
-  // Determine match type
   var matchType = afterValue.matchType || 'EXACT';
   var keywordText = afterValue.keyword;
 
@@ -322,11 +284,7 @@ function applyNegativeKeywordAdd(entityId, afterValue) {
   };
 }
 
-/**
- * Applica una modifica allo stato di un annuncio
- */
 function applyAdStatus(entityId, afterValue) {
-  // entityId format: "adGroupId~adId"
   var parts = entityId.split('~');
   if (parts.length !== 2) {
     throw new Error('Formato entityId annuncio non valido: ' + entityId);
@@ -360,29 +318,16 @@ function applyAdStatus(entityId, afterValue) {
   return { newStatus: afterValue.status };
 }
 
-/**
- * Modifica i titoli di un annuncio RSA
- * NOTA: Google Ads API non permette di modificare direttamente i titoli di un RSA esistente.
- * Questo richiede la creazione di un nuovo annuncio e la pausa del vecchio.
- */
 function applyAdHeadlines(entityId, afterValue) {
   Logger.log('ATTENZIONE: La modifica dei titoli RSA richiede la creazione di un nuovo annuncio.');
-  Logger.log('Questa funzionalità non è supportata direttamente negli Google Ads Scripts.');
-  Logger.log('Considera di usare l\'interfaccia Google Ads o le API REST.');
-
   return {
     warning: 'RSA headline modification requires creating a new ad',
     headlines: afterValue.headlines
   };
 }
 
-/**
- * Modifica le descrizioni di un annuncio RSA
- */
 function applyAdDescriptions(entityId, afterValue) {
   Logger.log('ATTENZIONE: La modifica delle descrizioni RSA richiede la creazione di un nuovo annuncio.');
-  Logger.log('Questa funzionalità non è supportata direttamente negli Google Ads Scripts.');
-
   return {
     warning: 'RSA description modification requires creating a new ad',
     descriptions: afterValue.descriptions
@@ -393,9 +338,6 @@ function applyAdDescriptions(entityId, afterValue) {
 // DISPATCHER PRINCIPALE
 // ============================================================================
 
-/**
- * Applica una singola modifica
- */
 function applyModification(modification) {
   var entityId = modification.entityId;
   var afterValue = modification.afterValue;
@@ -436,14 +378,14 @@ function applyModification(modification) {
 function main() {
   Logger.log('=================================================');
   Logger.log('GADS Audit 2.0 - Modifier Script');
-  Logger.log('Account: ' + AdsApp.currentAccount().getName());
+  Logger.log('ACCOUNT CONFIGURATO: CASA BULLDOG');
+  Logger.log('Account corrente: ' + AdsApp.currentAccount().getName());
   Logger.log('Customer ID: ' + AdsApp.currentAccount().getCustomerId());
   Logger.log('Data: ' + new Date().toISOString());
   Logger.log('Dry Run: ' + CONFIG.DRY_RUN);
   Logger.log('=================================================');
 
   try {
-    // 1. Recupera le modifiche approvate
     Logger.log('\n1. Recupero modifiche approvate...');
     var response = getPendingModifications();
     var modifications = response.modifications || [];
@@ -455,12 +397,7 @@ function main() {
       return;
     }
 
-    // 2. Applica ogni modifica
-    var results = {
-      success: 0,
-      failed: 0,
-      skipped: 0
-    };
+    var results = { success: 0, failed: 0, skipped: 0 };
 
     for (var i = 0; i < modifications.length; i++) {
       var mod = modifications[i];
@@ -470,16 +407,13 @@ function main() {
       Logger.log('Entità: ' + mod.entityName + ' (' + mod.entityId + ')');
 
       try {
-        // Segna come in elaborazione
         if (!CONFIG.DRY_RUN) {
           markAsProcessing(mod.id);
         }
 
-        // Applica la modifica
         var result = applyModification(mod);
         Logger.log('Risultato: ' + JSON.stringify(result));
 
-        // Invia risultato positivo
         if (!CONFIG.DRY_RUN) {
           sendResult(mod.id, true, 'Modifica applicata con successo', result);
         }
@@ -489,7 +423,6 @@ function main() {
       } catch (error) {
         Logger.log('ERRORE: ' + error.message);
 
-        // Invia risultato negativo
         if (!CONFIG.DRY_RUN) {
           try {
             sendResult(mod.id, false, error.message, { stack: error.stack });
@@ -502,9 +435,8 @@ function main() {
       }
     }
 
-    // 3. Riepilogo
     Logger.log('\n=================================================');
-    Logger.log('RIEPILOGO');
+    Logger.log('RIEPILOGO - CASA BULLDOG');
     Logger.log('Successo: ' + results.success);
     Logger.log('Fallite: ' + results.failed);
     Logger.log('Saltate: ' + results.skipped);

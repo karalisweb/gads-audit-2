@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/data-table/DataTable';
@@ -7,25 +7,28 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from '@/components/ui/toggle-group';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { AIAnalysisPanel } from '@/components/ai';
 import { ModifyButton } from '@/components/modifications';
-import { LayoutGrid, Table2, X, ChevronRight } from 'lucide-react';
+import { X, ChevronRight, ChevronDown } from 'lucide-react';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { getAdGroups, getAds } from '@/api/audit';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { getAdGroups } from '@/api/audit';
 import {
   formatCurrency,
   formatNumber,
   formatCtr,
   formatImpressionShare,
   getStatusVariant,
-  getAdStrengthVariant,
 } from '@/lib/format';
 import type { AdGroup, Ad, PaginatedResponse, AdGroupFilters } from '@/types/audit';
 import type { AIRecommendation } from '@/types/ai';
@@ -178,40 +181,40 @@ interface AdGroupWithAds extends AdGroup {
   adsLoaded?: boolean;
 }
 
-function AdGroupCard({
+// Card espandibile per mobile con tutti i dati
+function AdGroupCardMobile({
   adGroup,
+  isOpen,
+  onToggle,
   accountId,
-  onLoadAds,
+  onRefresh,
+  onNavigate,
 }: {
-  adGroup: AdGroupWithAds;
+  adGroup: AdGroup;
+  isOpen: boolean;
+  onToggle: () => void;
   accountId: string;
-  onLoadAds: (adGroupId: string) => void;
+  onRefresh: () => void;
+  onNavigate: () => void;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const navigate = useNavigate();
-
   const cost = parseFloat(adGroup.costMicros) || 0;
   const conv = parseFloat(adGroup.conversions) || 0;
   const value = parseFloat(adGroup.conversionsValue) || 0;
+  const clicks = parseFloat(adGroup.clicks) || 0;
   const cpa = conv > 0 ? cost / conv : 0;
   const roas = cost > 0 ? (value * 1000000) / cost : 0;
-
-  const handleToggle = (open: boolean) => {
-    setIsOpen(open);
-    if (open && !adGroup.adsLoaded && !adGroup.adsLoading) {
-      onLoadAds(adGroup.adGroupId);
-    }
-  };
+  const convRate = clicks > 0 ? (conv / clicks) * 100 : 0;
+  const valuePerConv = conv > 0 ? (value / conv) * 1000000 : 0;
 
   return (
-    <Collapsible open={isOpen} onOpenChange={handleToggle}>
-      <div className="border rounded-lg bg-card">
+    <Collapsible open={isOpen} onOpenChange={onToggle}>
+      <div className="border rounded-lg bg-card overflow-hidden">
         <CollapsibleTrigger asChild>
           <div className="p-3 cursor-pointer hover:bg-muted/50 transition-colors">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+            <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <Badge variant={getStatusVariant(adGroup.status)} className="text-xs">
+                  <Badge variant={getStatusVariant(adGroup.status)} className="text-xs shrink-0">
                     {adGroup.status}
                   </Badge>
                   {adGroup.searchImpressionShare && (
@@ -223,170 +226,124 @@ function AdGroupCard({
                 <p className="text-sm font-medium truncate">{adGroup.adGroupName}</p>
                 <p className="text-xs text-muted-foreground truncate">{adGroup.campaignName}</p>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="grid grid-cols-5 gap-3 text-right">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Costo</p>
-                    <p className="text-sm font-medium">{formatCurrency(adGroup.costMicros)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Click</p>
-                    <p className="text-sm font-medium">{formatNumber(adGroup.clicks)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Conv.</p>
-                    <p className="text-sm font-medium">{formatNumber(adGroup.conversions)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">CPA</p>
-                    <p className="text-sm font-medium">{cpa > 0 ? formatCurrency(cpa) : '-'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">ROAS</p>
-                    <p className={`text-sm font-medium ${roas >= 1 ? 'text-green-600' : roas > 0 ? 'text-orange-600' : ''}`}>
-                      {roas > 0 ? roas.toFixed(2) : '-'}
-                    </p>
-                  </div>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">Costo</p>
+                  <p className="text-sm font-semibold">{formatCurrency(adGroup.costMicros)}</p>
                 </div>
-                <svg
-                  className={`w-4 h-4 transition-transform shrink-0 ${isOpen ? 'rotate-180' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+                {isOpen ? (
+                  <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />
+                ) : (
+                  <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+                )}
               </div>
             </div>
           </div>
         </CollapsibleTrigger>
+
         <CollapsibleContent>
-          <div className="border-t p-4 bg-muted/30">
-            {/* Metriche aggiuntive */}
-            <div className="grid grid-cols-4 md:grid-cols-8 gap-4 mb-4">
-              <div>
-                <p className="text-xs text-muted-foreground">Impr.</p>
+          <div className="border-t bg-muted/30 p-3 space-y-3">
+            {/* Metriche traffico */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-background rounded p-2">
+                <p className="text-xs text-muted-foreground">Impressioni</p>
                 <p className="text-sm font-medium">{formatNumber(adGroup.impressions)}</p>
               </div>
-              <div>
+              <div className="bg-background rounded p-2">
+                <p className="text-xs text-muted-foreground">Click</p>
+                <p className="text-sm font-medium">{formatNumber(adGroup.clicks)}</p>
+              </div>
+              <div className="bg-background rounded p-2">
                 <p className="text-xs text-muted-foreground">CTR</p>
                 <p className="text-sm font-medium">{formatCtr(adGroup.ctr)}</p>
               </div>
-              <div>
+              <div className="bg-background rounded p-2">
                 <p className="text-xs text-muted-foreground">CPC medio</p>
                 <p className="text-sm font-medium">{formatCurrency(adGroup.averageCpcMicros)}</p>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">CPA Target</p>
-                <p className="text-sm font-medium">{formatCurrency(adGroup.targetCpaMicros)}</p>
+            </div>
+
+            {/* Conversioni */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-background rounded p-2">
+                <p className="text-xs text-muted-foreground">Conversioni</p>
+                <p className="text-sm font-medium">{formatNumber(adGroup.conversions)}</p>
               </div>
-              <div>
+              <div className="bg-background rounded p-2">
+                <p className="text-xs text-muted-foreground">Valore conv.</p>
+                <p className="text-sm font-medium">{value > 0 ? formatCurrency(value * 1000000) : '-'}</p>
+              </div>
+              <div className="bg-background rounded p-2">
+                <p className="text-xs text-muted-foreground">CPA</p>
+                <p className="text-sm font-medium">{cpa > 0 ? formatCurrency(cpa) : '-'}</p>
+              </div>
+              <div className="bg-background rounded p-2">
+                <p className="text-xs text-muted-foreground">ROAS</p>
+                <p className={`text-sm font-medium ${roas >= 1 ? 'text-green-600' : roas > 0 ? 'text-orange-600' : ''}`}>
+                  {roas > 0 ? roas.toFixed(2) : '-'}
+                </p>
+              </div>
+            </div>
+
+            {/* Quota impressioni e target */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-background rounded p-2">
                 <p className="text-xs text-muted-foreground">QI persa rank</p>
                 <p className="text-sm font-medium">{formatImpressionShare(adGroup.searchImpressionShareLostRank)}</p>
               </div>
-              <div>
+              <div className="bg-background rounded p-2">
+                <p className="text-xs text-muted-foreground">QI persa budget</p>
+                <p className="text-sm font-medium">{formatImpressionShare(adGroup.searchImpressionShareLostBudget)}</p>
+              </div>
+              <div className="bg-background rounded p-2">
+                <p className="text-xs text-muted-foreground">CPA Target</p>
+                <p className="text-sm font-medium">{formatCurrency(adGroup.targetCpaMicros)}</p>
+              </div>
+              <div className="bg-background rounded p-2">
+                <p className="text-xs text-muted-foreground">Tasso conv.</p>
+                <p className="text-sm font-medium">{convRate > 0 ? `${convRate.toFixed(2)}%` : '-'}</p>
+              </div>
+            </div>
+
+            {/* Altre metriche */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-background rounded p-2">
+                <p className="text-xs text-muted-foreground">Val/conv</p>
+                <p className="text-sm font-medium">{valuePerConv > 0 ? formatCurrency(valuePerConv) : '-'}</p>
+              </div>
+              <div className="bg-background rounded p-2">
                 <p className="text-xs text-muted-foreground">Tel.</p>
                 <p className="text-sm font-medium">{formatNumber(adGroup.phoneCalls)}</p>
               </div>
-              <div>
+              <div className="bg-background rounded p-2">
                 <p className="text-xs text-muted-foreground">Chat</p>
                 <p className="text-sm font-medium">{formatNumber(adGroup.messageChats)}</p>
               </div>
             </div>
 
-            {/* Annunci */}
-            <div className="border-t pt-4">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-semibold">
-                  Annunci {adGroup.ads ? `(${adGroup.ads.length})` : ''}
-                </h4>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate(`/audit/${accountId}/ads?adGroupId=${adGroup.adGroupId}`)}
-                >
-                  Vedi tutti
-                </Button>
-              </div>
-
-              {adGroup.adsLoading ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-16 w-full" />
-                  <Skeleton className="h-16 w-full" />
-                </div>
-              ) : adGroup.ads && adGroup.ads.length > 0 ? (
-                <div className="space-y-2">
-                  {adGroup.ads.slice(0, 5).map((ad) => (
-                    <div key={ad.id} className="p-3 bg-background rounded border">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Badge variant={getStatusVariant(ad.status)} className="text-xs">
-                              {ad.status}
-                            </Badge>
-                            <Badge variant={getAdStrengthVariant(ad.adStrength)} className="text-xs">
-                              {ad.adStrength || '-'}
-                            </Badge>
-                          </div>
-                          {/* Titoli */}
-                          {ad.headlines && ad.headlines.length > 0 && (
-                            <div className="mt-2">
-                              <p className="text-xs text-muted-foreground mb-1">Titoli:</p>
-                              <div className="flex flex-wrap gap-1">
-                                {ad.headlines.slice(0, 3).map((h, i) => (
-                                  <span key={i} className="text-xs px-2 py-0.5 bg-muted rounded">
-                                    {typeof h === 'object' ? h.text : h}
-                                  </span>
-                                ))}
-                                {ad.headlines.length > 3 && (
-                                  <span className="text-xs text-muted-foreground">
-                                    +{ad.headlines.length - 3}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                          {/* Descrizioni */}
-                          {ad.descriptions && ad.descriptions.length > 0 && (
-                            <div className="mt-1">
-                              <p className="text-xs text-muted-foreground mb-1">Descrizioni:</p>
-                              <p className="text-xs truncate max-w-md">
-                                {typeof ad.descriptions[0] === 'object'
-                                  ? ad.descriptions[0].text
-                                  : ad.descriptions[0]}
-                                {ad.descriptions.length > 1 && (
-                                  <span className="text-muted-foreground"> +{ad.descriptions.length - 1}</span>
-                                )}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-3 gap-3 text-right shrink-0">
-                          <div>
-                            <p className="text-xs text-muted-foreground">Costo</p>
-                            <p className="text-sm font-medium">{formatCurrency(ad.costMicros)}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">Conv.</p>
-                            <p className="text-sm font-medium">{formatNumber(ad.conversions)}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">CTR</p>
-                            <p className="text-sm font-medium">{formatCtr(ad.ctr)}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {adGroup.ads.length > 5 && (
-                    <p className="text-xs text-muted-foreground text-center py-2">
-                      +{adGroup.ads.length - 5} altri annunci
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">Nessun annuncio in questo gruppo</p>
-              )}
+            {/* Azioni */}
+            <div className="flex gap-2 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onNavigate();
+                }}
+              >
+                Vedi Annunci
+              </Button>
+              <ModifyButton
+                accountId={accountId}
+                entityType="ad_group"
+                entityId={adGroup.adGroupId}
+                entityName={adGroup.adGroupName}
+                currentValue={{
+                  status: adGroup.status,
+                }}
+                onSuccess={onRefresh}
+              />
             </div>
           </div>
         </CollapsibleContent>
@@ -399,9 +356,12 @@ export function AdGroupsPage() {
   const { accountId } = useParams<{ accountId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [data, setData] = useState<PaginatedResponse<AdGroupWithAds> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const campaignIdFilter = searchParams.get('campaignId');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [openCards, setOpenCards] = useState<Set<string>>(new Set());
 
   // Get campaign name from first result
   const campaignName = data?.data?.[0]?.campaignName || null;
@@ -416,7 +376,6 @@ export function AdGroupsPage() {
     sortOrder: 'DESC',
   });
   const [searchInput, setSearchInput] = useState('');
-  const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
 
   const loadData = useCallback(async () => {
     if (!accountId) return;
@@ -446,59 +405,37 @@ export function AdGroupsPage() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  const handleLoadAds = useCallback(
-    async (adGroupId: string) => {
-      if (!accountId || !data) return;
-
-      // Mark as loading
-      setData((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          data: prev.data.map((ag) =>
-            ag.adGroupId === adGroupId ? { ...ag, adsLoading: true } : ag,
-          ),
-        };
-      });
-
-      try {
-        const adsResult = await getAds(accountId, {
-          adGroupId,
-          limit: 10,
-          sortBy: 'costMicros',
-          sortOrder: 'DESC',
-        });
-
-        setData((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            data: prev.data.map((ag) =>
-              ag.adGroupId === adGroupId
-                ? { ...ag, ads: adsResult.data, adsLoading: false, adsLoaded: true }
-                : ag,
-            ),
-          };
-        });
-      } catch (err) {
-        console.error('Failed to load ads:', err);
-        setData((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            data: prev.data.map((ag) =>
-              ag.adGroupId === adGroupId ? { ...ag, adsLoading: false, adsLoaded: true } : ag,
-            ),
-          };
-        });
-      }
-    },
-    [accountId, data],
-  );
-
   const handleCreateDecisions = (recommendations: AIRecommendation[]) => {
     console.log('Raccomandazioni approvate:', recommendations);
     alert(`${recommendations.length} raccomandazioni approvate!`);
+  };
+
+  // Filtra per stato (client-side)
+  const filteredData = useMemo(() => {
+    if (!data?.data) return [];
+    if (statusFilter === 'all') return data.data;
+    return data.data.filter(ag => ag.status === statusFilter);
+  }, [data, statusFilter]);
+
+  // Conta per stato
+  const statusCounts = useMemo(() => {
+    if (!data?.data) return { ENABLED: 0, PAUSED: 0, REMOVED: 0 };
+    return data.data.reduce((acc, ag) => {
+      acc[ag.status] = (acc[ag.status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+  }, [data]);
+
+  const toggleCard = (id: string) => {
+    setOpenCards(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
   };
 
   const pageIndex = (filters.page || 1) - 1;
@@ -508,9 +445,9 @@ export function AdGroupsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold">Gruppi di Annunci</h2>
+          <h2 className="text-xl sm:text-2xl font-bold">Gruppi di Annunci</h2>
           {campaignIdFilter && campaignName && (
             <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
               <button
@@ -520,7 +457,7 @@ export function AdGroupsPage() {
                 Campagne
               </button>
               <ChevronRight className="h-3 w-3" />
-              <span className="font-medium text-foreground">{campaignName}</span>
+              <span className="font-medium text-foreground truncate max-w-[200px]">{campaignName}</span>
               <Button
                 variant="ghost"
                 size="sm"
@@ -533,21 +470,7 @@ export function AdGroupsPage() {
             </div>
           )}
         </div>
-        <div className="flex items-center gap-3">
-          <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as 'cards' | 'table')}>
-            <ToggleGroupItem value="cards" aria-label="Vista compatta" title="Vista compatta (cards)">
-              <LayoutGrid className="h-4 w-4" />
-            </ToggleGroupItem>
-            <ToggleGroupItem value="table" aria-label="Vista estesa" title="Vista estesa (tabella)">
-              <Table2 className="h-4 w-4" />
-            </ToggleGroupItem>
-          </ToggleGroup>
-          <Input
-            placeholder="Cerca ad group..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="w-64"
-          />
+        <div className="flex items-center gap-2">
           {accountId && (
             <AIAnalysisPanel
               accountId={accountId}
@@ -559,11 +482,71 @@ export function AdGroupsPage() {
         </div>
       </div>
 
-      {/* Table View */}
-      {viewMode === 'table' && (
+      {/* Filtri */}
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-full sm:w-44">
+            <SelectValue placeholder="Stato" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tutti ({data?.data?.length || 0})</SelectItem>
+            <SelectItem value="ENABLED">Attivi ({statusCounts.ENABLED || 0})</SelectItem>
+            <SelectItem value="PAUSED">In pausa ({statusCounts.PAUSED || 0})</SelectItem>
+            <SelectItem value="REMOVED">Rimossi ({statusCounts.REMOVED || 0})</SelectItem>
+          </SelectContent>
+        </Select>
+        <Input
+          placeholder="Cerca ad group..."
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          className="flex-1"
+        />
+      </div>
+
+      {/* Mobile: Card espandibili */}
+      {isMobile ? (
+        <>
+          {isLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-20 w-full" />
+              ))}
+            </div>
+          ) : (
+            <>
+              <div className="space-y-2">
+                {filteredData.map((adGroup) => (
+                  <AdGroupCardMobile
+                    key={adGroup.id}
+                    adGroup={adGroup}
+                    isOpen={openCards.has(adGroup.id)}
+                    onToggle={() => toggleCard(adGroup.id)}
+                    accountId={accountId!}
+                    onRefresh={loadData}
+                    onNavigate={() => navigate(`/audit/${accountId}/ads?adGroupId=${adGroup.adGroupId}`)}
+                  />
+                ))}
+                {filteredData.length === 0 && (
+                  <div className="text-center py-12 text-muted-foreground">
+                    Nessun ad group trovato
+                  </div>
+                )}
+              </div>
+
+              {/* Info risultati */}
+              {filteredData.length > 0 && (
+                <div className="text-sm text-muted-foreground text-center">
+                  {filteredData.length} gruppi di annunci
+                </div>
+              )}
+            </>
+          )}
+        </>
+      ) : (
+        /* Desktop: Tabella */
         <DataTable
           columns={getColumns(accountId!, loadData, navigate)}
-          data={data?.data || []}
+          data={filteredData}
           isLoading={isLoading}
           pageCount={pageCount}
           pageIndex={pageIndex}
@@ -577,64 +560,6 @@ export function AdGroupsPage() {
             setFilters((prev) => ({ ...prev, sortBy, sortOrder, page: 1 }))
           }
         />
-      )}
-
-      {/* Cards View */}
-      {viewMode === 'cards' && (
-        <>
-          {isLoading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-24 w-full" />
-              ))}
-            </div>
-          ) : (
-            <>
-              <div className="space-y-2">
-                {data?.data.map((adGroup) => (
-                  <AdGroupCard
-                    key={adGroup.id}
-                    adGroup={adGroup}
-                    accountId={accountId!}
-                    onLoadAds={handleLoadAds}
-                  />
-                ))}
-                {(!data?.data || data.data.length === 0) && (
-                  <div className="text-center py-12 text-muted-foreground">
-                    Nessun ad group trovato
-                  </div>
-                )}
-              </div>
-
-              {/* Pagination */}
-              {total > 0 && (
-                <div className="flex items-center justify-between px-2">
-                  <div className="text-sm text-muted-foreground">
-                    {pageIndex * pageSize + 1}-{Math.min((pageIndex + 1) * pageSize, total)} di {total.toLocaleString()}
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <select
-                      className="h-8 w-16 rounded-md border border-input bg-background px-2 text-sm"
-                      value={pageSize}
-                      onChange={(e) => setFilters((prev) => ({ ...prev, limit: Number(e.target.value), page: 1 }))}
-                    >
-                      {[25, 50, 100, 200].map((size) => (
-                        <option key={size} value={size}>{size}</option>
-                      ))}
-                    </select>
-                    <div className="flex items-center gap-1">
-                      <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => setFilters((prev) => ({ ...prev, page: 1 }))} disabled={pageIndex === 0}>{'«'}</Button>
-                      <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => setFilters((prev) => ({ ...prev, page: pageIndex }))} disabled={pageIndex === 0}>{'‹'}</Button>
-                      <span className="text-sm px-2">{pageIndex + 1}/{pageCount}</span>
-                      <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => setFilters((prev) => ({ ...prev, page: pageIndex + 2 }))} disabled={pageIndex >= pageCount - 1}>{'›'}</Button>
-                      <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => setFilters((prev) => ({ ...prev, page: pageCount }))} disabled={pageIndex >= pageCount - 1}>{'»'}</Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </>
       )}
     </div>
   );

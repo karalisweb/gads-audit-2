@@ -59,49 +59,57 @@ function EntityCard({ entity }: { entity: EntityWithConversions }) {
   const hasConversions = entity.conversions > 0;
 
   return (
-    <div className={`border rounded-lg bg-card p-4 ${!hasConversions ? 'opacity-60' : ''}`}>
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{entity.name}</p>
-          {entity.parentName && (
-            <p className="text-xs text-muted-foreground truncate">{entity.parentName}</p>
-          )}
-          <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground sm:hidden">
-            <span>Click: {formatNumber(entity.clicks)}</span>
-            <span>Tasso conv: {entity.convRate > 0 ? `${entity.convRate.toFixed(2)}%` : '-'}</span>
-          </div>
+    <div className={`border rounded-lg bg-card p-3 sm:p-4 ${!hasConversions ? 'opacity-60' : ''}`}>
+      {/* Header con nome */}
+      <div className="mb-2">
+        <p className="text-sm font-medium truncate">{entity.name}</p>
+        {entity.parentName && (
+          <p className="text-xs text-muted-foreground truncate">{entity.parentName}</p>
+        )}
+      </div>
+
+      {/* Metriche - su mobile 2 colonne, su desktop 5 colonne */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3">
+        <div className="bg-muted/50 rounded p-2 sm:bg-transparent sm:p-0 sm:text-right">
+          <p className="text-xs text-muted-foreground">Conv.</p>
+          <p className={`text-sm font-semibold ${hasConversions ? 'text-green-600' : ''}`}>
+            {formatNumber(entity.conversions)}
+          </p>
         </div>
-        <div className="grid grid-cols-5 gap-3 text-right">
-          <div>
-            <p className="text-xs text-muted-foreground">Conv.</p>
-            <p className={`text-sm font-semibold ${hasConversions ? 'text-green-600' : ''}`}>
-              {formatNumber(entity.conversions)}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Valore</p>
-            <p className="text-sm font-medium">
-              {entity.conversionsValue > 0 ? formatCurrency(entity.conversionsValue * 1000000) : '-'}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Costo</p>
-            <p className="text-sm font-medium">{formatCurrency(entity.cost)}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">CPA</p>
-            <p className={`text-sm font-medium ${entity.cpa > 0 ? '' : 'text-muted-foreground'}`}>
-              {entity.cpa > 0 ? formatCurrency(entity.cpa) : '-'}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">ROAS</p>
-            <p className={`text-sm font-medium ${entity.roas > 1 ? 'text-green-600' : entity.roas > 0 ? 'text-orange-600' : ''}`}>
-              {entity.roas > 0 ? entity.roas.toFixed(2) : '-'}
-            </p>
-          </div>
+        <div className="bg-muted/50 rounded p-2 sm:bg-transparent sm:p-0 sm:text-right">
+          <p className="text-xs text-muted-foreground">Valore</p>
+          <p className="text-sm font-medium">
+            {entity.conversionsValue > 0 ? formatCurrency(entity.conversionsValue * 1000000) : '-'}
+          </p>
+        </div>
+        <div className="bg-muted/50 rounded p-2 sm:bg-transparent sm:p-0 sm:text-right">
+          <p className="text-xs text-muted-foreground">Costo</p>
+          <p className="text-sm font-medium">{formatCurrency(entity.cost)}</p>
+        </div>
+        <div className="bg-muted/50 rounded p-2 sm:bg-transparent sm:p-0 sm:text-right">
+          <p className="text-xs text-muted-foreground">CPA</p>
+          <p className={`text-sm font-medium ${entity.cpa > 0 ? '' : 'text-muted-foreground'}`}>
+            {entity.cpa > 0 ? formatCurrency(entity.cpa) : '-'}
+          </p>
+        </div>
+        <div className="bg-muted/50 rounded p-2 sm:bg-transparent sm:p-0 sm:text-right">
+          <p className="text-xs text-muted-foreground">ROAS</p>
+          <p className={`text-sm font-medium ${entity.roas > 1 ? 'text-green-600' : entity.roas > 0 ? 'text-orange-600' : ''}`}>
+            {entity.roas > 0 ? entity.roas.toFixed(2) : '-'}
+          </p>
+        </div>
+        {/* Click e Tasso conv - visibili solo su mobile nella griglia */}
+        <div className="bg-muted/50 rounded p-2 sm:hidden">
+          <p className="text-xs text-muted-foreground">Click</p>
+          <p className="text-sm font-medium">{formatNumber(entity.clicks)}</p>
+        </div>
+        <div className="bg-muted/50 rounded p-2 sm:hidden">
+          <p className="text-xs text-muted-foreground">Tasso conv.</p>
+          <p className="text-sm font-medium">{entity.convRate > 0 ? `${entity.convRate.toFixed(2)}%` : '-'}</p>
         </div>
       </div>
+
+      {/* Extra info su desktop */}
       <div className="hidden sm:flex items-center gap-4 mt-2 text-xs text-muted-foreground">
         <span>Click: {formatNumber(entity.clicks)}</span>
         <span>Tasso conv: {entity.convRate > 0 ? `${entity.convRate.toFixed(2)}%` : '-'}</span>
@@ -272,7 +280,7 @@ export function ConversionsPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-5">
         <StatCard
           title="Conversioni Totali"
           value={formatNumber(stats?.totalConversions || 0)}
@@ -303,7 +311,7 @@ export function ConversionsPage() {
       </div>
 
       {/* Distribution Summary */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">

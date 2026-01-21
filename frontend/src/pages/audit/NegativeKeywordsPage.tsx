@@ -179,10 +179,13 @@ export function NegativeKeywordsPage() {
     sortOrder: 'ASC',
   });
   const [searchInput, setSearchInput] = useState('');
-  // Su mobile default 'cards', su desktop 'grouped'
-  const [viewMode, setViewMode] = useState<'grouped' | 'cards' | 'table'>(isMobile ? 'cards' : 'grouped');
+  // Su mobile forziamo 'grouped', su desktop è selezionabile
+  const [viewMode, setViewMode] = useState<'grouped' | 'cards' | 'table'>('grouped');
   const [levelFilter, setLevelFilter] = useState<string>('all');
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+
+  // Su mobile forza sempre la vista raggruppata (no tabella)
+  const effectiveViewMode = isMobile ? 'grouped' : viewMode;
 
   const loadData = useCallback(async () => {
     if (!accountId) return;
@@ -296,23 +299,26 @@ export function NegativeKeywordsPage() {
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h2 className="text-xl sm:text-2xl font-bold">Negative Keywords</h2>
-        <div className="flex items-center gap-2">
-          <ToggleGroup
-            type="single"
-            value={viewMode}
-            onValueChange={(v) => v && setViewMode(v as 'grouped' | 'cards' | 'table')}
-          >
-            <ToggleGroupItem value="grouped" aria-label="Vista raggruppata" title="Vista raggruppata">
-              <List className="h-4 w-4" />
-            </ToggleGroupItem>
-            <ToggleGroupItem value="cards" aria-label="Vista cards" title="Vista cards">
-              <LayoutGrid className="h-4 w-4" />
-            </ToggleGroupItem>
-            <ToggleGroupItem value="table" aria-label="Vista tabella" title="Vista tabella">
-              <Table2 className="h-4 w-4" />
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </div>
+        {/* Toggle solo su desktop - su mobile forziamo vista grouped */}
+        {!isMobile && (
+          <div className="flex items-center gap-2">
+            <ToggleGroup
+              type="single"
+              value={viewMode}
+              onValueChange={(v) => v && setViewMode(v as 'grouped' | 'cards' | 'table')}
+            >
+              <ToggleGroupItem value="grouped" aria-label="Vista raggruppata" title="Vista raggruppata">
+                <List className="h-4 w-4" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="cards" aria-label="Vista cards" title="Vista cards">
+                <LayoutGrid className="h-4 w-4" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="table" aria-label="Vista tabella" title="Vista tabella">
+                <Table2 className="h-4 w-4" />
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+        )}
       </div>
 
       {/* Filters - responsive */}
@@ -386,7 +392,7 @@ export function NegativeKeywordsPage() {
             <Skeleton key={i} className="h-16 w-full" />
           ))}
         </div>
-      ) : viewMode === 'table' ? (
+      ) : effectiveViewMode === 'table' ? (
         <DataTable
           columns={columns}
           data={data?.data?.filter(kw => levelFilter === 'all' || kw.level === levelFilter) || []}
@@ -402,7 +408,7 @@ export function NegativeKeywordsPage() {
             setFilters((prev) => ({ ...prev, sortBy, sortOrder, page: 1 }))
           }
         />
-      ) : viewMode === 'grouped' ? (
+      ) : effectiveViewMode === 'grouped' ? (
         <div className="space-y-2">
           {groupedData.map((group) => (
             <SharedSetCard

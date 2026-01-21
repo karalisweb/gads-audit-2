@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/data-table/DataTable';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select,
@@ -19,8 +20,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronRight } from 'lucide-react';
-import { getKeywords } from '@/api/audit';
+import { ChevronDown, ChevronRight, X } from 'lucide-react';
+import { getKeywords, getCampaigns, getAdGroups } from '@/api/audit';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import {
   formatCurrency,
@@ -31,7 +32,7 @@ import {
   getStatusVariant,
   getQualityScoreColor,
 } from '@/lib/format';
-import type { Keyword, PaginatedResponse, KeywordFilters } from '@/types/audit';
+import type { Keyword, PaginatedResponse, KeywordFilters, Campaign, AdGroup } from '@/types/audit';
 import type { AIRecommendation } from '@/types/ai';
 
 function getColumns(accountId: string, onRefresh: () => void): ColumnDef<Keyword>[] {
@@ -390,9 +391,13 @@ function KeywordCardMobile({
 
 export function KeywordsPage() {
   const { accountId } = useParams<{ accountId: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [data, setData] = useState<PaginatedResponse<Keyword> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const campaignIdFilter = searchParams.get('campaignId');
+  const adGroupIdFilter = searchParams.get('adGroupId');
   const [filters, setFilters] = useState<KeywordFilters>({
     page: 1,
     limit: 50,
@@ -403,19 +408,145 @@ export function KeywordsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [openCards, setOpenCards] = useState<Set<string>>(new Set());
 
+  // Campaign selector state
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string>('all');
+  const [isLoadingCampaigns, setIsLoadingCampaigns] = useState(true);
+
+  // Ad Group selector state
+  const [adGroups, setAdGroups] = useState<AdGroup[]>([]);
+  const [selectedAdGroupId, setSelectedAdGroupId] = useState<string>('all');
+  const [isLoadingAdGroups, setIsLoadingAdGroups] = useState(false);
+
+  // Get filter names from data
+  const filterInfo = data?.data?.[0] ? {
+    campaignName: data.data[0].campaignName,
+    adGroupName: data.data[0].adGroupName,
+  } : null;
+
+  const clearFilter = () => {
+    setSearchParams({});
+    setSelectedCampaignId('all');
+    setSelectedAdGroupId('all');
+    setAdGroups([]);
+  };
+
+  // Load campaigns for the selector
+  const loadCampaigns = useCallback(async () => {
+    if (!accountId) return;
+    setIsLoadingCampaigns(true);
+    try {
+      const result = await getCampaigns(accountId, { limit: 200, sortBy: 'costMicros', sortOrder: 'DESC' });
+      // Filter only ENABLED campaigns for the selector
+      const enabledCampaigns = result.data.filter(c => c.status === 'ENABLED');
+      setCampaigns(enabledCampaigns);
+    } catch (err) {
+      console.error('Failed to load campaigns:', err);
+    } finally {
+      setIsLoadingCampaigns(false);
+    }
+  }, [accountId]);
+
+  useEffect(() => {
+    loadCampaigns();
+  }, [loadCampaigns]);
+
+  // Sync selectedCampaignId with URL param
+  useEffect(() => {
+    if (campaignIdFilter) {
+      setSelectedCampaignId(campaignIdFilter);
+    }
+  }, [campaignIdFilter]);
+
+  // Sync selectedAdGroupId with URL param
+  useEffect(() => {
+    if (adGroupIdFilter) {
+      setSelectedAdGroupId(adGroupIdFilter);
+    }
+  }, [adGroupIdFilter]);
+
+  // Load ad groups when campaign is selected
+  const loadAdGroups = useCallback(async (campaignId: string) => {
+    if (!accountId || campaignId === 'all') {
+      setAdGroups([]);
+      return;
+    }
+    setIsLoadingAdGroups(true);
+    try {
+      const result = await getAdGroups(accountId, {
+        campaignId,
+        limit: 200,
+        sortBy: 'costMicros',
+        sortOrder: 'DESC'
+      });
+      // Filter only ENABLED ad groups
+      const enabledAdGroups = result.data.filter(ag => ag.status === 'ENABLED');
+      setAdGroups(enabledAdGroups);
+    } catch (err) {
+      console.error('Failed to load ad groups:', err);
+    } finally {
+      setIsLoadingAdGroups(false);
+    }
+  }, [accountId]);
+
+  // Load ad groups when campaign changes
+  useEffect(() => {
+    if (selectedCampaignId !== 'all') {
+      loadAdGroups(selectedCampaignId);
+    } else {
+      setAdGroups([]);
+      setSelectedAdGroupId('all');
+    }
+  }, [selectedCampaignId, loadAdGroups]);
+
+  const handleCampaignChange = (value: string) => {
+    setSelectedCampaignId(value);
+    setSelectedAdGroupId('all'); // Reset ad group when campaign changes
+    if (value === 'all') {
+      // Remove campaignId from URL params
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('campaignId');
+      newParams.delete('adGroupId');
+      setSearchParams(newParams);
+    } else {
+      // Set campaignId in URL params
+      setSearchParams({ campaignId: value });
+    }
+    setFilters(prev => ({ ...prev, page: 1 }));
+  };
+
+  const handleAdGroupChange = (value: string) => {
+    setSelectedAdGroupId(value);
+    if (value === 'all') {
+      // Keep only campaignId
+      setSearchParams({ campaignId: selectedCampaignId });
+    } else {
+      // Set both campaignId and adGroupId
+      setSearchParams({ campaignId: selectedCampaignId, adGroupId: value });
+    }
+    setFilters(prev => ({ ...prev, page: 1 }));
+  };
+
   const loadData = useCallback(async () => {
     if (!accountId) return;
 
     setIsLoading(true);
     try {
-      const result = await getKeywords(accountId, filters);
+      const activeCampaignId = selectedCampaignId !== 'all' ? selectedCampaignId : campaignIdFilter;
+      const activeAdGroupId = selectedAdGroupId !== 'all' ? selectedAdGroupId : adGroupIdFilter;
+      const apiFilters = {
+        ...filters,
+        ...(activeCampaignId && { campaignId: activeCampaignId }),
+        ...(activeAdGroupId && { adGroupId: activeAdGroupId }),
+      };
+      const result = await getKeywords(accountId, apiFilters);
       setData(result);
     } catch (err) {
       console.error('Failed to load keywords:', err);
     } finally {
       setIsLoading(false);
     }
-  }, [accountId, filters]);
+  }, [accountId, filters, campaignIdFilter, adGroupIdFilter, selectedCampaignId, selectedAdGroupId]);
 
   // Filtra per stato (client-side)
   const filteredData = useMemo(() => {
@@ -469,7 +600,43 @@ export function KeywordsPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-xl sm:text-2xl font-bold">Keywords</h2>
+        <div>
+          <h2 className="text-xl sm:text-2xl font-bold">Keywords</h2>
+          {(campaignIdFilter || adGroupIdFilter) && filterInfo && (
+            <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground mt-1">
+              <button
+                onClick={() => navigate(`/audit/${accountId}/campaigns`)}
+                className="hover:text-primary hover:underline transition-colors"
+              >
+                Campagne
+              </button>
+              <ChevronRight className="h-3 w-3" />
+              {adGroupIdFilter ? (
+                <>
+                  <button
+                    onClick={() => navigate(`/audit/${accountId}/ad-groups?campaignId=${campaignIdFilter || ''}`)}
+                    className="hover:text-primary hover:underline transition-colors"
+                  >
+                    {filterInfo.campaignName || 'Ad Groups'}
+                  </button>
+                  <ChevronRight className="h-3 w-3" />
+                  <span className="font-medium text-foreground truncate max-w-[150px]">{filterInfo.adGroupName}</span>
+                </>
+              ) : (
+                <span className="font-medium text-foreground truncate max-w-[200px]">{filterInfo.campaignName}</span>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 w-5 p-0 ml-2 hover:bg-destructive/10 hover:text-destructive"
+                onClick={clearFilter}
+                title="Rimuovi filtro"
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           {accountId && (
             <AIAnalysisPanel
@@ -483,7 +650,63 @@ export function KeywordsPage() {
       </div>
 
       {/* Filtri */}
-      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 flex-wrap">
+        {/* Campaign selector */}
+        <Select
+          value={selectedCampaignId}
+          onValueChange={handleCampaignChange}
+          disabled={isLoadingCampaigns}
+        >
+          <SelectTrigger className="w-full sm:w-64">
+            <SelectValue placeholder="Seleziona campagna..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">
+              <span className="font-medium">Tutte le campagne</span>
+              <span className="text-muted-foreground ml-1">({campaigns.length})</span>
+            </SelectItem>
+            {campaigns.map((campaign) => (
+              <SelectItem key={campaign.campaignId} value={campaign.campaignId}>
+                <div className="flex items-center gap-2">
+                  <span className="truncate max-w-[180px]">{campaign.campaignName}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {formatCurrency(campaign.costMicros)}
+                  </span>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Ad Group selector - only show when a campaign is selected */}
+        {selectedCampaignId !== 'all' && (
+          <Select
+            value={selectedAdGroupId}
+            onValueChange={handleAdGroupChange}
+            disabled={isLoadingAdGroups}
+          >
+            <SelectTrigger className="w-full sm:w-64">
+              <SelectValue placeholder={isLoadingAdGroups ? "Caricamento..." : "Seleziona gruppo annunci..."} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">
+                <span className="font-medium">Tutti i gruppi</span>
+                <span className="text-muted-foreground ml-1">({adGroups.length})</span>
+              </SelectItem>
+              {adGroups.map((adGroup) => (
+                <SelectItem key={adGroup.adGroupId} value={adGroup.adGroupId}>
+                  <div className="flex items-center gap-2">
+                    <span className="truncate max-w-[180px]">{adGroup.adGroupName}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatCurrency(adGroup.costMicros)}
+                    </span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-full sm:w-44">
             <SelectValue placeholder="Stato" />

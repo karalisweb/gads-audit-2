@@ -37,11 +37,12 @@ const navItems = [
 ];
 
 // Voci principali per la bottom navigation mobile (max 4 + more)
+// Rimosso issues (non funziona), aggiunto conversions e ad-groups
 const primaryNavItems = navItems.filter(item =>
-  ['campaigns', 'keywords', 'search-terms', 'issues'].includes(item.path)
+  ['campaigns', 'ad-groups', 'keywords', 'conversions'].includes(item.path)
 );
 const secondaryNavItems = navItems.filter(item =>
-  !['campaigns', 'keywords', 'search-terms', 'issues'].includes(item.path)
+  !['campaigns', 'ad-groups', 'keywords', 'conversions'].includes(item.path)
 );
 
 export function AuditLayout() {
