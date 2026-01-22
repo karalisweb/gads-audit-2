@@ -15,7 +15,7 @@ import { ExportModule } from './modules/export/export.module';
 import { AIModule } from './modules/ai/ai.module';
 import { ModificationsModule } from './modules/modifications/modifications.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
-import { TwoFactorGuard } from './modules/auth/guards/two-factor.guard';
+import { EmailModule } from './modules/email/email.module';
 
 @Module({
   imports: [
@@ -48,6 +48,7 @@ import { TwoFactorGuard } from './modules/auth/guards/two-factor.guard';
     ExportModule,
     AIModule,
     ModificationsModule,
+    EmailModule,
   ],
   controllers: [AppController],
   providers: [
@@ -55,10 +56,6 @@ import { TwoFactorGuard } from './modules/auth/guards/two-factor.guard';
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
-    },
-    {
-      provide: APP_GUARD,
-      useClass: TwoFactorGuard,
     },
   ],
 })

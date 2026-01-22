@@ -9,13 +9,13 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { TwoFactorGuard } from './guards/two-factor.guard';
 import { RolesGuard } from './guards/roles.guard';
-import { User, RefreshToken, AuditLog } from '../../entities';
+import { User, RefreshToken, AuditLog, EmailOtp } from '../../entities';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, RefreshToken, AuditLog]),
+    TypeOrmModule.forFeature([User, RefreshToken, AuditLog, EmailOtp]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -37,6 +37,7 @@ import { User, RefreshToken, AuditLog } from '../../entities';
       ],
       inject: [ConfigService],
     }),
+    EmailModule,
   ],
   controllers: [AuthController],
   providers: [
@@ -44,9 +45,8 @@ import { User, RefreshToken, AuditLog } from '../../entities';
     JwtStrategy,
     LocalStrategy,
     JwtAuthGuard,
-    TwoFactorGuard,
     RolesGuard,
   ],
-  exports: [AuthService, JwtAuthGuard, TwoFactorGuard, RolesGuard],
+  exports: [AuthService, JwtAuthGuard, RolesGuard],
 })
 export class AuthModule {}

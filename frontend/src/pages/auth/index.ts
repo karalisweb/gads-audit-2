@@ -1,4 +1,5 @@
 export { LoginPage } from './LoginPage';
 export { VerifyTwoFactorPage } from './VerifyTwoFactorPage';
-export { SetupTwoFactorPage } from './SetupTwoFactorPage';
 export { AcceptInvitePage } from './AcceptInvitePage';
+export { ForgotPasswordPage } from './ForgotPasswordPage';
+export { ResetPasswordPage } from './ResetPasswordPage';

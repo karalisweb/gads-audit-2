@@ -1,11 +1,12 @@
 export interface User {
   id: string;
   email: string;
+  name?: string;
   role: 'admin' | 'user';
-  totpEnabled: boolean;
+  twoFactorEnabled: boolean;
   isActive: boolean;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
 }
 
 export interface GoogleAdsAccount {

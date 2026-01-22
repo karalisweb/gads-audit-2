@@ -9,6 +9,7 @@ import {
   User,
   Menu,
   X,
+  Settings,
 } from 'lucide-react';
 
 export function Sidebar() {
@@ -99,6 +100,23 @@ export function Sidebar() {
           >
             <Building2 className="h-5 w-5" />
             Account
+          </NavLink>
+
+          {/* Settings */}
+          <NavLink
+            to="/settings"
+            onClick={() => window.innerWidth < 1024 && toggleSidebar()}
+            className={({ isActive }) =>
+              cn(
+                'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors mb-1',
+                isActive
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-white'
+              )
+            }
+          >
+            <Settings className="h-5 w-5" />
+            Impostazioni
           </NavLink>
         </nav>
 

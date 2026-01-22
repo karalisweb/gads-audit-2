@@ -29,17 +29,14 @@ export class User {
   @Column({ name: 'password_hash', length: 255, nullable: true })
   passwordHash: string;
 
+  @Column({ length: 100, nullable: true })
+  name: string;
+
   @Column({ type: 'varchar', length: 20, default: UserRole.USER })
   role: UserRole;
 
-  @Column({ name: 'totp_secret', length: 255, nullable: true })
-  totpSecret: string;
-
-  @Column({ name: 'totp_enabled', default: false })
-  totpEnabled: boolean;
-
-  @Column({ name: 'backup_codes', type: 'jsonb', nullable: true })
-  backupCodes: string[];
+  @Column({ name: 'two_factor_enabled', default: false })
+  twoFactorEnabled: boolean;
 
   @Column({ name: 'is_active', default: false })
   isActive: boolean;

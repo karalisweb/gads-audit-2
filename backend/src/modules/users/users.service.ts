@@ -15,9 +15,10 @@ export class UsersService {
       select: [
         'id',
         'email',
+        'name',
         'role',
         'isActive',
-        'totpEnabled',
+        'twoFactorEnabled',
         'lastLoginAt',
         'createdAt',
       ],
@@ -31,9 +32,10 @@ export class UsersService {
       select: [
         'id',
         'email',
+        'name',
         'role',
         'isActive',
-        'totpEnabled',
+        'twoFactorEnabled',
         'lastLoginAt',
         'createdAt',
       ],

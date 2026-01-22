@@ -4,16 +4,16 @@ import {
   BadRequestException,
   ConflictException,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository, IsNull, MoreThan } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { authenticator } from 'otplib';
-import * as qrcode from 'qrcode';
 import * as crypto from 'crypto';
-import { User, RefreshToken, AuditLog } from '../../entities';
+import { User, RefreshToken, AuditLog, EmailOtp } from '../../entities';
+import { EmailService } from '../email/email.service';
 
 export interface JwtPayload {
   sub: string;
@@ -29,8 +29,11 @@ export interface TokenPair {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private readonly BCRYPT_ROUNDS = 12;
-  private readonly BACKUP_CODES_COUNT = 10;
+  private readonly OTP_EXPIRATION_MINUTES = 10;
+  private readonly OTP_RATE_LIMIT_MINUTES = 15;
+  private readonly OTP_RATE_LIMIT_MAX = 3;
   private readonly COMMON_PASSWORDS = [
     'password123!A',
     'Password123!',
@@ -44,8 +47,11 @@ export class AuthService {
     private readonly refreshTokenRepository: Repository<RefreshToken>,
     @InjectRepository(AuditLog)
     private readonly auditLogRepository: Repository<AuditLog>,
+    @InjectRepository(EmailOtp)
+    private readonly emailOtpRepository: Repository<EmailOtp>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly emailService: EmailService,
   ) {}
 
   async validateUser(email: string, password: string): Promise<User | null> {
@@ -57,7 +63,7 @@ export class AuthService {
 
     if (user.lockedUntil && user.lockedUntil > new Date()) {
       throw new UnauthorizedException(
-        'Account is locked. Please try again later.',
+        'Account bloccato. Riprova più tardi.',
       );
     }
 
@@ -69,7 +75,7 @@ export class AuthService {
     }
 
     if (!user.isActive) {
-      throw new UnauthorizedException('Account is not active');
+      throw new UnauthorizedException('Account non attivo');
     }
 
     // Reset failed attempts on successful validation
@@ -97,13 +103,58 @@ export class AuthService {
     await this.userRepository.update(user.id, updateData);
   }
 
+  private generateOtpCode(): string {
+    // Generate a cryptographically secure 6-digit code
+    const buffer = crypto.randomBytes(4);
+    const num = buffer.readUInt32BE(0);
+    const code = (num % 900000 + 100000).toString();
+    return code;
+  }
+
+  private async checkOtpRateLimit(email: string, type: 'login' | 'password_reset'): Promise<void> {
+    const rateLimitStart = new Date(Date.now() - this.OTP_RATE_LIMIT_MINUTES * 60 * 1000);
+
+    const recentOtps = await this.emailOtpRepository.count({
+      where: {
+        email,
+        type,
+        createdAt: MoreThan(rateLimitStart),
+      },
+    });
+
+    if (recentOtps >= this.OTP_RATE_LIMIT_MAX) {
+      throw new BadRequestException(
+        `Hai raggiunto il limite massimo di richieste. Riprova tra ${this.OTP_RATE_LIMIT_MINUTES} minuti.`
+      );
+    }
+  }
+
   async login(
     user: User,
     ipAddress: string,
     userAgent: string,
   ): Promise<{ tokens?: TokenPair; requiresTwoFactor: boolean; user: Partial<User> }> {
-    if (user.totpEnabled) {
-      // Return partial response, user needs to verify 2FA
+    if (user.twoFactorEnabled) {
+      // Check rate limit
+      await this.checkOtpRateLimit(user.email, 'login');
+
+      // Generate and send OTP
+      const code = this.generateOtpCode();
+      const codeHash = await bcrypt.hash(code, 10);
+      const expiresAt = new Date(Date.now() + this.OTP_EXPIRATION_MINUTES * 60 * 1000);
+
+      await this.emailOtpRepository.save({
+        email: user.email,
+        codeHash,
+        expiresAt,
+        type: 'login',
+      });
+
+      // Send email
+      await this.emailService.sendOtpEmail(user.email, code);
+
+      this.logger.log(`OTP sent for login to ${user.email}`);
+
       return {
         requiresTwoFactor: true,
         user: {
@@ -133,21 +184,35 @@ export class AuthService {
     const user = await this.userRepository.findOne({ where: { id: userId } });
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('Utente non trovato');
     }
 
-    const isValidCode = authenticator.verify({
-      token: code,
-      secret: user.totpSecret,
+    // Find valid OTP
+    const validOtp = await this.emailOtpRepository.findOne({
+      where: {
+        email: user.email,
+        type: 'login',
+        used: false,
+        expiresAt: MoreThan(new Date()),
+      },
+      order: { createdAt: 'DESC' },
     });
 
-    // Check backup codes if TOTP fails
-    if (!isValidCode) {
-      const isBackupCode = await this.verifyBackupCode(user, code);
-      if (!isBackupCode) {
-        throw new UnauthorizedException('Invalid 2FA code');
-      }
+    if (!validOtp) {
+      throw new UnauthorizedException('Codice OTP scaduto o non valido');
     }
+
+    const isValidCode = await bcrypt.compare(code, validOtp.codeHash);
+
+    if (!isValidCode) {
+      throw new UnauthorizedException('Codice OTP non valido');
+    }
+
+    // Mark OTP as used
+    await this.emailOtpRepository.update(validOtp.id, {
+      used: true,
+      usedAt: new Date(),
+    });
 
     const tokens = await this.generateTokens(user, true);
     await this.updateLastLogin(user.id);
@@ -159,23 +224,96 @@ export class AuthService {
     };
   }
 
-  private async verifyBackupCode(user: User, code: string): Promise<boolean> {
-    if (!user.backupCodes || user.backupCodes.length === 0) {
-      return false;
+  async requestPasswordReset(email: string): Promise<void> {
+    const user = await this.userRepository.findOne({ where: { email } });
+
+    // Don't reveal if user exists
+    if (!user) {
+      this.logger.log(`Password reset requested for non-existent email: ${email}`);
+      return;
     }
 
-    for (let i = 0; i < user.backupCodes.length; i++) {
-      const isMatch = await bcrypt.compare(code, user.backupCodes[i]);
-      if (isMatch) {
-        // Remove used backup code
-        const updatedCodes = [...user.backupCodes];
-        updatedCodes.splice(i, 1);
-        await this.userRepository.update(user.id, { backupCodes: updatedCodes });
-        return true;
-      }
+    // Check rate limit
+    await this.checkOtpRateLimit(email, 'password_reset');
+
+    // Generate and send OTP
+    const code = this.generateOtpCode();
+    const codeHash = await bcrypt.hash(code, 10);
+    const expiresAt = new Date(Date.now() + this.OTP_EXPIRATION_MINUTES * 60 * 1000);
+
+    await this.emailOtpRepository.save({
+      email,
+      codeHash,
+      expiresAt,
+      type: 'password_reset',
+    });
+
+    await this.emailService.sendPasswordResetEmail(email, code);
+    this.logger.log(`Password reset OTP sent to ${email}`);
+  }
+
+  async verifyPasswordReset(
+    email: string,
+    code: string,
+    newPassword: string,
+  ): Promise<void> {
+    const user = await this.userRepository.findOne({ where: { email } });
+
+    if (!user) {
+      throw new BadRequestException('Codice non valido o scaduto');
     }
 
-    return false;
+    // Find valid OTP
+    const validOtp = await this.emailOtpRepository.findOne({
+      where: {
+        email,
+        type: 'password_reset',
+        used: false,
+        expiresAt: MoreThan(new Date()),
+      },
+      order: { createdAt: 'DESC' },
+    });
+
+    if (!validOtp) {
+      throw new BadRequestException('Codice non valido o scaduto');
+    }
+
+    const isValidCode = await bcrypt.compare(code, validOtp.codeHash);
+
+    if (!isValidCode) {
+      throw new BadRequestException('Codice non valido');
+    }
+
+    // Validate password
+    if (this.COMMON_PASSWORDS.includes(newPassword)) {
+      throw new BadRequestException('Questa password è troppo comune');
+    }
+
+    // Mark OTP as used
+    await this.emailOtpRepository.update(validOtp.id, {
+      used: true,
+      usedAt: new Date(),
+    });
+
+    // Update password
+    const passwordHash = await bcrypt.hash(newPassword, this.BCRYPT_ROUNDS);
+    await this.userRepository.update(user.id, { passwordHash });
+
+    // Revoke all refresh tokens
+    await this.logoutAll(user.id);
+
+    this.logger.log(`Password reset completed for ${email}`);
+  }
+
+  async toggle2FA(userId: string, enabled: boolean): Promise<void> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+
+    if (!user) {
+      throw new NotFoundException('Utente non trovato');
+    }
+
+    await this.userRepository.update(userId, { twoFactorEnabled: enabled });
+    this.logger.log(`2FA ${enabled ? 'enabled' : 'disabled'} for user ${user.email}`);
   }
 
   async generateTokens(user: User, twoFactorAuthenticated: boolean): Promise<TokenPair> {
@@ -225,7 +363,7 @@ export class AuthService {
     }
 
     if (!validToken) {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException('Token di refresh non valido');
     }
 
     // Revoke old token (rotation)
@@ -263,13 +401,13 @@ export class AuthService {
   async inviteUser(email: string, invitedBy: string): Promise<{ inviteToken: string }> {
     // Check email domain
     if (!email.endsWith('@karalisweb.net')) {
-      throw new BadRequestException('Only @karalisweb.net email addresses are allowed');
+      throw new BadRequestException('Sono ammessi solo indirizzi email @karalisweb.net');
     }
 
     // Check if user already exists
     const existingUser = await this.userRepository.findOne({ where: { email } });
     if (existingUser) {
-      throw new ConflictException('User with this email already exists');
+      throw new ConflictException('Esiste già un utente con questa email');
     }
 
     const inviteToken = crypto.randomBytes(32).toString('hex');
@@ -294,16 +432,16 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new NotFoundException('Invalid invite token');
+      throw new NotFoundException('Token di invito non valido');
     }
 
     if (user.inviteExpiresAt && user.inviteExpiresAt < new Date()) {
-      throw new BadRequestException('Invite token has expired');
+      throw new BadRequestException('Il token di invito è scaduto');
     }
 
     // Validate password
     if (this.COMMON_PASSWORDS.includes(password)) {
-      throw new BadRequestException('This password is too common');
+      throw new BadRequestException('Questa password è troppo comune');
     }
 
     const passwordHash = await bcrypt.hash(password, this.BCRYPT_ROUNDS);
@@ -313,70 +451,15 @@ export class AuthService {
       inviteToken: undefined,
       inviteExpiresAt: undefined,
       emailVerified: true,
-      // Note: isActive stays false until 2FA is set up
+      isActive: true, // User is active immediately
+      twoFactorEnabled: true, // 2FA enabled by default
     });
 
     const updatedUser = await this.userRepository.findOne({ where: { id: user.id } });
     if (!updatedUser) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('Utente non trovato');
     }
     return updatedUser;
-  }
-
-  async setupTwoFactor(userId: string): Promise<{ secret: string; qrCode: string }> {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    if (user.totpEnabled) {
-      throw new BadRequestException('2FA is already enabled');
-    }
-
-    const secret = authenticator.generateSecret();
-    const otpAuthUrl = authenticator.keyuri(user.email, 'GAds Audit', secret);
-    const qrCode = await qrcode.toDataURL(otpAuthUrl);
-
-    // Store secret temporarily (will be confirmed when user verifies)
-    await this.userRepository.update(userId, { totpSecret: secret });
-
-    return { secret, qrCode };
-  }
-
-  async enableTwoFactor(userId: string, code: string): Promise<{ backupCodes: string[] }> {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
-
-    if (!user || !user.totpSecret) {
-      throw new BadRequestException('2FA setup not initiated');
-    }
-
-    const isValid = authenticator.verify({
-      token: code,
-      secret: user.totpSecret,
-    });
-
-    if (!isValid) {
-      throw new UnauthorizedException('Invalid 2FA code');
-    }
-
-    // Generate backup codes
-    const backupCodes: string[] = [];
-    const hashedBackupCodes: string[] = [];
-
-    for (let i = 0; i < this.BACKUP_CODES_COUNT; i++) {
-      const backupCode = crypto.randomBytes(4).toString('hex').toUpperCase();
-      backupCodes.push(backupCode);
-      hashedBackupCodes.push(await bcrypt.hash(backupCode, 10));
-    }
-
-    await this.userRepository.update(userId, {
-      totpEnabled: true,
-      backupCodes: hashedBackupCodes,
-      isActive: true, // Activate user after 2FA setup
-    });
-
-    return { backupCodes };
   }
 
   async changePassword(
@@ -387,16 +470,16 @@ export class AuthService {
     const user = await this.userRepository.findOne({ where: { id: userId } });
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('Utente non trovato');
     }
 
     const isCurrentValid = await bcrypt.compare(currentPassword, user.passwordHash);
     if (!isCurrentValid) {
-      throw new UnauthorizedException('Current password is incorrect');
+      throw new UnauthorizedException('La password attuale non è corretta');
     }
 
     if (this.COMMON_PASSWORDS.includes(newPassword)) {
-      throw new BadRequestException('This password is too common');
+      throw new BadRequestException('Questa password è troppo comune');
     }
 
     const passwordHash = await bcrypt.hash(newPassword, this.BCRYPT_ROUNDS);
@@ -406,16 +489,33 @@ export class AuthService {
     await this.logoutAll(userId);
   }
 
+  async updateProfile(userId: string, name: string): Promise<User> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+
+    if (!user) {
+      throw new NotFoundException('Utente non trovato');
+    }
+
+    await this.userRepository.update(userId, { name });
+
+    const updatedUser = await this.userRepository.findOne({ where: { id: userId } });
+    if (!updatedUser) {
+      throw new NotFoundException('Utente non trovato');
+    }
+    return updatedUser;
+  }
+
   private async updateLastLogin(userId: string): Promise<void> {
     await this.userRepository.update(userId, { lastLoginAt: new Date() });
   }
 
-  private sanitizeUser(user: User): Partial<User> {
+  sanitizeUser(user: User): Partial<User> {
     return {
       id: user.id,
       email: user.email,
+      name: user.name,
       role: user.role,
-      totpEnabled: user.totpEnabled,
+      twoFactorEnabled: user.twoFactorEnabled,
       isActive: user.isActive,
       createdAt: user.createdAt,
     };

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -72,7 +72,15 @@ export function LoginPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-foreground">Password</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password" className="text-foreground">Password</Label>
+                  <Link
+                    to="/auth/forgot-password"
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Password dimenticata?
+                  </Link>
+                </div>
                 <Input
                   id="password"
                   type="password"
@@ -84,7 +92,11 @@ export function LoginPage() {
                 />
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button
+                type="submit"
+                className="w-full bg-gradient-to-r from-primary to-yellow-500 hover:from-primary/90 hover:to-yellow-500/90 text-primary-foreground"
+                disabled={isLoading}
+              >
                 {isLoading ? 'Accesso in corso...' : 'Accedi'}
               </Button>
             </form>

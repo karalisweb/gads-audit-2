@@ -35,14 +35,19 @@ import type { Ad, PaginatedResponse, BaseFilters } from '@/types/audit';
 import type { AIRecommendation } from '@/types/ai';
 
 // Table columns for extended view
-function getColumns(accountId: string, onRefresh: () => void): ColumnDef<Ad>[] {
+function getColumns(accountId: string, onRefresh: () => void, navigate: (path: string) => void): ColumnDef<Ad>[] {
   return [
   {
     accessorKey: 'adGroupName',
     header: 'Gruppo annunci',
     cell: ({ row }) => (
       <div className="max-w-[150px]">
-        <p className="font-medium truncate">{row.original.adGroupName}</p>
+        <button
+          onClick={() => navigate(`/audit/${accountId}/keywords?campaignId=${row.original.campaignId}&adGroupId=${row.original.adGroupId}`)}
+          className="font-medium truncate text-left hover:text-primary hover:underline transition-colors"
+        >
+          {row.original.adGroupName}
+        </button>
         <p className="text-xs text-muted-foreground truncate">{row.original.campaignName}</p>
       </div>
     ),
@@ -807,7 +812,7 @@ export function AdsPage() {
       ) : (
         /* Desktop: Tabella */
         <DataTable
-          columns={getColumns(accountId!, loadData)}
+          columns={getColumns(accountId!, loadData, navigate)}
           data={filteredData}
           isLoading={isLoading}
           pageIndex={pageIndex}

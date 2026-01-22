@@ -451,20 +451,6 @@ export function KeywordsPage() {
     loadCampaigns();
   }, [loadCampaigns]);
 
-  // Sync selectedCampaignId with URL param
-  useEffect(() => {
-    if (campaignIdFilter) {
-      setSelectedCampaignId(campaignIdFilter);
-    }
-  }, [campaignIdFilter]);
-
-  // Sync selectedAdGroupId with URL param
-  useEffect(() => {
-    if (adGroupIdFilter) {
-      setSelectedAdGroupId(adGroupIdFilter);
-    }
-  }, [adGroupIdFilter]);
-
   // Load ad groups when campaign is selected
   const loadAdGroups = useCallback(async (campaignId: string) => {
     if (!accountId || campaignId === 'all') {
@@ -489,15 +475,28 @@ export function KeywordsPage() {
     }
   }, [accountId]);
 
-  // Load ad groups when campaign changes
+  // Sync with URL params on mount and when they change
   useEffect(() => {
-    if (selectedCampaignId !== 'all') {
+    if (campaignIdFilter) {
+      setSelectedCampaignId(campaignIdFilter);
+      // Load ad groups for this campaign
+      loadAdGroups(campaignIdFilter);
+    }
+    if (adGroupIdFilter) {
+      setSelectedAdGroupId(adGroupIdFilter);
+    }
+  }, [campaignIdFilter, adGroupIdFilter, loadAdGroups]);
+
+  // Load ad groups when campaign changes via dropdown (not URL)
+  useEffect(() => {
+    // Only load if not coming from URL params
+    if (selectedCampaignId !== 'all' && selectedCampaignId !== campaignIdFilter) {
       loadAdGroups(selectedCampaignId);
-    } else {
+    } else if (selectedCampaignId === 'all') {
       setAdGroups([]);
       setSelectedAdGroupId('all');
     }
-  }, [selectedCampaignId, loadAdGroups]);
+  }, [selectedCampaignId, campaignIdFilter, loadAdGroups]);
 
   const handleCampaignChange = (value: string) => {
     setSelectedCampaignId(value);

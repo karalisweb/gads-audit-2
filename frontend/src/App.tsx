@@ -1,8 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
-import { LoginPage, VerifyTwoFactorPage, SetupTwoFactorPage, AcceptInvitePage } from '@/pages/auth';
+import { LoginPage, VerifyTwoFactorPage, AcceptInvitePage, ForgotPasswordPage, ResetPasswordPage } from '@/pages/auth';
 import { DashboardPage } from '@/pages/dashboard';
 import { AccountsPage } from '@/pages/accounts';
+import { SettingsPage } from '@/pages/settings';
 import { MainLayout, AuditLayout } from '@/components/Layout';
 import {
   DashboardPage as AuditDashboardPage,
@@ -27,12 +28,14 @@ function App() {
         <Route path="/auth/login" element={<LoginPage />} />
         <Route path="/auth/verify-2fa" element={<VerifyTwoFactorPage />} />
         <Route path="/auth/accept-invite" element={<AcceptInvitePage />} />
+        <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
 
         {/* Protected routes with sidebar */}
         <Route element={<ProtectedRoute />}>
           <Route element={<MainLayout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/auth/setup-2fa" element={<SetupTwoFactorPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
             <Route path="/accounts" element={<AccountsPage />} />
 
             {/* Audit routes */}
