@@ -24,31 +24,21 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Hamburger button - SOLO DESKTOP (lg e superiori) */}
-      <button
-        onClick={toggleSidebar}
-        className={cn(
-          'hidden lg:block fixed top-4 right-4 z-50 p-2 rounded-lg bg-sidebar text-sidebar-foreground hover:text-white hover:bg-sidebar-accent transition-all',
-          !sidebarCollapsed && 'lg:hidden'
-        )}
-        title="Apri menu"
-      >
-        <Menu className="h-6 w-6" />
-      </button>
+      {/* Hamburger button - nascosto, ora usiamo quello nel header delle pagine */}
 
-      {/* Overlay - SOLO DESKTOP */}
+      {/* Overlay */}
       {!sidebarCollapsed && (
         <div
-          className="hidden lg:block fixed inset-0 z-30 bg-black/50"
+          className="fixed inset-0 z-30 bg-black/50"
           onClick={toggleSidebar}
         />
       )}
 
-      {/* Sidebar - SOLO DESKTOP */}
+      {/* Sidebar */}
       <aside
         className={cn(
-          'hidden lg:flex fixed left-0 top-0 z-40 h-screen bg-sidebar border-r border-sidebar-border flex-col transition-all duration-300',
-          sidebarCollapsed ? '-translate-x-full w-64' : 'translate-x-0 w-64'
+          'fixed left-0 top-0 z-40 h-screen bg-sidebar border-r border-sidebar-border flex-col transition-all duration-300',
+          sidebarCollapsed ? '-translate-x-full w-64 hidden' : 'translate-x-0 w-64 flex'
         )}
       >
         {/* Header with logo and close button */}
