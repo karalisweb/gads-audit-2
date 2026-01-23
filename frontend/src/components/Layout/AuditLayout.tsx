@@ -144,13 +144,22 @@ export function AuditLayout() {
       <header className="hidden md:block sticky top-0 z-10 bg-card border-b border-border">
         <div className="px-3 sm:px-6 py-3 sm:py-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
-            <div className="min-w-0">
-              <h1 className="text-lg sm:text-xl font-bold text-foreground truncate">
-                {account?.customerName || 'Loading...'}
-              </h1>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                ID: {account?.customerId}
-              </p>
+            <div className="flex items-center gap-3 min-w-0">
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="flex-shrink-0 p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                title="Torna alla Dashboard"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-xl font-bold text-foreground truncate">
+                  {account?.customerName || 'Loading...'}
+                </h1>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  ID: {account?.customerId}
+                </p>
+              </div>
             </div>
             <PeriodSelector
               selectedPeriod={selectedPeriod}
