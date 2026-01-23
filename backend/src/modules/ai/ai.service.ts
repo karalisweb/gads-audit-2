@@ -549,13 +549,16 @@ export class AIService {
     try {
       this.logger.log(`Calling OpenAI model: ${model}`);
 
+      // GPT-5.x models use max_completion_tokens instead of max_tokens
+      const isGpt5 = model.startsWith('gpt-5');
+
       const response = await openai.chat.completions.create({
         model,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        max_tokens: maxTokens,
+        ...(isGpt5 ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
         temperature: 0.3, // Lower temperature for more consistent analysis
         response_format: { type: 'json_object' },
       });
