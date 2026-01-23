@@ -159,9 +159,9 @@ export function AuditLayout() {
                 lastAuditDate={latestRun?.completedAt || null}
               />
               <button
-                onClick={() => navigate('/accounts')}
+                onClick={() => navigate('/dashboard')}
                 className="flex-shrink-0 p-2 rounded-lg bg-sidebar text-sidebar-foreground hover:text-white hover:bg-sidebar-accent transition-colors"
-                title="Torna agli account"
+                title="Torna alla Home"
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
