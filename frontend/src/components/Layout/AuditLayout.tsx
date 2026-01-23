@@ -146,9 +146,9 @@ export function AuditLayout() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
             <div className="flex items-center gap-3 min-w-0">
               <button
-                onClick={() => navigate('/dashboard')}
+                onClick={() => navigate('/accounts')}
                 className="flex-shrink-0 p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                title="Torna alla Dashboard"
+                title="Torna agli account"
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
