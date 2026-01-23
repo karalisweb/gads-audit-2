@@ -295,9 +295,13 @@ export class AuthService {
       usedAt: new Date(),
     });
 
-    // Update password
+    // Update password and reset lock status
     const passwordHash = await bcrypt.hash(newPassword, this.BCRYPT_ROUNDS);
-    await this.userRepository.update(user.id, { passwordHash });
+    await this.userRepository.update(user.id, {
+      passwordHash,
+      failedLoginAttempts: 0,
+      lockedUntil: undefined,
+    });
 
     // Revoke all refresh tokens
     await this.logoutAll(user.id);

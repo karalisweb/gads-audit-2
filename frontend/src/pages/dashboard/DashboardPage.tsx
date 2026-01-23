@@ -44,24 +44,24 @@ export function DashboardPage() {
   const otherAccounts = accounts.filter((acc) => (acc.stats?.urgentIssues || 0) === 0);
 
   return (
-    <div className="p-6">
+    <div className="p-3 sm:p-6">
       {/* View Toggle */}
-      <div className="flex items-center gap-4 mb-8">
+      <div className="flex items-center gap-2 sm:gap-4 mb-6 sm:mb-8">
         <button
           onClick={() => setViewMode('priority')}
           className={cn(
-            'px-4 py-2 text-sm font-medium rounded-lg transition-colors',
+            'px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors',
             viewMode === 'priority'
               ? 'bg-primary text-primary-foreground'
               : 'text-muted-foreground hover:text-foreground'
           )}
         >
-          Priorit&agrave;
+          Priorità
         </button>
         <button
           onClick={() => setViewMode('dashboard')}
           className={cn(
-            'px-4 py-2 text-sm font-medium rounded-lg transition-colors',
+            'px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors',
             viewMode === 'dashboard'
               ? 'bg-primary text-primary-foreground'
               : 'text-muted-foreground hover:text-foreground'
@@ -267,43 +267,70 @@ function AccountRow({ account }: { account: AccountWithStats }) {
   };
 
   return (
-    <div className="flex items-center justify-between p-4 bg-card rounded-lg border border-border hover:border-primary/30 transition-colors">
-      <div className="flex items-center gap-4">
-        <div>
-          <h4 className="font-medium text-foreground">
-            {account.customerName || account.customerId}
-          </h4>
-          <p className="text-sm text-muted-foreground">{account.customerId}</p>
+    <Link
+      to={`/audit/${account.id}/dashboard`}
+      className="block p-3 sm:p-4 bg-card rounded-lg border border-border hover:border-primary/30 transition-colors"
+    >
+      {/* Mobile: Stack layout */}
+      <div className="sm:hidden">
+        <div className="flex items-start justify-between mb-2">
+          <div className="min-w-0 flex-1">
+            <h4 className="font-medium text-foreground truncate">
+              {account.customerName || account.customerId}
+            </h4>
+            <p className="text-xs text-muted-foreground">{account.customerId}</p>
+          </div>
+          <Eye className="h-4 w-4 text-muted-foreground flex-shrink-0 ml-2" />
+        </div>
+        <div className="grid grid-cols-3 gap-2 text-xs">
+          <div>
+            <p className="text-muted-foreground">Camp.</p>
+            <p className="font-medium">{stats?.activeCampaigns || 0}/{stats?.totalCampaigns || 0}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Costo</p>
+            <p className="font-medium">{stats ? formatCurrency(stats.cost) : '-'}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Conv.</p>
+            <p className="font-medium">{stats?.conversions?.toLocaleString('it-IT', { maximumFractionDigits: 1 }) || '-'}</p>
+          </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-8">
-        <div className="text-right">
-          <p className="text-xs text-muted-foreground">Campagne</p>
-          <p className="text-sm font-medium text-foreground">
-            {stats?.activeCampaigns || 0}/{stats?.totalCampaigns || 0}
-          </p>
+      {/* Desktop: Horizontal layout */}
+      <div className="hidden sm:flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div>
+            <h4 className="font-medium text-foreground">
+              {account.customerName || account.customerId}
+            </h4>
+            <p className="text-sm text-muted-foreground">{account.customerId}</p>
+          </div>
         </div>
-        <div className="text-right">
-          <p className="text-xs text-muted-foreground">Costo</p>
-          <p className="text-sm font-medium text-foreground">
-            {stats ? formatCurrency(stats.cost) : '-'}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-xs text-muted-foreground">Conv.</p>
-          <p className="text-sm font-medium text-foreground">
-            {stats?.conversions?.toLocaleString('it-IT', { maximumFractionDigits: 1 }) || '-'}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button asChild variant="ghost" size="sm">
-            <Link to={`/audit/${account.id}/dashboard`}>
-              <Eye className="h-4 w-4" />
-            </Link>
-          </Button>
+
+        <div className="flex items-center gap-8">
+          <div className="text-right">
+            <p className="text-xs text-muted-foreground">Campagne</p>
+            <p className="text-sm font-medium text-foreground">
+              {stats?.activeCampaigns || 0}/{stats?.totalCampaigns || 0}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-muted-foreground">Costo</p>
+            <p className="text-sm font-medium text-foreground">
+              {stats ? formatCurrency(stats.cost) : '-'}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-muted-foreground">Conv.</p>
+            <p className="text-sm font-medium text-foreground">
+              {stats?.conversions?.toLocaleString('it-IT', { maximumFractionDigits: 1 }) || '-'}
+            </p>
+          </div>
+          <Eye className="h-4 w-4 text-muted-foreground" />
         </div>
       </div>
-    </div>
+    </Link>
   );
 }

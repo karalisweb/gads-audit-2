@@ -1,9 +1,12 @@
-import { NavLink, Outlet, useParams } from 'react-router-dom';
+import { NavLink, Outlet, useParams, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { getAccount, getLatestRun } from '@/api/audit';
 import type { GoogleAdsAccount, ImportRun } from '@/types/audit';
 import { cn } from '@/lib/utils';
 import { PeriodSelector } from '@/components/period';
+import { MobileBottomNav } from './MobileBottomNav';
+import { useAuthStore } from '@/stores/auth.store';
+import { useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   AlertTriangle,
@@ -17,8 +20,9 @@ import {
   Target,
   Settings,
   Wrench,
-  MoreHorizontal,
-  X,
+  User,
+  Bell,
+  ArrowLeft,
 } from 'lucide-react';
 
 const navItems = [
@@ -36,21 +40,30 @@ const navItems = [
   { path: 'modifications', label: 'Modifiche', shortLabel: 'Mod.', icon: Wrench },
 ];
 
-// Voci principali per la bottom navigation mobile (max 4 + more)
-// Rimosso issues (non funziona), aggiunto conversions e ad-groups
-const primaryNavItems = navItems.filter(item =>
-  ['campaigns', 'ad-groups', 'keywords', 'conversions'].includes(item.path)
-);
-const secondaryNavItems = navItems.filter(item =>
-  !['campaigns', 'ad-groups', 'keywords', 'conversions'].includes(item.path)
-);
+// Mappa dei titoli per le pagine
+const pageTitles: Record<string, string> = {
+  'dashboard': 'Dashboard',
+  'issues': 'Problemi',
+  'conversions': 'Conversioni',
+  'conversion-actions': 'Config Conv.',
+  'campaigns': 'Campagne',
+  'ad-groups': 'Ad Groups',
+  'ads': 'Annunci',
+  'keywords': 'Keywords',
+  'search-terms': 'Search Terms',
+  'negative-keywords': 'Negative KW',
+  'assets': 'Assets',
+  'modifications': 'Modifiche',
+};
 
 export function AuditLayout() {
   const { accountId } = useParams<{ accountId: string }>();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [account, setAccount] = useState<GoogleAdsAccount | null>(null);
   const [latestRun, setLatestRun] = useState<ImportRun | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState<15 | 30>(30);
-  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!accountId) return;
@@ -65,10 +78,70 @@ export function AuditLayout() {
       });
   }, [accountId]);
 
+  // Ottieni il titolo della pagina corrente
+  const getCurrentPageTitle = () => {
+    const pathSegments = location.pathname.split('/');
+    const lastSegment = pathSegments[pathSegments.length - 1];
+    return pageTitles[lastSegment] || 'Audit';
+  };
+
   return (
     <div className="min-h-screen pb-16 md:pb-0">
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-card border-b border-border">
+      {/* Mobile Header */}
+      <header className="md:hidden sticky top-0 z-50 bg-card border-b border-border">
+        <div className="flex items-center justify-between px-4 py-3">
+          {/* Back button e titolo */}
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <button
+              onClick={() => navigate('/accounts')}
+              className="flex-shrink-0 p-1.5 -ml-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Torna agli account"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-base font-semibold text-foreground truncate">
+                {getCurrentPageTitle()}
+              </h1>
+              <p className="text-xs text-muted-foreground truncate">
+                {account?.customerName || 'Loading...'}
+              </p>
+            </div>
+          </div>
+
+          {/* Azioni a destra */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Notifiche"
+            >
+              <Bell className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => navigate('/settings')}
+              className={cn(
+                'w-9 h-9 rounded-full flex items-center justify-center transition-colors',
+                'bg-primary/10 text-primary hover:bg-primary/20'
+              )}
+              title={user?.email || 'Account'}
+            >
+              <User className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Period Selector su mobile */}
+        <div className="px-4 pb-3">
+          <PeriodSelector
+            selectedPeriod={selectedPeriod}
+            onPeriodChange={setSelectedPeriod}
+            lastAuditDate={latestRun?.completedAt || null}
+          />
+        </div>
+      </header>
+
+      {/* Desktop Header */}
+      <header className="hidden md:block sticky top-0 z-10 bg-card border-b border-border">
         <div className="px-3 sm:px-6 py-3 sm:py-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
             <div className="min-w-0">
@@ -87,8 +160,8 @@ export function AuditLayout() {
           </div>
         </div>
 
-        {/* Tab Navigation - nascosta su mobile, visibile da md in su */}
-        <nav className="hidden md:block px-2 sm:px-6">
+        {/* Tab Navigation - solo desktop */}
+        <nav className="px-2 sm:px-6">
           <div className="flex gap-0.5 sm:gap-1 overflow-x-auto pb-px -mb-px scrollbar-hide">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -119,85 +192,8 @@ export function AuditLayout() {
         <Outlet context={{ account, latestRun, selectedPeriod }} />
       </main>
 
-      {/* Bottom Navigation - solo mobile */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border">
-        <div className="flex items-stretch justify-around">
-          {primaryNavItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) =>
-                  cn(
-                    'flex flex-col items-center justify-center py-2 px-3 flex-1 transition-colors',
-                    isActive
-                      ? 'text-primary'
-                      : 'text-muted-foreground'
-                  )
-                }
-              >
-                <Icon className="h-5 w-5 mb-0.5" />
-                <span className="text-[10px] font-medium">{item.shortLabel}</span>
-              </NavLink>
-            );
-          })}
-          {/* More button */}
-          <button
-            onClick={() => setMoreMenuOpen(!moreMenuOpen)}
-            className={cn(
-              'flex flex-col items-center justify-center py-2 px-3 flex-1 transition-colors',
-              moreMenuOpen ? 'text-primary' : 'text-muted-foreground'
-            )}
-          >
-            {moreMenuOpen ? (
-              <X className="h-5 w-5 mb-0.5" />
-            ) : (
-              <MoreHorizontal className="h-5 w-5 mb-0.5" />
-            )}
-            <span className="text-[10px] font-medium">Altro</span>
-          </button>
-        </div>
-
-        {/* More menu overlay */}
-        {moreMenuOpen && (
-          <>
-            {/* Backdrop */}
-            <div
-              className="fixed inset-0 bg-black/50 -z-10"
-              onClick={() => setMoreMenuOpen(false)}
-            />
-            {/* Menu */}
-            <div className="absolute bottom-full left-0 right-0 bg-card border-t border-border shadow-lg max-h-[60vh] overflow-y-auto">
-              <div className="grid grid-cols-4 gap-1 p-3">
-                {secondaryNavItems.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <NavLink
-                      key={item.path}
-                      to={item.path}
-                      onClick={() => setMoreMenuOpen(false)}
-                      className={({ isActive }) =>
-                        cn(
-                          'flex flex-col items-center justify-center py-3 px-2 rounded-lg transition-colors',
-                          isActive
-                            ? 'text-primary bg-primary/10'
-                            : 'text-muted-foreground hover:bg-muted'
-                        )
-                      }
-                    >
-                      <Icon className="h-6 w-6 mb-1" />
-                      <span className="text-[10px] font-medium text-center leading-tight">
-                        {item.shortLabel}
-                      </span>
-                    </NavLink>
-                  );
-                })}
-              </div>
-            </div>
-          </>
-        )}
-      </nav>
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav variant="audit" />
     </div>
   );
 }
