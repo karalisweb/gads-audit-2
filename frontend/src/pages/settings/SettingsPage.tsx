@@ -42,7 +42,7 @@ export function SettingsPage() {
   // AI state
   const [aiSettings, setAiSettings] = useState<AISettings | null>(null);
   const [aiApiKey, setAiApiKey] = useState('');
-  const [aiModel, setAiModel] = useState('gpt-4o');
+  const [aiModel, setAiModel] = useState('gpt-5.2');
   const [showApiKey, setShowApiKey] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiSuccess, setAiSuccess] = useState('');
@@ -61,7 +61,7 @@ export function SettingsPage() {
     try {
       const settings = await apiClient.get<AISettings>('/settings/ai');
       setAiSettings(settings);
-      setAiModel(settings.model || 'gpt-4o');
+      setAiModel(settings.model || 'gpt-5.2');
     } catch (err) {
       console.error('Failed to load AI settings:', err);
     }
@@ -545,7 +545,10 @@ export function SettingsPage() {
                     onChange={(e) => setAiModel(e.target.value)}
                     className="w-full h-10 px-3 rounded-md border border-border bg-input text-foreground"
                   >
-                    <option value="gpt-4o">GPT-4o (Raccomandato)</option>
+                    <option value="gpt-5.2">GPT-5.2 (Raccomandato)</option>
+                    <option value="gpt-5.1">GPT-5.1</option>
+                    <option value="gpt-5.0">GPT-5.0</option>
+                    <option value="gpt-4o">GPT-4o</option>
                     <option value="gpt-4o-mini">GPT-4o Mini (Economico)</option>
                     <option value="gpt-4-turbo">GPT-4 Turbo</option>
                     <option value="gpt-4">GPT-4</option>
