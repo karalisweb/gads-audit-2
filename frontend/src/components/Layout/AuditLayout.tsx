@@ -163,7 +163,7 @@ export function AuditLayout() {
               />
               <button
                 onClick={toggleSidebar}
-                className="hidden lg:flex flex-shrink-0 p-2 rounded-lg bg-sidebar text-sidebar-foreground hover:text-white hover:bg-sidebar-accent transition-colors"
+                className="flex-shrink-0 p-2 rounded-lg bg-sidebar text-sidebar-foreground hover:text-white hover:bg-sidebar-accent transition-colors"
                 title="Menu"
               >
                 <Menu className="h-5 w-5" />
