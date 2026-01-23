@@ -9,7 +9,6 @@ import {
   User,
   Menu,
   X,
-  Settings,
 } from 'lucide-react';
 
 export function Sidebar() {
@@ -24,37 +23,37 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Hamburger button - visible when sidebar is collapsed */}
+      {/* Hamburger button - SOLO DESKTOP (lg e superiori) */}
       <button
         onClick={toggleSidebar}
         className={cn(
-          'fixed top-4 right-4 z-50 p-2 rounded-lg bg-sidebar text-sidebar-foreground hover:text-white hover:bg-sidebar-accent transition-all',
-          !sidebarCollapsed && 'hidden'
+          'hidden lg:block fixed top-4 right-4 z-50 p-2 rounded-lg bg-sidebar text-sidebar-foreground hover:text-white hover:bg-sidebar-accent transition-all',
+          !sidebarCollapsed && 'lg:hidden'
         )}
         title="Apri menu"
       >
         <Menu className="h-6 w-6" />
       </button>
 
-      {/* Overlay - visible when sidebar is open on mobile */}
+      {/* Overlay - SOLO DESKTOP */}
       {!sidebarCollapsed && (
         <div
-          className="fixed inset-0 z-30 bg-black/50 lg:hidden"
+          className="hidden lg:block fixed inset-0 z-30 bg-black/50"
           onClick={toggleSidebar}
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar - SOLO DESKTOP */}
       <aside
         className={cn(
-          'fixed left-0 top-0 z-40 h-screen bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300',
+          'hidden lg:flex fixed left-0 top-0 z-40 h-screen bg-sidebar border-r border-sidebar-border flex-col transition-all duration-300',
           sidebarCollapsed ? '-translate-x-full w-64' : 'translate-x-0 w-64'
         )}
       >
         {/* Header with logo and close button */}
         <div className="p-6 border-b border-sidebar-border flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-white">Karalisweb</h1>
+            <h1 className="text-xl font-bold text-primary">Karalisweb</h1>
             <p className="text-sm text-sidebar-foreground mt-1">Google Ads Audit</p>
           </div>
           <button
@@ -71,7 +70,7 @@ export function Sidebar() {
           {/* Dashboard */}
           <NavLink
             to="/dashboard"
-            onClick={() => window.innerWidth < 1024 && toggleSidebar()}
+            onClick={() => toggleSidebar()}
             className={({ isActive }) =>
               cn(
                 'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors mb-1',
@@ -88,7 +87,7 @@ export function Sidebar() {
           {/* Account */}
           <NavLink
             to="/accounts"
-            onClick={() => window.innerWidth < 1024 && toggleSidebar()}
+            onClick={() => toggleSidebar()}
             className={({ isActive }) =>
               cn(
                 'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors mb-1',
@@ -102,10 +101,10 @@ export function Sidebar() {
             Account
           </NavLink>
 
-          {/* Settings */}
+          {/* Profilo */}
           <NavLink
-            to="/settings"
-            onClick={() => window.innerWidth < 1024 && toggleSidebar()}
+            to="/profile"
+            onClick={() => toggleSidebar()}
             className={({ isActive }) =>
               cn(
                 'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors mb-1',
@@ -115,8 +114,8 @@ export function Sidebar() {
               )
             }
           >
-            <Settings className="h-5 w-5" />
-            Impostazioni
+            <User className="h-5 w-5" />
+            Profilo
           </NavLink>
         </nav>
 

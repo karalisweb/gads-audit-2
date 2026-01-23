@@ -12,7 +12,7 @@ interface MobileHeaderProps {
 const pageTitles: Record<string, string> = {
   '/dashboard': 'Dashboard',
   '/accounts': 'Account',
-  '/settings': 'Impostazioni',
+  '/profile': 'Profilo',
   // Audit pages
   'dashboard': 'Dashboard',
   'issues': 'Problemi',
@@ -77,14 +77,14 @@ export function MobileHeader({ title, subtitle }: MobileHeaderProps) {
             <Bell className="h-5 w-5" />
           </button>
 
-          {/* Account */}
+          {/* Profilo */}
           <button
-            onClick={() => navigate('/settings')}
+            onClick={() => navigate('/profile')}
             className={cn(
               'w-9 h-9 rounded-full flex items-center justify-center transition-colors',
               'bg-primary/10 text-primary hover:bg-primary/20'
             )}
-            title={user?.email || 'Account'}
+            title={user?.email || 'Profilo'}
           >
             <User className="h-5 w-5" />
           </button>

@@ -58,6 +58,7 @@ export interface AccountStats {
 export interface AccountWithStats extends GoogleAdsAccount {
   stats: AccountStats | null;
   lastImportDate: string | null;
+  lastModificationDate: string | null;
 }
 
 export async function getAccountsWithStats(): Promise<AccountWithStats[]> {

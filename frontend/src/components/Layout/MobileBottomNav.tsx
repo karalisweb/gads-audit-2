@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
   Building2,
-  Settings,
+  User,
   Megaphone,
   Layers,
   KeyRound,
@@ -15,6 +15,7 @@ import {
   MinusCircle,
   Image,
   Wrench,
+  Settings,
   MoreHorizontal,
   X,
 } from 'lucide-react';
@@ -23,7 +24,7 @@ import {
 const mainNavItems = [
   { path: '/dashboard', label: 'Home', icon: LayoutDashboard },
   { path: '/accounts', label: 'Account', icon: Building2 },
-  { path: '/settings', label: 'Settings', icon: Settings },
+  { path: '/profile', label: 'Profilo', icon: User },
 ];
 
 // Menu per le pagine audit

@@ -3,7 +3,7 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { LoginPage, VerifyTwoFactorPage, AcceptInvitePage, ForgotPasswordPage, ResetPasswordPage } from '@/pages/auth';
 import { DashboardPage } from '@/pages/dashboard';
 import { AccountsPage } from '@/pages/accounts';
-import { SettingsPage } from '@/pages/settings';
+import { ProfilePage } from '@/pages/profile';
 import { MainLayout, AuditLayout } from '@/components/Layout';
 import {
   DashboardPage as AuditDashboardPage,
@@ -35,7 +35,7 @@ function App() {
         <Route element={<ProtectedRoute />}>
           <Route element={<MainLayout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
             <Route path="/accounts" element={<AccountsPage />} />
 
             {/* Audit routes */}

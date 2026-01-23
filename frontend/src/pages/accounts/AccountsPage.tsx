@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -15,10 +14,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Search, Building2, Plus, Copy, Check, Key, Trash2 } from 'lucide-react';
-import { formatCurrency, formatNumber } from '@/lib/format';
+import { Search, Building2, Plus, Copy, Check } from 'lucide-react';
 import { apiClient } from '@/api/client';
 import { getAccountsWithStats, type AccountWithStats } from '@/api/audit';
+import { AccountCard } from '@/components/AccountCard';
 
 interface CreatedAccount {
   id: string;
@@ -28,7 +27,6 @@ interface CreatedAccount {
 }
 
 export function AccountsPage() {
-  const navigate = useNavigate();
   const [accounts, setAccounts] = useState<AccountWithStats[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -91,7 +89,7 @@ export function AccountsPage() {
         customerName: newCustomerName,
       });
       setCreatedAccount(account);
-      loadAccounts(); // Refresh the list
+      loadAccounts();
     } catch (err: unknown) {
       const error = err as { message?: string };
       setFormError(error.message || 'Errore sconosciuto');
@@ -117,12 +115,7 @@ export function AccountsPage() {
     }
   };
 
-  const handleSelectAccount = (accountId: string) => {
-    navigate(`/audit/${accountId}/dashboard`);
-  };
-
-  const handleOpenRevealDialog = (e: React.MouseEvent, accountId: string) => {
-    e.stopPropagation(); // Don't trigger card click
+  const handleOpenRevealDialog = (accountId: string) => {
     setRevealAccountId(accountId);
     setRevealDialogOpen(true);
   };
@@ -163,8 +156,7 @@ export function AccountsPage() {
     }
   };
 
-  const handleOpenDeleteDialog = (e: React.MouseEvent, account: AccountWithStats) => {
-    e.stopPropagation();
+  const handleOpenDeleteDialog = (account: AccountWithStats) => {
     setDeleteAccount(account);
     setDeleteDialogOpen(true);
   };
@@ -192,22 +184,19 @@ export function AccountsPage() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto py-4 sm:py-8 px-3 sm:px-4">
-        <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold">Seleziona Account</h1>
-          <p className="text-muted-foreground mt-1 sm:mt-2 text-sm sm:text-base">
-            Scegli un account Google Ads per visualizzare l'audit
-          </p>
+      <div className="p-3 sm:p-6">
+        <div className="mb-6">
+          <Skeleton className="h-8 w-48 mb-2" />
+          <Skeleton className="h-4 w-64" />
         </div>
-        <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
             <Card key={i}>
-              <CardHeader>
-                <Skeleton className="h-6 w-48" />
-                <Skeleton className="h-4 w-32 mt-2" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-20 w-full" />
+              <CardContent className="p-4">
+                <Skeleton className="h-6 w-3/4 mb-3" />
+                <Skeleton className="h-4 w-1/2 mb-4" />
+                <Skeleton className="h-20 w-full mb-3" />
+                <Skeleton className="h-9 w-full" />
               </CardContent>
             </Card>
           ))}
@@ -217,15 +206,17 @@ export function AccountsPage() {
   }
 
   return (
-    <div className="container mx-auto py-4 sm:py-8 px-3 sm:px-4">
-      <div className="mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold">Seleziona Account</h1>
-        <p className="text-muted-foreground mt-1 sm:mt-2 text-sm sm:text-base">
-          Scegli un account Google Ads per visualizzare l'audit
+    <div className="p-3 sm:p-6">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Account Google Ads</h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          Gestisci e monitora i tuoi account pubblicitari
         </p>
       </div>
 
-      <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row gap-3 sm:gap-4 sm:items-center">
+      {/* Search and Add */}
+      <div className="mb-6 flex flex-col sm:flex-row gap-3 sm:items-center">
         <div className="relative flex-1 sm:max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -239,192 +230,123 @@ export function AccountsPage() {
           <Badge variant="secondary">{filteredAccounts.length} account</Badge>
 
           <Dialog open={isDialogOpen} onOpenChange={(open) => open ? setIsDialogOpen(true) : handleCloseDialog()}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Aggiungi Account
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-lg">
-            {!createdAccount ? (
-              <>
-                <DialogHeader>
-                  <DialogTitle>Aggiungi Nuovo Account</DialogTitle>
-                  <DialogDescription>
-                    Inserisci i dati dell'account Google Ads che vuoi monitorare.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="customerName">Nome Cliente</Label>
-                    <Input
-                      id="customerName"
-                      placeholder="Es: Massimo Borio"
-                      value={newCustomerName}
-                      onChange={(e) => setNewCustomerName(e.target.value)}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="customerId">ID Account Google Ads</Label>
-                    <Input
-                      id="customerId"
-                      placeholder="Es: 816-496-5072"
-                      value={newCustomerId}
-                      onChange={(e) => setNewCustomerId(e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Lo trovi in alto a destra nel tuo account Google Ads
-                    </p>
-                  </div>
-                  {formError && (
-                    <p className="text-sm text-destructive">{formError}</p>
-                  )}
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={handleCloseDialog}>
-                    Annulla
-                  </Button>
-                  <Button
-                    onClick={handleCreateAccount}
-                    disabled={isSubmitting || !newCustomerId || !newCustomerName}
-                  >
-                    {isSubmitting ? 'Creazione...' : 'Crea Account'}
-                  </Button>
-                </DialogFooter>
-              </>
-            ) : (
-              <>
-                <DialogHeader>
-                  <DialogTitle>Account Creato!</DialogTitle>
-                  <DialogDescription>
-                    L'account "{createdAccount.customerName}" e' stato creato con successo.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="py-4">
-                  <div className="rounded-lg border bg-muted/50 p-4 space-y-3">
-                    <div>
-                      <p className="text-sm font-medium">Customer ID</p>
-                      <p className="text-sm text-muted-foreground">{createdAccount.customerId}</p>
+            <DialogTrigger asChild>
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                <Plus className="h-4 w-4 mr-2" />
+                Nuovo
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-lg">
+              {!createdAccount ? (
+                <>
+                  <DialogHeader>
+                    <DialogTitle>Aggiungi Nuovo Account</DialogTitle>
+                    <DialogDescription>
+                      Inserisci i dati dell'account Google Ads che vuoi monitorare.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="customerName">Nome Cliente</Label>
+                      <Input
+                        id="customerName"
+                        placeholder="Es: Massimo Borio"
+                        value={newCustomerName}
+                        onChange={(e) => setNewCustomerName(e.target.value)}
+                      />
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">Chiave Segreta (Shared Secret)</p>
-                      <p className="text-xs text-muted-foreground mb-2">
-                        Copia questa chiave e usala nello script Google Ads. Non la vedrai piu'!
+                    <div className="grid gap-2">
+                      <Label htmlFor="customerId">ID Account Google Ads</Label>
+                      <Input
+                        id="customerId"
+                        placeholder="Es: 816-496-5072"
+                        value={newCustomerId}
+                        onChange={(e) => setNewCustomerId(e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Lo trovi in alto a destra nel tuo account Google Ads
                       </p>
-                      <div className="flex items-center gap-2">
-                        <code className="flex-1 text-xs bg-background p-2 rounded border break-all">
-                          {createdAccount.sharedSecret}
-                        </code>
-                        <Button size="sm" variant="outline" onClick={handleCopySecret}>
-                          {copiedSecret ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                        </Button>
+                    </div>
+                    {formError && (
+                      <p className="text-sm text-destructive">{formError}</p>
+                    )}
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={handleCloseDialog}>
+                      Annulla
+                    </Button>
+                    <Button
+                      onClick={handleCreateAccount}
+                      disabled={isSubmitting || !newCustomerId || !newCustomerName}
+                      className="bg-primary hover:bg-primary/90"
+                    >
+                      {isSubmitting ? 'Creazione...' : 'Crea Account'}
+                    </Button>
+                  </DialogFooter>
+                </>
+              ) : (
+                <>
+                  <DialogHeader>
+                    <DialogTitle>Account Creato!</DialogTitle>
+                    <DialogDescription>
+                      L'account "{createdAccount.customerName}" e' stato creato con successo.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="py-4">
+                    <div className="rounded-lg border bg-muted/50 p-4 space-y-3">
+                      <div>
+                        <p className="text-sm font-medium">Customer ID</p>
+                        <p className="text-sm text-muted-foreground">{createdAccount.customerId}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">Chiave Segreta (Shared Secret)</p>
+                        <p className="text-xs text-muted-foreground mb-2">
+                          Copia questa chiave e usala nello script Google Ads. Non la vedrai piu'!
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <code className="flex-1 text-xs bg-background p-2 rounded border break-all">
+                            {createdAccount.sharedSecret}
+                          </code>
+                          <Button size="sm" variant="outline" onClick={handleCopySecret}>
+                            {copiedSecret ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-                <DialogFooter>
-                  <Button onClick={handleCloseDialog}>Chiudi</Button>
-                </DialogFooter>
-              </>
-            )}
-          </DialogContent>
-        </Dialog>
+                  <DialogFooter>
+                    <Button onClick={handleCloseDialog}>Chiudi</Button>
+                  </DialogFooter>
+                </>
+              )}
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
+      {/* Account Cards */}
       {filteredAccounts.length === 0 ? (
         <Card>
-          <CardContent className="py-8 sm:py-12 text-center">
-            <Building2 className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mb-3 sm:mb-4" />
-            <h3 className="text-base sm:text-lg font-medium">Nessun account trovato</h3>
+          <CardContent className="py-12 text-center">
+            <Building2 className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium">Nessun account trovato</h3>
             <p className="text-muted-foreground mt-2 text-sm">
               {searchQuery
                 ? 'Prova a modificare la ricerca'
-                : 'Non ci sono account con dati importati'}
+                : 'Aggiungi il tuo primo account Google Ads'}
             </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-          {filteredAccounts.map((account) => {
-            const stats = account.stats;
-            return (
-              <Card
-                key={account.id}
-                className="cursor-pointer transition-shadow hover:shadow-lg"
-                onClick={() => handleSelectAccount(account.id)}
-              >
-                <CardHeader className="pb-2 sm:pb-4">
-                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                    <Building2 className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
-                    <span className="truncate">{account.customerName || account.customerId}</span>
-                  </CardTitle>
-                  <CardDescription className="text-xs sm:text-sm">ID: {account.customerId}</CardDescription>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="grid grid-cols-3 gap-2 sm:gap-4 text-xs sm:text-sm">
-                    <div>
-                      <p className="text-muted-foreground">Spesa</p>
-                      <p className="font-medium">
-                        {stats ? formatCurrency(stats.cost * 1000000) : '-'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">CPA</p>
-                      <p className="font-medium">
-                        {stats && stats.cpa > 0 ? formatCurrency(stats.cpa * 1000000) : '-'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Conv.</p>
-                      <p className="font-medium">
-                        {stats ? formatNumber(stats.conversions) : '-'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 sm:gap-4 mt-3 sm:mt-4 text-xs sm:text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Campagne:</span>{' '}
-                      <span className="font-medium">{stats?.activeCampaigns || 0}/{stats?.totalCampaigns || 0}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">ROAS:</span>{' '}
-                      <span className="font-medium">{stats && stats.roas > 0 ? stats.roas.toFixed(2) : '-'}</span>
-                    </div>
-                  </div>
-                  {account.lastImportDate && (
-                    <p className="text-xs text-muted-foreground mt-3 sm:mt-4">
-                      Ultimo agg.:{' '}
-                      {new Date(account.lastImportDate).toLocaleDateString('it-IT')}
-                    </p>
-                  )}
-                  <div className="flex gap-2 mt-3 sm:mt-4">
-                    <Button className="flex-1 text-xs sm:text-sm h-8 sm:h-9" variant="outline">
-                      Visualizza Audit
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 sm:h-9 sm:w-9"
-                      onClick={(e) => handleOpenRevealDialog(e, account.id)}
-                      title="Mostra Chiave Segreta"
-                    >
-                      <Key className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 sm:h-9 sm:w-9 text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={(e) => handleOpenDeleteDialog(e, account)}
-                      title="Elimina Account"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+          {filteredAccounts.map((account) => (
+            <AccountCard
+              key={account.id}
+              account={account}
+              onRevealSecret={handleOpenRevealDialog}
+              onDelete={handleOpenDeleteDialog}
+            />
+          ))}
         </div>
       )}
 

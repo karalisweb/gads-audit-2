@@ -2,27 +2,14 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getAccountsWithStats, type AccountWithStats } from '@/api/audit';
-import {
-  AlertTriangle,
-  Eye,
-  Play,
-  MoreHorizontal,
-  DollarSign,
-  Target,
-  BarChart3,
-  Calendar,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-
-type ViewMode = 'priority' | 'dashboard';
+import { Clock, Building2 } from 'lucide-react';
+import { AccountCard } from '@/components/AccountCard';
 
 export function DashboardPage() {
   const [accounts, setAccounts] = useState<AccountWithStats[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<ViewMode>('priority');
 
   useEffect(() => {
     loadAccounts();
@@ -40,297 +27,78 @@ export function DashboardPage() {
     }
   };
 
-  const priorityAccounts = accounts.filter((acc) => (acc.stats?.urgentIssues || 0) > 0);
-  const otherAccounts = accounts.filter((acc) => (acc.stats?.urgentIssues || 0) === 0);
+  // Ordina per ultima modifica applicata (più vecchia prima = priorità maggiore)
+  // Account senza data di modifica vanno in cima
+  const sortedAccounts = [...accounts].sort((a, b) => {
+    const dateA = a.lastModificationDate ? new Date(a.lastModificationDate).getTime() : 0;
+    const dateB = b.lastModificationDate ? new Date(b.lastModificationDate).getTime() : 0;
+    return dateA - dateB; // Più vecchio prima
+  });
+
+  if (isLoading) {
+    return (
+      <div className="p-3 sm:p-6">
+        <div className="mb-6">
+          <Skeleton className="h-8 w-48 mb-2" />
+          <Skeleton className="h-4 w-64" />
+        </div>
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <Card key={i}>
+              <CardContent className="p-4">
+                <Skeleton className="h-6 w-3/4 mb-3" />
+                <Skeleton className="h-4 w-1/2 mb-4" />
+                <Skeleton className="h-20 w-full mb-3" />
+                <Skeleton className="h-9 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-3 sm:p-6">
-      {/* View Toggle */}
-      <div className="flex items-center gap-2 sm:gap-4 mb-6 sm:mb-8">
-        <button
-          onClick={() => setViewMode('priority')}
-          className={cn(
-            'px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors',
-            viewMode === 'priority'
-              ? 'bg-primary text-primary-foreground'
-              : 'text-muted-foreground hover:text-foreground'
-          )}
-        >
-          Priorità
-        </button>
-        <button
-          onClick={() => setViewMode('dashboard')}
-          className={cn(
-            'px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors',
-            viewMode === 'dashboard'
-              ? 'bg-primary text-primary-foreground'
-              : 'text-muted-foreground hover:text-foreground'
-          )}
-        >
-          Dashboard
-        </button>
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dashboard</h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          Account ordinati per priorità (modifica più lontana nel tempo)
+        </p>
       </div>
 
-      {isLoading ? (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3].map((i) => (
-            <Card key={i} className="bg-card">
-              <CardContent className="p-6">
-                <Skeleton className="h-6 w-3/4 mb-4" />
-                <Skeleton className="h-4 w-1/2 mb-6" />
-                <div className="grid grid-cols-3 gap-4">
-                  <Skeleton className="h-16" />
-                  <Skeleton className="h-16" />
-                  <Skeleton className="h-16" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : viewMode === 'priority' ? (
-        <div className="space-y-8">
-          {/* Priority Accounts */}
-          {priorityAccounts.length > 0 && (
-            <section>
-              <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-destructive" />
-                Account con problemi urgenti
-              </h2>
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {priorityAccounts.map((account) => (
-                  <AccountCard key={account.id} account={account} />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Other Accounts */}
-          {otherAccounts.length > 0 && (
-            <section>
-              <h2 className="text-lg font-semibold text-foreground mb-4">
-                Altri Account
-              </h2>
-              <div className="space-y-2">
-                {otherAccounts.map((account) => (
-                  <AccountRow key={account.id} account={account} />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {accounts.length === 0 && (
-            <Card className="bg-card">
-              <CardContent className="p-12 text-center">
-                <p className="text-muted-foreground mb-4">
-                  Nessun account configurato
-                </p>
-                <Button asChild>
-                  <Link to="/accounts">Aggiungi Account</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+      {/* Priority Section */}
+      {accounts.length > 0 ? (
+        <section>
+          <h2 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2">
+            <Clock className="h-4 w-4 text-primary" />
+            Priorità Account
+          </h2>
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+            {sortedAccounts.map((account) => (
+              <AccountCard
+                key={account.id}
+                account={account}
+                showActions={false}
+              />
+            ))}
+          </div>
+        </section>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {accounts.map((account) => (
-            <AccountCard key={account.id} account={account} />
-          ))}
-        </div>
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Building2 className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium">Nessun account configurato</h3>
+            <p className="text-muted-foreground mt-2 text-sm mb-4">
+              Aggiungi il tuo primo account Google Ads per iniziare
+            </p>
+            <Button asChild className="bg-primary hover:bg-primary/90">
+              <Link to="/accounts">Aggiungi Account</Link>
+            </Button>
+          </CardContent>
+        </Card>
       )}
     </div>
-  );
-}
-
-function AccountCard({ account }: { account: AccountWithStats }) {
-  const stats = account.stats;
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('it-IT', {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
-
-  const formatNumber = (value: number, decimals = 0) => {
-    return new Intl.NumberFormat('it-IT', {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    }).format(value);
-  };
-
-  return (
-    <Card className="bg-card hover:border-primary/50 transition-colors">
-      <CardContent className="p-6">
-        {/* Header */}
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            {(stats?.urgentIssues || 0) > 0 && (
-              <Badge className="badge-urgent mb-2">
-                <AlertTriangle className="h-3 w-3 mr-1" />
-                {stats?.urgentIssues} urgenti
-              </Badge>
-            )}
-            <h3 className="text-lg font-semibold text-foreground">
-              {account.customerName || account.customerId}
-            </h3>
-            <p className="text-sm text-muted-foreground">{account.customerId}</p>
-          </div>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </div>
-
-        {/* Last Import Date */}
-        {account.lastImportDate && (
-          <div className="flex items-center gap-1 text-xs text-muted-foreground mb-4">
-            <Calendar className="h-3 w-3" />
-            <span>Ultimo audit: {new Date(account.lastImportDate).toLocaleDateString('it-IT')}</span>
-          </div>
-        )}
-
-        {/* KPIs */}
-        <div className="grid grid-cols-3 gap-4 mb-4">
-          <div>
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <DollarSign className="h-3 w-3" />
-              Costo
-            </p>
-            <p className="text-lg font-semibold text-foreground">
-              {stats ? formatCurrency(stats.cost) : '-'}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <Target className="h-3 w-3" />
-              CPA
-            </p>
-            <p className="text-lg font-semibold text-foreground">
-              {stats ? formatCurrency(stats.cpa) : '-'}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <BarChart3 className="h-3 w-3" />
-              Conv.
-            </p>
-            <p className="text-lg font-semibold text-foreground">
-              {stats ? formatNumber(stats.conversions, 1) : '-'}
-            </p>
-          </div>
-        </div>
-
-        {/* Additional Stats */}
-        <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-          <div>
-            <span className="text-muted-foreground">Campagne attive:</span>{' '}
-            <span className="font-medium">{stats?.activeCampaigns || 0}/{stats?.totalCampaigns || 0}</span>
-          </div>
-          <div>
-            <span className="text-muted-foreground">ROAS:</span>{' '}
-            <span className="font-medium">{stats ? formatNumber(stats.roas, 2) : '-'}</span>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-2">
-          <Button asChild className="flex-1" size="sm">
-            <Link to={`/audit/${account.id}/dashboard`}>
-              <Eye className="h-4 w-4 mr-2" />
-              Visualizza
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="sm">
-            <Link to={`/audit/${account.id}/issues`}>
-              <Play className="h-4 w-4 mr-2" />
-              Audit
-            </Link>
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function AccountRow({ account }: { account: AccountWithStats }) {
-  const stats = account.stats;
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('it-IT', {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
-
-  return (
-    <Link
-      to={`/audit/${account.id}/dashboard`}
-      className="block p-3 sm:p-4 bg-card rounded-lg border border-border hover:border-primary/30 transition-colors"
-    >
-      {/* Mobile: Stack layout */}
-      <div className="sm:hidden">
-        <div className="flex items-start justify-between mb-2">
-          <div className="min-w-0 flex-1">
-            <h4 className="font-medium text-foreground truncate">
-              {account.customerName || account.customerId}
-            </h4>
-            <p className="text-xs text-muted-foreground">{account.customerId}</p>
-          </div>
-          <Eye className="h-4 w-4 text-muted-foreground flex-shrink-0 ml-2" />
-        </div>
-        <div className="grid grid-cols-3 gap-2 text-xs">
-          <div>
-            <p className="text-muted-foreground">Camp.</p>
-            <p className="font-medium">{stats?.activeCampaigns || 0}/{stats?.totalCampaigns || 0}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">Costo</p>
-            <p className="font-medium">{stats ? formatCurrency(stats.cost) : '-'}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">Conv.</p>
-            <p className="font-medium">{stats?.conversions?.toLocaleString('it-IT', { maximumFractionDigits: 1 }) || '-'}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Desktop: Horizontal layout */}
-      <div className="hidden sm:flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div>
-            <h4 className="font-medium text-foreground">
-              {account.customerName || account.customerId}
-            </h4>
-            <p className="text-sm text-muted-foreground">{account.customerId}</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-8">
-          <div className="text-right">
-            <p className="text-xs text-muted-foreground">Campagne</p>
-            <p className="text-sm font-medium text-foreground">
-              {stats?.activeCampaigns || 0}/{stats?.totalCampaigns || 0}
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-muted-foreground">Costo</p>
-            <p className="text-sm font-medium text-foreground">
-              {stats ? formatCurrency(stats.cost) : '-'}
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-muted-foreground">Conv.</p>
-            <p className="text-sm font-medium text-foreground">
-              {stats?.conversions?.toLocaleString('it-IT', { maximumFractionDigits: 1 }) || '-'}
-            </p>
-          </div>
-          <Eye className="h-4 w-4 text-muted-foreground" />
-        </div>
-      </div>
-    </Link>
   );
 }
