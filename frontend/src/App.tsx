@@ -37,23 +37,23 @@ function App() {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/accounts" element={<AccountsPage />} />
+          </Route>
 
-            {/* Audit routes */}
-            <Route path="/audit/:accountId" element={<AuditLayout />}>
-              <Route path="dashboard" element={<AuditDashboardPage />} />
-              <Route path="campaigns" element={<CampaignsPage />} />
-              <Route path="ad-groups" element={<AdGroupsPage />} />
-              <Route path="ads" element={<AdsPage />} />
-              <Route path="keywords" element={<KeywordsPage />} />
-              <Route path="search-terms" element={<SearchTermsPage />} />
-              <Route path="negative-keywords" element={<NegativeKeywordsPage />} />
-              <Route path="assets" element={<AssetsPage />} />
-              <Route path="issues" element={<IssuesPage />} />
-              <Route path="conversions" element={<ConversionsPage />} />
-              <Route path="conversion-actions" element={<ConversionActionsPage />} />
-              <Route path="modifications" element={<ModificationsPage />} />
-              <Route index element={<Navigate to="dashboard" replace />} />
-            </Route>
+          {/* Audit routes - fuori da MainLayout per evitare header duplicato */}
+          <Route path="/audit/:accountId" element={<AuditLayout />}>
+            <Route path="dashboard" element={<AuditDashboardPage />} />
+            <Route path="campaigns" element={<CampaignsPage />} />
+            <Route path="ad-groups" element={<AdGroupsPage />} />
+            <Route path="ads" element={<AdsPage />} />
+            <Route path="keywords" element={<KeywordsPage />} />
+            <Route path="search-terms" element={<SearchTermsPage />} />
+            <Route path="negative-keywords" element={<NegativeKeywordsPage />} />
+            <Route path="assets" element={<AssetsPage />} />
+            <Route path="issues" element={<IssuesPage />} />
+            <Route path="conversions" element={<ConversionsPage />} />
+            <Route path="conversion-actions" element={<ConversionActionsPage />} />
+            <Route path="modifications" element={<ModificationsPage />} />
+            <Route index element={<Navigate to="dashboard" replace />} />
           </Route>
         </Route>
 
