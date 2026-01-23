@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Settings, User, Lock, Shield, Check } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Settings, User, Lock, Shield, Check, Bot, Eye, EyeOff } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,7 +8,13 @@ import { useAuthStore } from '@/stores/auth.store';
 import { apiClient } from '@/api/client';
 import type { ApiError } from '@/types';
 
-type TabType = 'profile' | 'password' | 'security';
+type TabType = 'profile' | 'password' | 'security' | 'ai';
+
+interface AISettings {
+  hasApiKey: boolean;
+  apiKeyLast4?: string;
+  model: string;
+}
 
 export function SettingsPage() {
   const { user, setTokens, accessToken, refreshToken } = useAuthStore();
@@ -32,6 +38,34 @@ export function SettingsPage() {
   const [securityLoading, setSecurityLoading] = useState(false);
   const [securitySuccess, setSecuritySuccess] = useState('');
   const [securityError, setSecurityError] = useState('');
+
+  // AI state
+  const [aiSettings, setAiSettings] = useState<AISettings | null>(null);
+  const [aiApiKey, setAiApiKey] = useState('');
+  const [aiModel, setAiModel] = useState('gpt-4o');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiSuccess, setAiSuccess] = useState('');
+  const [aiError, setAiError] = useState('');
+
+  const isAdmin = user?.role === 'admin';
+
+  // Load AI settings when tab changes to AI
+  useEffect(() => {
+    if (activeTab === 'ai' && isAdmin) {
+      loadAISettings();
+    }
+  }, [activeTab, isAdmin]);
+
+  const loadAISettings = async () => {
+    try {
+      const settings = await apiClient.get<AISettings>('/settings/ai');
+      setAiSettings(settings);
+      setAiModel(settings.model || 'gpt-4o');
+    } catch (err) {
+      console.error('Failed to load AI settings:', err);
+    }
+  };
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,10 +145,56 @@ export function SettingsPage() {
     }
   };
 
+  const handleAISubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAiLoading(true);
+    setAiError('');
+    setAiSuccess('');
+
+    try {
+      const payload: { openaiApiKey?: string; openaiModel?: string } = {};
+      
+      if (aiApiKey) {
+        payload.openaiApiKey = aiApiKey;
+      }
+      payload.openaiModel = aiModel;
+
+      const response = await apiClient.patch<AISettings>('/settings/ai', payload);
+      setAiSettings(response);
+      setAiApiKey('');
+      setAiSuccess('Impostazioni AI salvate con successo');
+    } catch (err) {
+      const apiError = err as ApiError;
+      setAiError(apiError.message || 'Errore durante il salvataggio delle impostazioni AI');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleClearApiKey = async () => {
+    if (!confirm('Sei sicuro di voler rimuovere la chiave API OpenAI?')) return;
+    
+    setAiLoading(true);
+    setAiError('');
+    setAiSuccess('');
+
+    try {
+      const response = await apiClient.patch<AISettings>('/settings/ai', { openaiApiKey: '' });
+      setAiSettings(response);
+      setAiSuccess('Chiave API rimossa con successo');
+    } catch (err) {
+      const apiError = err as ApiError;
+      setAiError(apiError.message || 'Errore durante la rimozione della chiave API');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   const tabs = [
     { id: 'profile' as TabType, label: 'Profilo', icon: User },
     { id: 'password' as TabType, label: 'Password', icon: Lock },
     { id: 'security' as TabType, label: 'Sicurezza', icon: Shield },
+    ...(isAdmin ? [{ id: 'ai' as TabType, label: 'AI', icon: Bot }] : []),
   ];
 
   return (
@@ -357,6 +437,146 @@ export function SettingsPage() {
                     >
                       {securityLoading ? 'Attendere...' : user?.twoFactorEnabled ? 'Disattiva' : 'Attiva'}
                     </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {activeTab === 'ai' && isAdmin && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold text-foreground mb-2">Configurazione AI</h3>
+                <p className="text-muted-foreground text-sm mb-4">
+                  Configura la chiave API OpenAI per abilitare l'analisi AI delle campagne Google Ads.
+                </p>
+              </div>
+
+              {aiSuccess && (
+                <div className="bg-success/10 border border-success/30 text-success px-4 py-3 rounded-lg text-sm">
+                  {aiSuccess}
+                </div>
+              )}
+
+              {aiError && (
+                <div className="bg-destructive/10 border border-destructive/30 text-destructive px-4 py-3 rounded-lg text-sm">
+                  {aiError}
+                </div>
+              )}
+
+              {/* Current API Key Status */}
+              <Card className="bg-card/50 border-border">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      aiSettings?.hasApiKey ? 'bg-success/20' : 'bg-destructive/20'
+                    }`}>
+                      {aiSettings?.hasApiKey ? (
+                        <Check className="h-5 w-5 text-success" />
+                      ) : (
+                        <Bot className="h-5 w-5 text-destructive" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-foreground">
+                        {aiSettings?.hasApiKey ? 'API Key Configurata' : 'API Key Non Configurata'}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {aiSettings?.hasApiKey
+                          ? `Chiave attiva: ${aiSettings.apiKeyLast4}`
+                          : 'Inserisci una chiave API OpenAI per abilitare l\'analisi AI'}
+                      </p>
+                    </div>
+                    {aiSettings?.hasApiKey && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleClearApiKey}
+                        disabled={aiLoading}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        Rimuovi
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <form onSubmit={handleAISubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="apiKey" className="text-foreground">
+                    {aiSettings?.hasApiKey ? 'Nuova Chiave API OpenAI' : 'Chiave API OpenAI'}
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="apiKey"
+                      type={showApiKey ? 'text' : 'password'}
+                      value={aiApiKey}
+                      onChange={(e) => setAiApiKey(e.target.value)}
+                      placeholder="sk-proj-..."
+                      className="bg-input border-border text-foreground pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Puoi ottenere la chiave API da{' '}
+                    <a
+                      href="https://platform.openai.com/api-keys"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      platform.openai.com/api-keys
+                    </a>
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="model" className="text-foreground">Modello OpenAI</Label>
+                  <select
+                    id="model"
+                    value={aiModel}
+                    onChange={(e) => setAiModel(e.target.value)}
+                    className="w-full h-10 px-3 rounded-md border border-border bg-input text-foreground"
+                  >
+                    <option value="gpt-4o">GPT-4o (Raccomandato)</option>
+                    <option value="gpt-4o-mini">GPT-4o Mini (Economico)</option>
+                    <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                    <option value="gpt-4">GPT-4</option>
+                    <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                  </select>
+                  <p className="text-xs text-muted-foreground">
+                    Modello attuale: <span className="font-medium">{aiSettings?.model || 'Non configurato'}</span>
+                  </p>
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={aiLoading}
+                  className="bg-gradient-to-r from-primary to-yellow-500 hover:from-primary/90 hover:to-yellow-500/90 text-primary-foreground"
+                >
+                  {aiLoading ? 'Salvataggio...' : 'Salva impostazioni AI'}
+                </Button>
+              </form>
+
+              {/* Info Card */}
+              <Card className="bg-blue-500/10 border-blue-500/30">
+                <CardContent className="p-4">
+                  <div className="flex gap-3">
+                    <Bot className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm">
+                      <p className="font-medium text-blue-500 mb-1">Informazioni sulla sicurezza</p>
+                      <p className="text-muted-foreground">
+                        La chiave API viene crittografata prima di essere salvata nel database. 
+                        Non viene mai mostrata in chiaro dopo il salvataggio.
+                      </p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

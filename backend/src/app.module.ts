@@ -16,6 +16,7 @@ import { AIModule } from './modules/ai/ai.module';
 import { ModificationsModule } from './modules/modifications/modifications.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { EmailModule } from './modules/email/email.module';
+import { SettingsModule } from './modules/settings/settings.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { EmailModule } from './modules/email/email.module';
       }),
       inject: [ConfigService],
     }),
+    SettingsModule,
     AuthModule,
     UsersModule,
     IntegrationsModule,

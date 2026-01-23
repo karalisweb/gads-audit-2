@@ -27,14 +27,15 @@ import {
   getModulePrompt,
   SUPPORTED_MODULES,
 } from './prompts/module-prompts';
+import { SettingsService } from '../settings/settings.service';
 
 @Injectable()
 export class AIService {
   private readonly logger = new Logger(AIService.name);
-  private openai: OpenAI;
 
   constructor(
     private configService: ConfigService,
+    private settingsService: SettingsService,
     @InjectRepository(Campaign)
     private campaignRepository: Repository<Campaign>,
     @InjectRepository(AdGroup)
@@ -59,11 +60,22 @@ export class AIService {
     private accountRepository: Repository<GoogleAdsAccount>,
     @InjectRepository(ImportRun)
     private importRunRepository: Repository<ImportRun>,
-  ) {
-    const apiKey = this.configService.get<string>('ai.openaiApiKey');
-    if (apiKey) {
-      this.openai = new OpenAI({ apiKey });
+  ) {}
+
+  private async getOpenAIClient(): Promise<OpenAI> {
+    // First try to get from database settings
+    let apiKey = await this.settingsService.getOpenAIApiKey();
+    
+    // Fallback to config/env
+    if (!apiKey) {
+      apiKey = this.configService.get<string>('ai.openaiApiKey') ?? null;
     }
+
+    if (!apiKey) {
+      throw new BadRequestException('OpenAI API key not configured. Please configure it in Settings > AI.');
+    }
+
+    return new OpenAI({ apiKey });
   }
 
   async analyzeModule(
@@ -71,9 +83,7 @@ export class AIService {
     moduleId: number,
     filters?: Record<string, any>,
   ): Promise<AIAnalysisResponse> {
-    if (!this.openai) {
-      throw new BadRequestException('OpenAI API key not configured');
-    }
+    const openai = await this.getOpenAIClient();
 
     if (!SUPPORTED_MODULES.includes(moduleId)) {
       throw new BadRequestException(`Module ${moduleId} is not supported for AI analysis`);
@@ -103,6 +113,7 @@ export class AIService {
 
     // Call OpenAI
     const recommendations = await this.callOpenAI(
+      openai,
       moduleConfig.systemPrompt,
       userPrompt,
     );
@@ -524,16 +535,21 @@ export class AIService {
   }
 
   private async callOpenAI(
+    openai: OpenAI,
     systemPrompt: string,
     userPrompt: string,
   ): Promise<{ summary: string; recommendations: AIRecommendation[] }> {
-    const model = this.configService.get<string>('ai.openaiModel') || 'gpt-4';
+    // Get model from settings or fallback
+    let model = await this.settingsService.getOpenAIModel();
+    if (!model) {
+      model = this.configService.get<string>('ai.openaiModel') || 'gpt-4o';
+    }
     const maxTokens = this.configService.get<number>('ai.maxTokens') || 4096;
 
     try {
       this.logger.log(`Calling OpenAI model: ${model}`);
 
-      const response = await this.openai.chat.completions.create({
+      const response = await openai.chat.completions.create({
         model,
         messages: [
           { role: 'system', content: systemPrompt },

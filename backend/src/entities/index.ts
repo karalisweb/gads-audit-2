@@ -20,3 +20,4 @@ export * from './decision.entity';
 export * from './audit-issue.entity';
 export * from './modification.entity';
 export * from './email-otp.entity';
+export * from './system-setting.entity';
