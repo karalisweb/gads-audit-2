@@ -6,7 +6,6 @@ import { cn } from '@/lib/utils';
 import { PeriodSelector } from '@/components/period';
 import { MobileBottomNav } from './MobileBottomNav';
 import { useAuthStore } from '@/stores/auth.store';
-import { useUIStore } from '@/stores/ui.store';
 import { useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -24,7 +23,6 @@ import {
   User,
   Bell,
   ArrowLeft,
-  Menu,
 } from 'lucide-react';
 
 const navItems = [
@@ -63,7 +61,6 @@ export function AuditLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { toggleSidebar } = useUIStore();
   const [account, setAccount] = useState<GoogleAdsAccount | null>(null);
   const [latestRun, setLatestRun] = useState<ImportRun | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState<15 | 30>(30);
@@ -162,11 +159,11 @@ export function AuditLayout() {
                 lastAuditDate={latestRun?.completedAt || null}
               />
               <button
-                onClick={toggleSidebar}
+                onClick={() => navigate('/accounts')}
                 className="flex-shrink-0 p-2 rounded-lg bg-sidebar text-sidebar-foreground hover:text-white hover:bg-sidebar-accent transition-colors"
-                title="Menu"
+                title="Torna agli account"
               >
-                <Menu className="h-5 w-5" />
+                <ArrowLeft className="h-5 w-5" />
               </button>
             </div>
           </div>
