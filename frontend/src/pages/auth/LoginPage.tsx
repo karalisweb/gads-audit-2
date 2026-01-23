@@ -9,7 +9,7 @@ import type { ApiError } from '@/types';
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { login, isLoading, requiresTwoFactor } = useAuthStore();
+  const { login, isLoading } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -19,11 +19,11 @@ export function LoginPage() {
     setError('');
 
     try {
-      await login(email, password);
-      if (!requiresTwoFactor) {
-        navigate('/dashboard');
-      } else {
+      const needs2FA = await login(email, password);
+      if (needs2FA) {
         navigate('/auth/verify-2fa');
+      } else {
+        navigate('/dashboard');
       }
     } catch (err) {
       const apiError = err as ApiError;

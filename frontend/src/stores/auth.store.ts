@@ -12,7 +12,7 @@ interface AuthState {
   pendingUserId: string | null;
   requiresTwoFactor: boolean;
 
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<boolean>;
   verifyTwoFactor: (code: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshTokens: () => Promise<void>;
@@ -31,7 +31,7 @@ export const useAuthStore = create<AuthState>()(
       pendingUserId: null,
       requiresTwoFactor: false,
 
-      login: async (email: string, password: string) => {
+      login: async (email: string, password: string): Promise<boolean> => {
         set({ isLoading: true });
         try {
           const response = await apiClient.post<{
@@ -46,6 +46,7 @@ export const useAuthStore = create<AuthState>()(
               requiresTwoFactor: true,
               isLoading: false,
             });
+            return true; // Requires 2FA
           } else if (response.tokens) {
             apiClient.setAccessToken(response.tokens.accessToken);
             set({
@@ -57,7 +58,9 @@ export const useAuthStore = create<AuthState>()(
               pendingUserId: null,
               isLoading: false,
             });
+            return false; // Login complete, no 2FA needed
           }
+          return false;
         } catch (error) {
           set({ isLoading: false });
           throw error;
