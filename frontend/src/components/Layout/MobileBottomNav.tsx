@@ -24,6 +24,7 @@ import {
 const mainNavItems = [
   { path: '/dashboard', label: 'Home', icon: LayoutDashboard },
   { path: '/accounts', label: 'Account', icon: Building2 },
+  { path: '/settings', label: 'Impostaz.', icon: Settings },
   { path: '/profile', label: 'Profilo', icon: User },
 ];
 

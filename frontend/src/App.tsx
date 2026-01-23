@@ -4,6 +4,7 @@ import { LoginPage, VerifyTwoFactorPage, AcceptInvitePage, ForgotPasswordPage, R
 import { DashboardPage } from '@/pages/dashboard';
 import { AccountsPage } from '@/pages/accounts';
 import { ProfilePage } from '@/pages/profile';
+import { SettingsPage } from '@/pages/settings';
 import { MainLayout, AuditLayout } from '@/components/Layout';
 import {
   DashboardPage as AuditDashboardPage,
@@ -37,6 +38,7 @@ function App() {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/accounts" element={<AccountsPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Route>
 
           {/* Audit routes - fuori da MainLayout per evitare header duplicato */}
