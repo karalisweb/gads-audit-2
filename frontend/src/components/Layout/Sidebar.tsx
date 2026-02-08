@@ -27,32 +27,59 @@ const footerNavItems = [
   { path: '/settings', label: 'Impostazioni', icon: Settings },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  mode?: 'fixed' | 'overlay';
+}
+
+export function Sidebar({ mode = 'overlay' }: SidebarProps) {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
 
+  const isFixed = mode === 'fixed';
+
   const handleLogout = async () => {
-    toggleSidebar();
+    if (!isFixed || sidebarCollapsed) toggleSidebar();
     await logout();
     navigate('/auth/login');
   };
 
+  const handleNavClick = () => {
+    // In fixed mode on desktop, don't close sidebar on nav click
+    // On mobile (overlay behavior), always close
+    if (!isFixed) {
+      toggleSidebar();
+    }
+  };
+
   return (
     <>
-      {/* Overlay scuro quando sidebar aperta */}
+      {/* Overlay scuro - solo in overlay mode, o in fixed mode su mobile quando aperta */}
       {!sidebarCollapsed && (
         <div
-          className="fixed inset-0 z-30 bg-black/60"
+          className={cn(
+            'fixed inset-0 z-30 bg-black/60',
+            isFixed && 'md:hidden'
+          )}
           onClick={toggleSidebar}
         />
       )}
 
-      {/* Sidebar overlay */}
+      {/* Sidebar */}
       <aside
         className={cn(
-          'fixed left-0 top-0 z-40 h-screen w-[260px] bg-sidebar border-r border-sidebar-border flex flex-col transition-transform duration-300',
-          sidebarCollapsed ? '-translate-x-full' : 'translate-x-0'
+          'fixed left-0 top-0 z-40 h-screen w-[260px] bg-sidebar border-r border-sidebar-border flex flex-col',
+          // Fixed mode: sempre visibile su desktop, overlay animato su mobile
+          isFixed
+            ? cn(
+                'md:translate-x-0',
+                'transition-transform duration-300 md:transition-none',
+                sidebarCollapsed ? '-translate-x-full' : 'translate-x-0'
+              )
+            : cn(
+                'transition-transform duration-300',
+                sidebarCollapsed ? '-translate-x-full' : 'translate-x-0'
+              )
         )}
       >
         {/* ═══ ZONA 1: Header App ═══ */}
@@ -68,10 +95,13 @@ export function Sidebar() {
             </p>
             <p className="text-xs text-muted-foreground">v{APP_VERSION}</p>
           </div>
-          {/* Chiudi */}
+          {/* Chiudi - in fixed mode solo su mobile */}
           <button
             onClick={toggleSidebar}
-            className="p-1.5 rounded-lg text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
+            className={cn(
+              'p-1.5 rounded-lg text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors',
+              isFixed && 'md:hidden'
+            )}
             title="Chiudi menu"
           >
             <X className="h-5 w-5" />
@@ -90,7 +120,7 @@ export function Sidebar() {
               <NavLink
                 key={item.path}
                 to={item.path}
-                onClick={toggleSidebar}
+                onClick={handleNavClick}
                 className={({ isActive }) =>
                   cn(
                     'flex items-center gap-3 px-3 py-2.5 mx-1 rounded-lg text-sm transition-colors mb-0.5',
@@ -115,7 +145,7 @@ export function Sidebar() {
               <NavLink
                 key={item.path}
                 to={item.path}
-                onClick={toggleSidebar}
+                onClick={handleNavClick}
                 className={({ isActive }) =>
                   cn(
                     'flex items-center gap-3 px-3 py-2.5 mx-1 rounded-lg text-sm transition-colors mb-0.5',
@@ -135,7 +165,7 @@ export function Sidebar() {
           <button
             className="flex items-center gap-3 px-3 py-2.5 mx-1 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors w-full mb-0.5"
             onClick={() => {
-              toggleSidebar();
+              handleNavClick();
               // TODO: navigare a pagina guida
             }}
           >

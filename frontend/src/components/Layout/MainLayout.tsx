@@ -2,8 +2,6 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { MobileHeader } from './MobileHeader';
 import { MobileBottomNav } from './MobileBottomNav';
-import { useUIStore } from '@/stores/ui.store';
-import { Menu } from 'lucide-react';
 
 // Mappa dei titoli per le pagine desktop
 const pageTitles: Record<string, string> = {
@@ -14,7 +12,6 @@ const pageTitles: Record<string, string> = {
 };
 
 export function MainLayout() {
-  const { toggleSidebar } = useUIStore();
   const location = useLocation();
 
   const pageTitle = pageTitles[location.pathname] || 'GADS Audit';
@@ -24,32 +21,21 @@ export function MainLayout() {
       {/* Mobile Header - solo su mobile */}
       <MobileHeader />
 
-      {/* Desktop Header - sticky, sempre full width */}
-      <header className="hidden md:block sticky top-0 z-10 bg-card border-b border-border">
+      {/* Sidebar fissa su desktop, overlay su mobile */}
+      <Sidebar mode="fixed" />
+
+      {/* Desktop Header - sticky, con offset per sidebar fissa */}
+      <header className="hidden md:block sticky top-0 z-10 bg-card border-b border-border md:pl-[260px]">
         <div className="h-16 px-6 flex items-center">
-          <div className="flex items-center gap-4">
-            {/* Hamburger menu */}
-            <button
-              onClick={toggleSidebar}
-              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
-              title="Menu"
-            >
-              <Menu className="h-5 w-5" />
-            </button>
-            {/* Titolo pagina */}
-            <div>
-              <h1 className="text-lg font-semibold text-foreground">{pageTitle}</h1>
-              <p className="text-xs text-muted-foreground">Google Ads Audit Tool</p>
-            </div>
+          <div>
+            <h1 className="text-lg font-semibold text-foreground">{pageTitle}</h1>
+            <p className="text-xs text-muted-foreground">Google Ads Audit Tool</p>
           </div>
         </div>
       </header>
 
-      {/* Sidebar overlay (sia desktop che mobile) */}
-      <Sidebar />
-
-      {/* Contenuto principale - sempre full width */}
-      <main className="pb-16 md:pb-0">
+      {/* Contenuto principale - offset per sidebar su desktop */}
+      <main className="pb-16 md:pb-0 md:pl-[260px]">
         <Outlet />
       </main>
 
