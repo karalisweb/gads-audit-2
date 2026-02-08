@@ -10,8 +10,8 @@ import {
   Settings,
   BookOpen,
   X,
-  BarChart3,
 } from 'lucide-react';
+import { GadsIcon } from '@/components/icons/GadsIcon';
 
 const APP_VERSION = '2.6.0';
 
@@ -86,7 +86,7 @@ export function Sidebar({ mode = 'overlay' }: SidebarProps) {
         <div className="flex items-center gap-3 px-5 py-5 border-b border-sidebar-border">
           {/* Icona app */}
           <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-background flex items-center justify-center">
-            <BarChart3 className="h-[22px] w-[22px] text-primary" />
+            <GadsIcon size={22} />
           </div>
           {/* Nome + versione */}
           <div className="flex-1 min-w-0">
