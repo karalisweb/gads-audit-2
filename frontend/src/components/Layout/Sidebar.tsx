@@ -10,7 +10,7 @@ import {
   Settings,
   BookOpen,
   X,
-  Target,
+  BarChart3,
 } from 'lucide-react';
 
 const APP_VERSION = '2.6.0';
@@ -59,7 +59,7 @@ export function Sidebar() {
         <div className="flex items-center gap-3 px-5 py-5 border-b border-sidebar-border">
           {/* Icona app */}
           <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-background flex items-center justify-center">
-            <Target className="h-[22px] w-[22px] text-primary" />
+            <BarChart3 className="h-[22px] w-[22px] text-primary" />
           </div>
           {/* Nome + versione */}
           <div className="flex-1 min-w-0">
