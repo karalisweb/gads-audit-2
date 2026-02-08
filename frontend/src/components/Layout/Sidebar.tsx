@@ -7,9 +7,25 @@ import {
   Building2,
   LogOut,
   User,
-  X,
   Settings,
+  BookOpen,
+  X,
+  Target,
 } from 'lucide-react';
+
+const APP_VERSION = '2.6.0';
+
+// Zona 2 - Navigazione Principale
+const mainNavItems = [
+  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/accounts', label: 'Account', icon: Building2 },
+];
+
+// Zona 3 - Navigazione Fissa (footer)
+const footerNavItems = [
+  { path: '/profile', label: 'Profilo', icon: User },
+  { path: '/settings', label: 'Impostazioni', icon: Settings },
+];
 
 export function Sidebar() {
   const navigate = useNavigate();
@@ -17,142 +33,131 @@ export function Sidebar() {
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
 
   const handleLogout = async () => {
+    toggleSidebar();
     await logout();
     navigate('/auth/login');
   };
 
   return (
     <>
-      {/* Hamburger button - nascosto, ora usiamo quello nel header delle pagine */}
-
-      {/* Overlay */}
+      {/* Overlay scuro quando sidebar aperta */}
       {!sidebarCollapsed && (
         <div
-          className="fixed inset-0 z-30 bg-black/50"
+          className="fixed inset-0 z-30 bg-black/60"
           onClick={toggleSidebar}
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar overlay */}
       <aside
         className={cn(
-          'fixed left-0 top-0 z-40 h-screen bg-sidebar border-r border-sidebar-border flex-col transition-all duration-300',
-          sidebarCollapsed ? '-translate-x-full w-64 hidden' : 'translate-x-0 w-64 flex'
+          'fixed left-0 top-0 z-40 h-screen w-[260px] bg-sidebar border-r border-sidebar-border flex flex-col transition-transform duration-300',
+          sidebarCollapsed ? '-translate-x-full' : 'translate-x-0'
         )}
       >
-        {/* Header with logo and close button */}
-        <div className="p-6 border-b border-sidebar-border flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-primary">Karalisweb</h1>
-            <p className="text-sm text-sidebar-foreground mt-1">Google Ads Audit</p>
+        {/* ═══ ZONA 1: Header App ═══ */}
+        <div className="flex items-center gap-3 px-5 py-5 border-b border-sidebar-border">
+          {/* Icona app */}
+          <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-background flex items-center justify-center">
+            <Target className="h-[22px] w-[22px] text-primary" />
           </div>
+          {/* Nome + versione */}
+          <div className="flex-1 min-w-0">
+            <p className="text-[0.95rem] font-semibold text-foreground leading-tight">
+              KW GADS Audit
+            </p>
+            <p className="text-xs text-muted-foreground">v{APP_VERSION}</p>
+          </div>
+          {/* Chiudi */}
           <button
             onClick={toggleSidebar}
-            className="p-2 rounded-lg text-sidebar-foreground hover:text-white hover:bg-sidebar-accent transition-colors"
+            className="p-1.5 rounded-lg text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
             title="Chiudi menu"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-4 px-3">
-          {/* Dashboard */}
-          <NavLink
-            to="/dashboard"
-            onClick={() => toggleSidebar()}
-            className={({ isActive }) =>
-              cn(
-                'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors mb-1',
-                isActive
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-white'
-              )
-            }
-          >
-            <LayoutDashboard className="h-5 w-5" />
-            Dashboard
-          </NavLink>
-
-          {/* Account */}
-          <NavLink
-            to="/accounts"
-            onClick={() => toggleSidebar()}
-            className={({ isActive }) =>
-              cn(
-                'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors mb-1',
-                isActive
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-white'
-              )
-            }
-          >
-            <Building2 className="h-5 w-5" />
-            Account
-          </NavLink>
-
-          {/* Profilo */}
-          <NavLink
-            to="/profile"
-            onClick={() => toggleSidebar()}
-            className={({ isActive }) =>
-              cn(
-                'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors mb-1',
-                isActive
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-white'
-              )
-            }
-          >
-            <User className="h-5 w-5" />
-            Profilo
-          </NavLink>
-
-          {/* Impostazioni */}
-          <NavLink
-            to="/settings"
-            onClick={() => toggleSidebar()}
-            className={({ isActive }) =>
-              cn(
-                'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors mb-1',
-                isActive
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-white'
-              )
-            }
-          >
-            <Settings className="h-5 w-5" />
-            Impostazioni
-          </NavLink>
+        {/* ═══ ZONA 2: Navigazione Principale ═══ */}
+        <nav className="flex-1 overflow-y-auto py-4 px-2">
+          {/* Sezione Principale */}
+          <p className="px-3 mb-2 text-[0.7rem] font-semibold uppercase tracking-[0.05em] text-muted-foreground">
+            Principale
+          </p>
+          {mainNavItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                onClick={toggleSidebar}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-3 px-3 py-2.5 mx-1 rounded-lg text-sm transition-colors mb-0.5',
+                    isActive
+                      ? 'nav-item-active font-medium'
+                      : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground'
+                  )
+                }
+              >
+                <Icon className="h-5 w-5 flex-shrink-0" />
+                {item.label}
+              </NavLink>
+            );
+          })}
         </nav>
 
-        {/* User Profile */}
-        <div className="border-t border-sidebar-border p-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sidebar-accent">
-              <User className="h-5 w-5 text-sidebar-foreground" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">
-                {user?.email?.split('@')[0] || 'User'}
-              </p>
-              <p className="text-xs text-sidebar-foreground truncate">
-                {user?.email}
-              </p>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="p-2 rounded-lg text-sidebar-foreground hover:text-white hover:bg-sidebar-accent transition-colors"
-              title="Logout"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </div>
+        {/* ═══ ZONA 3: Navigazione Fissa (Footer) ═══ */}
+        <div className="border-t border-sidebar-border py-2 px-2">
+          {footerNavItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                onClick={toggleSidebar}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-3 px-3 py-2.5 mx-1 rounded-lg text-sm transition-colors mb-0.5',
+                    isActive
+                      ? 'nav-item-active font-medium'
+                      : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground'
+                  )
+                }
+              >
+                <Icon className="h-5 w-5 flex-shrink-0" />
+                {item.label}
+              </NavLink>
+            );
+          })}
+
+          {/* Guida (placeholder) */}
+          <button
+            className="flex items-center gap-3 px-3 py-2.5 mx-1 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors w-full mb-0.5"
+            onClick={() => {
+              toggleSidebar();
+              // TODO: navigare a pagina guida
+            }}
+          >
+            <BookOpen className="h-5 w-5 flex-shrink-0" />
+            Guida
+          </button>
+
+          {/* Esci */}
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 px-3 py-2.5 mx-1 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors w-full"
+          >
+            <LogOut className="h-5 w-5 flex-shrink-0" />
+            Esci
+          </button>
         </div>
 
-        {/* Version */}
-        <div className="px-4 pb-4">
-          <p className="text-xs text-sidebar-foreground/50 text-center">v2.0.0</p>
+        {/* Info utente compatta */}
+        <div className="border-t border-sidebar-border px-4 py-3">
+          <p className="text-xs text-muted-foreground truncate">
+            {user?.email || 'user@karalisweb.net'}
+          </p>
         </div>
       </aside>
     </>

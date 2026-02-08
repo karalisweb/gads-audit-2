@@ -5,7 +5,9 @@ import type { GoogleAdsAccount, ImportRun } from '@/types/audit';
 import { cn } from '@/lib/utils';
 import { PeriodSelector } from '@/components/period';
 import { MobileBottomNav } from './MobileBottomNav';
+import { Sidebar } from './Sidebar';
 import { useAuthStore } from '@/stores/auth.store';
+import { useUIStore } from '@/stores/ui.store';
 import { useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -23,6 +25,7 @@ import {
   User,
   Bell,
   ArrowLeft,
+  Menu,
 } from 'lucide-react';
 
 const navItems = [
@@ -61,6 +64,7 @@ export function AuditLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const { toggleSidebar } = useUIStore();
   const [account, setAccount] = useState<GoogleAdsAccount | null>(null);
   const [latestRun, setLatestRun] = useState<ImportRun | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState<15 | 30>(30);
@@ -87,14 +91,24 @@ export function AuditLayout() {
 
   return (
     <div className="min-h-screen pb-16 md:pb-0">
+      {/* Sidebar overlay */}
+      <Sidebar />
+
       {/* Mobile Header */}
       <header className="md:hidden sticky top-0 z-50 bg-card border-b border-border">
         <div className="flex items-center justify-between px-4 py-3">
-          {/* Back button e titolo */}
-          <div className="flex items-center gap-3 min-w-0 flex-1">
+          {/* Hamburger + Back + titolo */}
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <button
+              onClick={toggleSidebar}
+              className="flex-shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Menu"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
             <button
               onClick={() => navigate('/accounts')}
-              className="flex-shrink-0 p-1.5 -ml-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              className="flex-shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
               title="Torna agli account"
             >
               <ArrowLeft className="h-5 w-5" />
@@ -144,13 +158,23 @@ export function AuditLayout() {
       <header className="hidden md:block sticky top-0 z-10 bg-card border-b border-border">
         <div className="px-3 sm:px-6 py-3 sm:py-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
-            <div className="min-w-0">
-              <h1 className="text-lg sm:text-xl font-bold text-foreground truncate">
-                {account?.customerName || 'Loading...'}
-              </h1>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                ID: {account?.customerId}
-              </p>
+            <div className="flex items-center gap-3 min-w-0">
+              {/* Hamburger menu */}
+              <button
+                onClick={toggleSidebar}
+                className="flex-shrink-0 p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
+                title="Menu"
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+              <div className="min-w-0">
+                <h1 className="text-lg font-semibold text-foreground truncate">
+                  {account?.customerName || 'Loading...'}
+                </h1>
+                <p className="text-xs text-muted-foreground">
+                  ID: {account?.customerId}
+                </p>
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <PeriodSelector
@@ -160,7 +184,7 @@ export function AuditLayout() {
               />
               <button
                 onClick={() => navigate('/dashboard')}
-                className="flex-shrink-0 p-2 rounded-lg bg-sidebar text-sidebar-foreground hover:text-white hover:bg-sidebar-accent transition-colors"
+                className="flex-shrink-0 p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
                 title="Torna alla Home"
               >
                 <ArrowLeft className="h-5 w-5" />

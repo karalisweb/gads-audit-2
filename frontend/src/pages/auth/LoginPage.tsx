@@ -34,13 +34,15 @@ export function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
+        {/* Logo e Titolo App */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary">Karalisweb</h1>
-          <p className="text-muted-foreground mt-1">Google Ads Audit</p>
+          <h1 className="text-3xl font-semibold text-gradient-brand">
+            KW GADS Audit
+          </h1>
+          <p className="text-muted-foreground text-sm mt-2">Google Ads Audit Tool</p>
         </div>
 
-        <Card className="bg-card border-border">
+        <Card className="bg-card border-border shadow-[0_8px_24px_rgba(0,0,0,0.5)]">
           <CardHeader className="space-y-1">
             <CardTitle className="text-xl font-bold text-center text-foreground">
               Accedi
@@ -76,7 +78,7 @@ export function LoginPage() {
                   <Label htmlFor="password" className="text-foreground">Password</Label>
                   <Link
                     to="/auth/forgot-password"
-                    className="text-xs text-primary hover:underline"
+                    className="text-xs text-muted-foreground hover:text-primary transition-colors"
                   >
                     Password dimenticata?
                   </Link>
@@ -94,7 +96,7 @@ export function LoginPage() {
 
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-primary to-yellow-500 hover:from-primary/90 hover:to-yellow-500/90 text-primary-foreground"
+                className="w-full btn-gradient text-white font-medium transition-all duration-200"
                 disabled={isLoading}
               >
                 {isLoading ? 'Accesso in corso...' : 'Accedi'}
@@ -104,7 +106,7 @@ export function LoginPage() {
         </Card>
 
         <p className="text-center text-xs text-muted-foreground mt-8">
-          v2.0.0
+          v2.6.0
         </p>
       </div>
     </div>

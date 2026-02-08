@@ -3,7 +3,6 @@ import { Sidebar } from './Sidebar';
 import { MobileHeader } from './MobileHeader';
 import { MobileBottomNav } from './MobileBottomNav';
 import { useUIStore } from '@/stores/ui.store';
-import { cn } from '@/lib/utils';
 import { Menu } from 'lucide-react';
 
 // Mappa dei titoli per le pagine desktop
@@ -15,7 +14,7 @@ const pageTitles: Record<string, string> = {
 };
 
 export function MainLayout() {
-  const { sidebarCollapsed, toggleSidebar } = useUIStore();
+  const { toggleSidebar } = useUIStore();
   const location = useLocation();
 
   const pageTitle = pageTitles[location.pathname] || 'GADS Audit';
@@ -25,35 +24,32 @@ export function MainLayout() {
       {/* Mobile Header - solo su mobile */}
       <MobileHeader />
 
-      {/* Desktop Header - solo su desktop */}
+      {/* Desktop Header - sticky, sempre full width */}
       <header className="hidden md:block sticky top-0 z-10 bg-card border-b border-border">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold text-foreground">{pageTitle}</h1>
-              <p className="text-sm text-muted-foreground">Google Ads Audit Tool</p>
-            </div>
+        <div className="h-16 px-6 flex items-center">
+          <div className="flex items-center gap-4">
+            {/* Hamburger menu */}
             <button
               onClick={toggleSidebar}
-              className="flex-shrink-0 p-2 rounded-lg bg-sidebar text-sidebar-foreground hover:text-white hover:bg-sidebar-accent transition-colors"
+              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
               title="Menu"
             >
               <Menu className="h-5 w-5" />
             </button>
+            {/* Titolo pagina */}
+            <div>
+              <h1 className="text-lg font-semibold text-foreground">{pageTitle}</h1>
+              <p className="text-xs text-muted-foreground">Google Ads Audit Tool</p>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Desktop Sidebar */}
+      {/* Sidebar overlay (sia desktop che mobile) */}
       <Sidebar />
 
-      <main
-        className={cn(
-          'transition-all duration-300 pb-16 md:pb-0',
-          // Su mobile (< lg) sempre pl-0, su desktop dipende dalla sidebar
-          sidebarCollapsed ? 'pl-0' : 'pl-0 lg:pl-64'
-        )}
-      >
+      {/* Contenuto principale - sempre full width */}
+      <main className="pb-16 md:pb-0">
         <Outlet />
       </main>
 

@@ -2,44 +2,53 @@
 
 @layer base {
   :root {
-    /* Dark theme as default - Karalisweb style (blu scuro) */
-    --background: 220 25% 8%;
-    --foreground: 210 20% 95%;
-    --card: 220 25% 12%;
-    --card-foreground: 210 20% 95%;
+    /* Dark theme - Karalisweb Design System */
+    /* Sfondi */
+    --background: 220 25% 8%;          /* #0d1521 */
+    --foreground: 240 5% 96%;          /* #f5f5f7 */
+    --card: 220 25% 12%;              /* #132032 */
+    --card-foreground: 240 5% 96%;     /* #f5f5f7 */
     --popover: 220 25% 12%;
-    --popover-foreground: 210 20% 95%;
-    --primary: 38 100% 50%;
-    --primary-foreground: 220 25% 8%;
-    --secondary: 220 20% 18%;
-    --secondary-foreground: 210 20% 95%;
-    --muted: 220 20% 18%;
-    --muted-foreground: 220 15% 55%;
-    --accent: 220 20% 18%;
-    --accent-foreground: 210 20% 95%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 20% 95%;
-    --border: 220 20% 20%;
-    --input: 220 20% 18%;
-    --ring: 38 100% 50%;
+    --popover-foreground: 240 5% 96%;
+
+    /* Accenti Brand */
+    --primary: 43 72% 49%;             /* #d4a726 */
+    --primary-foreground: 0 0% 100%;   /* white */
+    --secondary: 220 25% 18%;         /* #1a2d44 */
+    --secondary-foreground: 240 5% 96%;
+    --muted: 220 25% 18%;
+    --muted-foreground: 240 4% 46%;    /* #71717a */
+    --accent: 220 25% 18%;
+    --accent-foreground: 240 5% 96%;
+    --destructive: 0 84% 60%;         /* #ef4444 */
+    --destructive-foreground: 240 5% 96%;
+
+    /* Bordi */
+    --border: 240 5% 18%;             /* #2a2a35 */
+    --input: 220 25% 18%;             /* #1a2d44 */
+    --ring: 43 72% 49%;               /* #d4a726 */
     --radius: 0.75rem;
-    --success: 142 76% 36%;
-    --success-foreground: 210 20% 95%;
-    --warning: 38 92% 50%;
+
+    /* Stati */
+    --success: 142 71% 45%;           /* #22c55e */
+    --success-foreground: 0 0% 100%;
+    --warning: 48 96% 53%;            /* #eab308 */
     --warning-foreground: 220 25% 8%;
 
-    /* Custom colors - Karalisweb */
-    --sidebar: 220 25% 10%;
-    --sidebar-foreground: 220 15% 70%;
-    --sidebar-accent: 220 25% 15%;
-    --sidebar-border: 220 20% 18%;
+    /* Sidebar */
+    --sidebar: 220 25% 12%;           /* #132032 */
+    --sidebar-foreground: 240 5% 66%; /* #a1a1aa */
+    --sidebar-accent: 220 25% 18%;    /* #1a2d44 */
+    --sidebar-border: 240 5% 18%;     /* #2a2a35 */
+
+    /* Custom tokens */
     --urgent: 0 84% 50%;
     --trend-positive: 142 76% 45%;
     --trend-negative: 0 84% 55%;
-
-    /* Gradient per pulsanti */
-    --gradient-start: 25 100% 50%;
-    --gradient-end: 45 100% 50%;
+    --accent-secondary: 193 55% 39%;  /* #2d7d9a */
+    --accent-tertiary: 198 61% 30%;   /* #1e5c7a */
+    --bg-hover: 220 25% 24%;          /* #234058 */
+    --border-hover: 240 5% 24%;       /* #3a3a45 */
   }
 
   .light {
@@ -49,7 +58,7 @@
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 45 100% 45%;
+    --primary: 43 72% 49%;
     --primary-foreground: 0 0% 5%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
@@ -61,7 +70,7 @@
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 45 100% 45%;
+    --ring: 43 72% 49%;
     --success: 142.1 76.2% 36.3%;
     --success-foreground: 355.7 100% 97.3%;
     --warning: 38 92% 50%;
@@ -75,9 +84,13 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
+    font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
     max-width: 100vw;
+    line-height: 1.6;
   }
 
   /* Custom scrollbar for dark theme */
@@ -133,20 +146,30 @@
 
 /* Custom utility classes */
 @layer utilities {
+  /* Gradiente testo oro > teal (per titolo login) */
+  .text-gradient-brand {
+    background: linear-gradient(135deg, #d4a726, #2d7d9a);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
   .text-gradient-primary {
     @apply bg-gradient-to-r from-orange-500 to-yellow-400 bg-clip-text text-transparent;
   }
 
   .card-highlight {
-    @apply border-primary/50 shadow-[0_0_15px_rgba(245,158,11,0.1)];
+    @apply border-primary/50 shadow-[0_0_15px_rgba(212,167,38,0.1)];
   }
 
-  /* Gradiente arancione per pulsanti Karalisweb */
+  /* Gradiente bottone primario Karalisweb: oro > arancione */
   .btn-gradient {
-    background: linear-gradient(135deg, hsl(25 100% 50%) 0%, hsl(45 100% 50%) 100%);
+    background: linear-gradient(135deg, #d4a726 0%, #ff8f65 100%);
   }
   .btn-gradient:hover {
-    background: linear-gradient(135deg, hsl(25 100% 45%) 0%, hsl(45 100% 45%) 100%);
+    background: linear-gradient(135deg, #e6b82e 0%, #ff9f75 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
   }
 
   .badge-urgent {
@@ -163,6 +186,18 @@
 
   .trend-negative {
     @apply text-red-400;
+  }
+
+  /* Nav item attivo: tinta arancione */
+  .nav-item-active {
+    background: rgba(255, 107, 53, 0.1);
+    color: #d4a726;
+  }
+
+  /* Focus glow arancione per input */
+  .input-focus-glow:focus {
+    border-color: #d4a726;
+    box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.1);
   }
 
   /* Hide scrollbar but allow scrolling */
@@ -187,5 +222,10 @@
   .no-horizontal-scroll {
     overflow-x: hidden;
     max-width: 100vw;
+  }
+
+  /* Font mono per dati/codice */
+  .font-mono-data {
+    font-family: 'JetBrains Mono', monospace;
   }
 }

@@ -1,6 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/auth.store';
-import { User, Bell } from 'lucide-react';
+import { useUIStore } from '@/stores/ui.store';
+import { User, Bell, Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface MobileHeaderProps {
@@ -32,6 +33,7 @@ export function MobileHeader({ title, subtitle }: MobileHeaderProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuthStore();
+  const { toggleSidebar } = useUIStore();
 
   // Determina il titolo dalla pagina corrente
   const getPageTitle = () => {
@@ -52,11 +54,15 @@ export function MobileHeader({ title, subtitle }: MobileHeaderProps) {
   return (
     <header className="md:hidden sticky top-0 z-50 bg-card border-b border-border">
       <div className="flex items-center justify-between px-4 py-3">
-        {/* Logo e titolo */}
+        {/* Hamburger + titolo */}
         <div className="flex items-center gap-3 min-w-0">
-          <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-sm">G</span>
-          </div>
+          <button
+            onClick={toggleSidebar}
+            className="flex-shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            title="Menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
           <div className="min-w-0">
             <h1 className="text-base font-semibold text-foreground truncate">
               {getPageTitle()}
