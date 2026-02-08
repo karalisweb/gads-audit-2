@@ -11,11 +11,11 @@ Versione attuale: **2.6.0**
 | **Host** | vmi2996361.contaboserver.net |
 | **IP** | 185.192.97.108 |
 | **User** | root |
-| **Path applicazione** | `/var/www/gads-audit` |
-| **PM2 process name** | `gads-audit-backend` |
-| **Porta backend** | 3002 |
-| **URL pubblico** | https://gads.karalisweb.it |
-| **Nginx config** | `/etc/nginx/sites-available/gads.karalisweb.it` |
+| **Path applicazione** | `/var/www/gads-audit-2` |
+| **PM2 process name** | `gads-audit` |
+| **Porta backend** | 3001 |
+| **URL pubblico** | https://gads.karalisdemo.it |
+| **Nginx config** | `/etc/nginx/sites-available/gads-audit` |
 | **GitHub repo** | github.com/karalisweb/gads-audit-2 |
 | **Branch** | main |
 | **Database** | PostgreSQL 16 (Docker) |

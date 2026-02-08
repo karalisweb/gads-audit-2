@@ -5,12 +5,12 @@
 #  Versione: 2.6.0
 #
 #  App:     KW GADS Audit
-#  URL:     https://gads.karalisweb.it
+#  URL:     https://gads.karalisdemo.it
 #  Server:  185.192.97.108 (Contabo VPS)
-#  Path:    /var/www/gads-audit
-#  PM2:     gads-audit-backend
+#  Path:    /var/www/gads-audit-2
+#  PM2:     gads-audit
 #  Stack:   React + Vite | NestJS | PostgreSQL | Redis
-#  Porta:   3002
+#  Porta:   3001
 #############################################################
 
 # ═══════════════════════════════════════════════════════════
@@ -20,14 +20,14 @@
 APP_NAME="KW GADS Audit"
 APP_VERSION="2.6.0"
 VPS_HOST="root@185.192.97.108"
-VPS_PATH="/var/www/gads-audit"
+VPS_PATH="/var/www/gads-audit-2"
 BRANCH="main"
-PM2_PROCESS="gads-audit-backend"
+PM2_PROCESS="gads-audit"
 LOCAL_PORT_FRONTEND=5173
-LOCAL_PORT_BACKEND=3002
-SERVER_PORT=3002
-PUBLIC_URL="https://gads.karalisweb.it"
-NGINX_CONFIG="/etc/nginx/sites-available/gads.karalisweb.it"
+LOCAL_PORT_BACKEND=3001
+SERVER_PORT=3001
+PUBLIC_URL="https://gads.karalisdemo.it"
+NGINX_CONFIG="/etc/nginx/sites-available/gads-audit"
 
 # Colori output
 RED='\033[0;31m'
