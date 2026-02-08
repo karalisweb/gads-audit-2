@@ -1,17 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <rect width="32" height="32" rx="6" fill="#0d1521"/>
-  <rect x="1" y="1" width="30" height="30" rx="5" fill="none" stroke="#2a2a35" stroke-width="0.5"/>
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="#d4a726"/>
       <stop offset="100%" stop-color="#ff8f65"/>
     </linearGradient>
   </defs>
-  <!-- Google Ads triangle shape -->
-  <path d="M10 24 L16 6 L22 24 Z" fill="none" stroke="url(#g)" stroke-width="2.5" stroke-linejoin="round"/>
-  <!-- Horizontal bar across triangle -->
-  <line x1="12" y1="19" x2="20" y2="19" stroke="url(#g)" stroke-width="2" stroke-linecap="round"/>
-  <!-- Click dot -->
-  <circle cx="22" cy="10" r="2.5" fill="#ff8f65"/>
-  <circle cx="22" cy="10" r="4.5" fill="none" stroke="#ff8f65" stroke-width="0.8" opacity="0.5"/>
+  <!-- Barra sinistra della A (inclinata) -->
+  <rect x="6" y="5" width="4.8" height="20" rx="2.4" fill="url(#g)" transform="rotate(-15, 8.4, 15)"/>
+  <!-- Barra destra della A (inclinata) -->
+  <rect x="14.5" y="5" width="4.8" height="20" rx="2.4" fill="url(#g)" transform="rotate(15, 16.9, 15)"/>
+  <!-- Cerchio in basso a destra -->
+  <circle cx="24.5" cy="24" r="4" fill="url(#g)"/>
 </svg>
