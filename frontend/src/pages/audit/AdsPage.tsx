@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import type { ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef, Row } from '@tanstack/react-table';
 import { DataTable } from '@/components/data-table/DataTable';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -80,12 +80,36 @@ function getColumns(accountId: string, onRefresh: () => void, navigate: (path: s
   {
     id: 'headlines',
     header: 'Titoli',
-    cell: ({ row }) => <span className="text-sm">{row.original.headlines?.length || 0}</span>,
+    cell: ({ row }) => {
+      const count = row.original.headlines?.length || 0;
+      const first = row.original.headlines?.[0];
+      const firstText = first ? (typeof first === 'object' ? first.text : first) : '';
+      return (
+        <div className="max-w-[120px]">
+          <span className="text-sm font-medium">{count}</span>
+          {firstText && (
+            <p className="text-[10px] text-muted-foreground truncate" title={firstText}>{firstText}</p>
+          )}
+        </div>
+      );
+    },
   },
   {
     id: 'descriptions',
     header: 'Descr.',
-    cell: ({ row }) => <span className="text-sm">{row.original.descriptions?.length || 0}</span>,
+    cell: ({ row }) => {
+      const count = row.original.descriptions?.length || 0;
+      const first = row.original.descriptions?.[0];
+      const firstText = first ? (typeof first === 'object' ? first.text : first) : '';
+      return (
+        <div className="max-w-[120px]">
+          <span className="text-sm font-medium">{count}</span>
+          {firstText && (
+            <p className="text-[10px] text-muted-foreground truncate" title={firstText}>{firstText}</p>
+          )}
+        </div>
+      );
+    },
   },
   {
     id: 'finalUrl',
@@ -642,6 +666,98 @@ export function AdsPage() {
   const pageCount = data?.meta.totalPages || 1;
   const total = data?.meta.total || 0;
 
+  const renderAdSubRow = useCallback((row: Row<Ad>) => {
+    const ad = row.original;
+    return (
+      <div className="bg-muted/30 px-6 py-4" onClick={(e) => e.stopPropagation()}>
+        <div className="grid grid-cols-3 gap-6">
+          {/* Titoli */}
+          <div>
+            <h4 className="text-xs font-semibold mb-2 text-muted-foreground uppercase tracking-wide">
+              Titoli ({ad.headlines?.length || 0})
+            </h4>
+            {ad.headlines && ad.headlines.length > 0 ? (
+              <div className="space-y-1">
+                {ad.headlines.map((h, i) => {
+                  const text = typeof h === 'object' ? h.text : h;
+                  const pinned = typeof h === 'object' ? h.pinnedField : undefined;
+                  return (
+                    <div key={i} className="text-xs py-1.5 px-2 bg-background rounded border flex items-center justify-between gap-2">
+                      <span className="truncate" title={text}>{text}</span>
+                      {pinned && (
+                        <Badge variant="outline" className="text-[10px] shrink-0 h-4 px-1">
+                          P{pinned.replace('HEADLINE_', '')}
+                        </Badge>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground italic">Nessun titolo</p>
+            )}
+          </div>
+
+          {/* Descrizioni */}
+          <div>
+            <h4 className="text-xs font-semibold mb-2 text-muted-foreground uppercase tracking-wide">
+              Descrizioni ({ad.descriptions?.length || 0})
+            </h4>
+            {ad.descriptions && ad.descriptions.length > 0 ? (
+              <div className="space-y-1">
+                {ad.descriptions.map((d, i) => {
+                  const text = typeof d === 'object' ? d.text : d;
+                  const pinned = typeof d === 'object' ? d.pinnedField : undefined;
+                  return (
+                    <div key={i} className="text-xs py-1.5 px-2 bg-background rounded border flex items-start justify-between gap-2">
+                      <span title={text}>{text}</span>
+                      {pinned && (
+                        <Badge variant="outline" className="text-[10px] shrink-0 h-4 px-1">
+                          P{pinned.replace('DESCRIPTION_', '')}
+                        </Badge>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground italic">Nessuna descrizione</p>
+            )}
+          </div>
+
+          {/* URL e Path */}
+          <div>
+            <h4 className="text-xs font-semibold mb-2 text-muted-foreground uppercase tracking-wide">
+              URL finale
+            </h4>
+            {ad.finalUrls && ad.finalUrls.length > 0 ? (
+              <div className="space-y-1">
+                {ad.finalUrls.map((url, i) => (
+                  <a
+                    key={i}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-600 hover:underline block break-all py-1.5 px-2 bg-background rounded border"
+                  >
+                    {url}
+                  </a>
+                ))}
+                {(ad.path1 || ad.path2) && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Path: /{ad.path1 || ''}{ad.path2 ? `/${ad.path2}` : ''}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground italic">Nessun URL</p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }, []);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -821,6 +937,7 @@ export function AdsPage() {
           total={total}
           onPageChange={(page) => setFilters((prev) => ({ ...prev, page: page + 1 }))}
           onPageSizeChange={(size) => setFilters((prev) => ({ ...prev, limit: size, page: 1 }))}
+          renderSubRow={renderAdSubRow}
         />
       )}
     </div>

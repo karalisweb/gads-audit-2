@@ -1,10 +1,12 @@
 import {
   type ColumnDef,
+  type Row,
   flexRender,
   getCoreRowModel,
   useReactTable,
   type SortingState,
   getSortedRowModel,
+  getExpandedRowModel,
 } from '@tanstack/react-table';
 import {
   Table,
@@ -16,7 +18,7 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -34,6 +36,8 @@ interface DataTableProps<TData, TValue> {
   onSortChange?: (sortBy: string, sortOrder: 'ASC' | 'DESC') => void;
   // Total
   total?: number;
+  // Expandable rows
+  renderSubRow?: (row: Row<TData>) => React.ReactNode;
 }
 
 export function DataTable<TData, TValue>({
@@ -49,6 +53,7 @@ export function DataTable<TData, TValue>({
   sortOrder,
   onSortChange,
   total = 0,
+  renderSubRow,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>(
     sortBy ? [{ id: sortBy, desc: sortOrder === 'DESC' }] : [],
@@ -59,6 +64,7 @@ export function DataTable<TData, TValue>({
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    ...(renderSubRow ? { getExpandedRowModel: getExpandedRowModel() } : {}),
     manualPagination: true,
     manualSorting: true,
     pageCount,
@@ -126,13 +132,30 @@ export function DataTable<TData, TValue>({
           <TableBody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
+                <Fragment key={row.id}>
+                  <TableRow
+                    data-state={row.getIsSelected() && 'selected'}
+                    className={renderSubRow ? 'cursor-pointer hover:bg-muted/50' : ''}
+                    onClick={renderSubRow ? (e) => {
+                      const target = e.target as HTMLElement;
+                      if (target.closest('a, button')) return;
+                      row.toggleExpanded();
+                    } : undefined}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                  {renderSubRow && row.getIsExpanded() && (
+                    <TableRow>
+                      <TableCell colSpan={columns.length} className="p-0">
+                        {renderSubRow(row)}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </Fragment>
               ))
             ) : (
               <TableRow>
