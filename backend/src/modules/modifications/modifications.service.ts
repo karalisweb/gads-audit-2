@@ -324,7 +324,14 @@ export class ModificationsService {
         }
 
         const modification = this.modificationsRepository.create({
-          ...mapped,
+          accountId: mapped.accountId,
+          entityType: mapped.entityType,
+          entityId: mapped.entityId,
+          entityName: mapped.entityName,
+          modificationType: mapped.modificationType,
+          beforeValue: mapped.beforeValue ?? undefined,
+          afterValue: mapped.afterValue,
+          notes: mapped.notes,
           status: ModificationStatus.PENDING,
           createdById: userId,
         });
