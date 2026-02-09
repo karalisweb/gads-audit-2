@@ -10,7 +10,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { ModificationsService } from './modifications.service';
-import { CreateModificationDto, ModificationFiltersDto } from './dto';
+import { CreateModificationDto, CreateFromAIDto, ModificationFiltersDto } from './dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @Controller('modifications')
@@ -79,5 +79,13 @@ export class ModificationsController {
     @CurrentUser('id') userId: string,
   ) {
     return this.modificationsService.bulkApprove(body.ids, userId);
+  }
+
+  @Post('from-ai')
+  async createFromAI(
+    @Body() dto: CreateFromAIDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.modificationsService.createFromAI(dto, userId);
   }
 }

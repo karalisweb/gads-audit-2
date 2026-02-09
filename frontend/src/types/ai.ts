@@ -33,3 +33,23 @@ export interface AnalyzeModuleRequest {
   moduleId: number;
   filters?: Record<string, unknown>;
 }
+
+export interface CreateFromAIRequest {
+  accountId: string;
+  moduleId: number;
+  recommendations: AIRecommendation[];
+}
+
+export interface CreateFromAIResponseItem {
+  recommendationId: string;
+  modificationId?: string;
+  status: 'created' | 'skipped' | 'error';
+  error?: string;
+}
+
+export interface CreateFromAIResponse {
+  results: CreateFromAIResponseItem[];
+  totalCreated: number;
+  totalSkipped: number;
+  totalErrors: number;
+}

@@ -31,7 +31,7 @@ import {
   getStatusVariant,
 } from '@/lib/format';
 import type { Campaign, PaginatedResponse, CampaignFilters } from '@/types/audit';
-import type { AIRecommendation } from '@/types/ai';
+// AIRecommendation type no longer needed - AIAnalysisPanel handles the full flow
 
 // Card espandibile per mobile
 function CampaignCardExpanded({
@@ -416,11 +416,6 @@ export function CampaignsPage() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  const handleCreateDecisions = (recommendations: AIRecommendation[]) => {
-    console.log('Raccomandazioni approvate:', recommendations);
-    alert(`${recommendations.length} raccomandazioni approvate!`);
-  };
-
   const toggleCard = (id: string) => {
     setOpenCards(prev => {
       const next = new Set(prev);
@@ -448,7 +443,6 @@ export function CampaignsPage() {
               accountId={accountId}
               moduleId={4}
               moduleName="Strategia di offerta"
-              onCreateDecisions={handleCreateDecisions}
             />
           )}
         </div>

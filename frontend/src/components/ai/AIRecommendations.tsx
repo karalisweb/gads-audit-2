@@ -9,6 +9,7 @@ interface AIRecommendationsProps {
   analysis: AIAnalysisResponse;
   onApproveSelected: (recommendations: AIRecommendation[]) => void;
   onClose: () => void;
+  isCreating?: boolean;
 }
 
 const priorityColors = {
@@ -53,7 +54,7 @@ const actionLabels: Record<string, string> = {
   change_bidding_strategy: 'Cambia strategia offerta',
 };
 
-export function AIRecommendations({ analysis, onApproveSelected, onClose }: AIRecommendationsProps) {
+export function AIRecommendations({ analysis, onApproveSelected, onClose, isCreating = false }: AIRecommendationsProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const toggleSelection = (id: string) => {
@@ -247,10 +248,20 @@ export function AIRecommendations({ analysis, onApproveSelected, onClose }: AIRe
             </Button>
             <Button
               onClick={handleApprove}
-              disabled={selectedIds.size === 0}
+              disabled={selectedIds.size === 0 || isCreating}
               className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
             >
-              Approva selezionate ({selectedIds.size})
+              {isCreating ? (
+                <span className="flex items-center gap-2">
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Creazione modifiche...
+                </span>
+              ) : (
+                `Crea modifiche (${selectedIds.size})`
+              )}
             </Button>
           </div>
         </div>

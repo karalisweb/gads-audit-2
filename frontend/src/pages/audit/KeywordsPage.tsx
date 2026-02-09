@@ -33,7 +33,7 @@ import {
   getQualityScoreColor,
 } from '@/lib/format';
 import type { Keyword, PaginatedResponse, KeywordFilters, Campaign, AdGroup } from '@/types/audit';
-import type { AIRecommendation } from '@/types/ai';
+// AIRecommendation type no longer needed - AIAnalysisPanel handles the full flow
 
 function getColumns(accountId: string, onRefresh: () => void): ColumnDef<Keyword>[] {
   return [
@@ -574,11 +574,6 @@ export function KeywordsPage() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  const handleCreateDecisions = (recommendations: AIRecommendation[]) => {
-    console.log('Raccomandazioni approvate:', recommendations);
-    alert(`${recommendations.length} raccomandazioni approvate!`);
-  };
-
   const toggleCard = (id: string) => {
     setOpenCards(prev => {
       const next = new Set(prev);
@@ -642,7 +637,6 @@ export function KeywordsPage() {
               accountId={accountId}
               moduleId={19}
               moduleName="Prestazioni parole chiave"
-              onCreateDecisions={handleCreateDecisions}
             />
           )}
         </div>

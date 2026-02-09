@@ -33,7 +33,7 @@ import { getSearchTerms, getCampaigns, getAdGroups } from '@/api/audit';
 import { createModification } from '@/api/modifications';
 import { formatCurrency, formatNumber, formatCtr } from '@/lib/format';
 import type { SearchTerm, Campaign, AdGroup, PaginatedResponse, SearchTermFilters } from '@/types/audit';
-import type { AIRecommendation } from '@/types/ai';
+// AIRecommendation type no longer needed - AIAnalysisPanel handles the full flow
 
 // Column definitions for table view
 const createColumns = (
@@ -468,11 +468,6 @@ export function SearchTermsPage() {
     }
   };
 
-  const handleCreateDecisions = (recommendations: AIRecommendation[]) => {
-    console.log('Raccomandazioni approvate:', recommendations);
-    alert(`${recommendations.length} raccomandazioni approvate!`);
-  };
-
   const pageIndex = (filters.page || 1) - 1;
   const pageSize = filters.limit || 50;
   const pageCount = data?.meta.totalPages || 1;
@@ -490,7 +485,6 @@ export function SearchTermsPage() {
               accountId={accountId}
               moduleId={22}
               moduleName="Analisi termini di ricerca"
-              onCreateDecisions={handleCreateDecisions}
             />
           )}
         </div>

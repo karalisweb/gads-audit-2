@@ -1,5 +1,11 @@
 import { apiClient } from './client';
-import type { AIAnalysisResponse, SupportedModule, AnalyzeModuleRequest } from '@/types/ai';
+import type {
+  AIAnalysisResponse,
+  SupportedModule,
+  AnalyzeModuleRequest,
+  CreateFromAIRequest,
+  CreateFromAIResponse,
+} from '@/types/ai';
 
 export async function analyzeModule(
   accountId: string,
@@ -10,4 +16,10 @@ export async function analyzeModule(
 
 export async function getSupportedModules(): Promise<SupportedModule[]> {
   return apiClient.get<SupportedModule[]>('/ai/modules');
+}
+
+export async function createModificationsFromAI(
+  data: CreateFromAIRequest,
+): Promise<CreateFromAIResponse> {
+  return apiClient.post<CreateFromAIResponse>('/modifications/from-ai', data);
 }

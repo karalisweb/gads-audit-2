@@ -31,7 +31,7 @@ import {
   getStatusVariant,
 } from '@/lib/format';
 import type { AdGroup, Ad, PaginatedResponse, AdGroupFilters } from '@/types/audit';
-import type { AIRecommendation } from '@/types/ai';
+// AIRecommendation type no longer needed - AIAnalysisPanel handles the full flow
 
 // Table columns for extended view
 function getColumns(accountId: string, onRefresh: () => void, navigate: (path: string) => void): ColumnDef<AdGroup>[] {
@@ -405,11 +405,6 @@ export function AdGroupsPage() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  const handleCreateDecisions = (recommendations: AIRecommendation[]) => {
-    console.log('Raccomandazioni approvate:', recommendations);
-    alert(`${recommendations.length} raccomandazioni approvate!`);
-  };
-
   // Filtra per stato (client-side)
   const filteredData = useMemo(() => {
     if (!data?.data) return [];
@@ -476,7 +471,6 @@ export function AdGroupsPage() {
               accountId={accountId}
               moduleId={7}
               moduleName="Gruppi di annunci"
-              onCreateDecisions={handleCreateDecisions}
             />
           )}
         </div>

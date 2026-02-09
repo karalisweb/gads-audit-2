@@ -9,11 +9,17 @@ import { Repository } from 'typeorm';
 import {
   Modification,
   ModificationStatus,
+  ModificationEntityType,
+  ModificationType,
 } from '../../entities/modification.entity';
 import { GoogleAdsAccount } from '../../entities/google-ads-account.entity';
 import { User, UserRole } from '../../entities/user.entity';
 import {
   CreateModificationDto,
+  CreateFromAIDto,
+  CreateFromAIResponse,
+  CreateFromAIResponseItem,
+  AIRecommendationItem,
   ModificationFiltersDto,
   UpdateModificationResultDto,
 } from './dto';
@@ -276,6 +282,704 @@ export class ModificationsService {
     modification.resultDetails = result.details || {};
 
     return this.modificationsRepository.save(modification);
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // CREATE FROM AI RECOMMENDATIONS
+  // ═══════════════════════════════════════════════════════════
+
+  async createFromAI(
+    dto: CreateFromAIDto,
+    userId: string,
+  ): Promise<CreateFromAIResponse> {
+    const account = await this.accountsRepository.findOne({
+      where: { id: dto.accountId },
+    });
+
+    if (!account) {
+      throw new NotFoundException(`Account ${dto.accountId} not found`);
+    }
+
+    const results: CreateFromAIResponseItem[] = [];
+    let totalCreated = 0;
+    let totalSkipped = 0;
+    let totalErrors = 0;
+
+    for (const rec of dto.recommendations) {
+      try {
+        const mapped = this.mapRecommendationToModification(
+          rec,
+          dto.accountId,
+          dto.moduleId,
+        );
+
+        if (!mapped) {
+          results.push({
+            recommendationId: rec.id,
+            status: 'skipped',
+            error: `Azione "${rec.action}" non mappabile a una modifica`,
+          });
+          totalSkipped++;
+          continue;
+        }
+
+        const modification = this.modificationsRepository.create({
+          ...mapped,
+          status: ModificationStatus.PENDING,
+          createdById: userId,
+        });
+
+        const saved = await this.modificationsRepository.save(modification);
+
+        results.push({
+          recommendationId: rec.id,
+          modificationId: saved.id,
+          status: 'created',
+        });
+        totalCreated++;
+      } catch (error) {
+        results.push({
+          recommendationId: rec.id,
+          status: 'error',
+          error: error.message || 'Errore sconosciuto',
+        });
+        totalErrors++;
+      }
+    }
+
+    return { results, totalCreated, totalSkipped, totalErrors };
+  }
+
+  /**
+   * Maps an AI recommendation to a modification DTO.
+   * Returns null if the action is not mappable.
+   */
+  private mapRecommendationToModification(
+    rec: AIRecommendationItem,
+    accountId: string,
+    moduleId: number,
+  ): {
+    accountId: string;
+    entityType: ModificationEntityType;
+    entityId: string;
+    entityName: string;
+    modificationType: ModificationType;
+    beforeValue: Record<string, unknown> | null;
+    afterValue: Record<string, unknown>;
+    notes: string;
+  } | null {
+    const notes = [
+      `[AI - Priorita: ${rec.priority}]`,
+      rec.rationale || '',
+      rec.expectedImpact ? `Impatto atteso: ${rec.expectedImpact}` : '',
+    ]
+      .filter(Boolean)
+      .join(' | ');
+
+    const beforeValue = rec.currentValue
+      ? { value: rec.currentValue }
+      : null;
+
+    // ─── SEARCH TERMS (module 22) ───
+    if (rec.action === 'add_negative_campaign') {
+      return {
+        accountId,
+        entityType: ModificationEntityType.NEGATIVE_KEYWORD,
+        entityId: rec.entityId,
+        entityName: rec.entityName,
+        modificationType: ModificationType.NEGATIVE_KEYWORD_ADD,
+        beforeValue: null,
+        afterValue: {
+          keyword: rec.entityName,
+          matchType: rec.suggestedValue || 'EXACT',
+          level: 'campaign',
+          source: 'ai_recommendation',
+        },
+        notes,
+      };
+    }
+
+    if (rec.action === 'add_negative_adgroup') {
+      return {
+        accountId,
+        entityType: ModificationEntityType.NEGATIVE_KEYWORD,
+        entityId: rec.entityId,
+        entityName: rec.entityName,
+        modificationType: ModificationType.NEGATIVE_KEYWORD_ADD,
+        beforeValue: null,
+        afterValue: {
+          keyword: rec.entityName,
+          matchType: rec.suggestedValue || 'EXACT',
+          level: 'adgroup',
+          source: 'ai_recommendation',
+        },
+        notes,
+      };
+    }
+
+    if (rec.action === 'add_negative_account') {
+      return {
+        accountId,
+        entityType: ModificationEntityType.NEGATIVE_KEYWORD,
+        entityId: rec.entityId,
+        entityName: rec.entityName,
+        modificationType: ModificationType.NEGATIVE_KEYWORD_ADD,
+        beforeValue: null,
+        afterValue: {
+          keyword: rec.entityName,
+          matchType: rec.suggestedValue || 'EXACT',
+          level: 'account',
+          source: 'ai_recommendation',
+        },
+        notes,
+      };
+    }
+
+    if (rec.action === 'add_negative') {
+      return {
+        accountId,
+        entityType: ModificationEntityType.NEGATIVE_KEYWORD,
+        entityId: rec.entityId,
+        entityName: rec.entityName,
+        modificationType: ModificationType.NEGATIVE_KEYWORD_ADD,
+        beforeValue: null,
+        afterValue: {
+          keyword: rec.entityName,
+          matchType: rec.suggestedValue || 'EXACT',
+          source: 'ai_recommendation',
+        },
+        notes,
+      };
+    }
+
+    if (rec.action === 'remove_negative') {
+      return {
+        accountId,
+        entityType: ModificationEntityType.NEGATIVE_KEYWORD,
+        entityId: rec.entityId,
+        entityName: rec.entityName,
+        modificationType: ModificationType.NEGATIVE_KEYWORD_REMOVE,
+        beforeValue: { keyword: rec.entityName },
+        afterValue: {
+          removed: true,
+          source: 'ai_recommendation',
+        },
+        notes,
+      };
+    }
+
+    if (rec.action === 'change_level' || rec.action === 'change_match_type') {
+      return {
+        accountId,
+        entityType: ModificationEntityType.NEGATIVE_KEYWORD,
+        entityId: rec.entityId,
+        entityName: rec.entityName,
+        modificationType: ModificationType.NEGATIVE_KEYWORD_ADD,
+        beforeValue,
+        afterValue: {
+          keyword: rec.entityName,
+          suggestedChange: rec.suggestedValue,
+          action: rec.action,
+          source: 'ai_recommendation',
+        },
+        notes,
+      };
+    }
+
+    // ─── PROMOTE SEARCH TERM TO KEYWORD ───
+    if (rec.action === 'promote_to_keyword') {
+      return {
+        accountId,
+        entityType: ModificationEntityType.KEYWORD,
+        entityId: rec.entityId,
+        entityName: rec.entityName,
+        modificationType: ModificationType.KEYWORD_STATUS,
+        beforeValue: null,
+        afterValue: {
+          keyword: rec.entityName,
+          matchType: rec.suggestedValue || 'EXACT',
+          action: 'add',
+          source: 'ai_recommendation',
+        },
+        notes,
+      };
+    }
+
+    // ─── CAMPAIGN ACTIONS ───
+    if (rec.action === 'change_bidding_strategy') {
+      return {
+        accountId,
+        entityType: ModificationEntityType.CAMPAIGN,
+        entityId: rec.entityId,
+        entityName: rec.entityName,
+        modificationType: ModificationType.CAMPAIGN_STATUS,
+        beforeValue,
+        afterValue: {
+          biddingStrategy: rec.suggestedValue,
+          source: 'ai_recommendation',
+        },
+        notes,
+      };
+    }
+
+    if (rec.action === 'adjust_target_cpa') {
+      return {
+        accountId,
+        entityType: ModificationEntityType.CAMPAIGN,
+        entityId: rec.entityId,
+        entityName: rec.entityName,
+        modificationType: ModificationType.CAMPAIGN_TARGET_CPA,
+        beforeValue,
+        afterValue: {
+          targetCpa: rec.suggestedValue,
+          source: 'ai_recommendation',
+        },
+        notes,
+      };
+    }
+
+    if (rec.action === 'adjust_target_roas') {
+      return {
+        accountId,
+        entityType: ModificationEntityType.CAMPAIGN,
+        entityId: rec.entityId,
+        entityName: rec.entityName,
+        modificationType: ModificationType.CAMPAIGN_TARGET_ROAS,
+        beforeValue,
+        afterValue: {
+          targetRoas: rec.suggestedValue,
+          source: 'ai_recommendation',
+        },
+        notes,
+      };
+    }
+
+    if (rec.action === 'increase_budget') {
+      return {
+        accountId,
+        entityType: ModificationEntityType.CAMPAIGN,
+        entityId: rec.entityId,
+        entityName: rec.entityName,
+        modificationType: ModificationType.CAMPAIGN_BUDGET,
+        beforeValue,
+        afterValue: {
+          budget: rec.suggestedValue,
+          source: 'ai_recommendation',
+        },
+        notes,
+      };
+    }
+
+    if (rec.action === 'increase_campaign_budget') {
+      return {
+        accountId,
+        entityType: ModificationEntityType.CAMPAIGN,
+        entityId: rec.entityId,
+        entityName: rec.entityName,
+        modificationType: ModificationType.CAMPAIGN_BUDGET,
+        beforeValue,
+        afterValue: {
+          budget: rec.suggestedValue,
+          source: 'ai_recommendation',
+        },
+        notes,
+      };
+    }
+
+    // ─── PAUSE ACTIONS (context-dependent entity type) ───
+    if (rec.action === 'pause') {
+      const entityType = this.inferEntityType(rec.entityType);
+      const modificationType = this.inferStatusModificationType(entityType);
+      if (!modificationType) return null;
+
+      return {
+        accountId,
+        entityType,
+        entityId: rec.entityId,
+        entityName: rec.entityName,
+        modificationType,
+        beforeValue: beforeValue || { status: 'ENABLED' },
+        afterValue: {
+          status: 'PAUSED',
+          source: 'ai_recommendation',
+        },
+        notes,
+      };
+    }
+
+    // ─── KEYWORD BID ACTIONS ───
+    if (rec.action === 'increase_bid' || rec.action === 'decrease_bid') {
+      const entityType = this.inferEntityType(rec.entityType);
+      if (entityType === ModificationEntityType.KEYWORD) {
+        return {
+          accountId,
+          entityType: ModificationEntityType.KEYWORD,
+          entityId: rec.entityId,
+          entityName: rec.entityName,
+          modificationType: ModificationType.KEYWORD_CPC_BID,
+          beforeValue,
+          afterValue: {
+            cpcBid: rec.suggestedValue,
+            action: rec.action,
+            source: 'ai_recommendation',
+          },
+          notes,
+        };
+      }
+      if (entityType === ModificationEntityType.AD_GROUP) {
+        return {
+          accountId,
+          entityType: ModificationEntityType.AD_GROUP,
+          entityId: rec.entityId,
+          entityName: rec.entityName,
+          modificationType: ModificationType.AD_GROUP_CPC_BID,
+          beforeValue,
+          afterValue: {
+            cpcBid: rec.suggestedValue,
+            action: rec.action,
+            source: 'ai_recommendation',
+          },
+          notes,
+        };
+      }
+      return null;
+    }
+
+    // ─── KEYWORD MATCH TYPE ───
+    if (rec.action === 'change_match_type') {
+      return {
+        accountId,
+        entityType: ModificationEntityType.KEYWORD,
+        entityId: rec.entityId,
+        entityName: rec.entityName,
+        modificationType: ModificationType.KEYWORD_STATUS,
+        beforeValue,
+        afterValue: {
+          matchType: rec.suggestedValue,
+          source: 'ai_recommendation',
+        },
+        notes,
+      };
+    }
+
+    // ─── AD ACTIONS ───
+    if (rec.action === 'add_headlines') {
+      return {
+        accountId,
+        entityType: ModificationEntityType.AD,
+        entityId: rec.entityId,
+        entityName: rec.entityName,
+        modificationType: ModificationType.AD_HEADLINES,
+        beforeValue,
+        afterValue: {
+          headlines: rec.suggestedValue,
+          source: 'ai_recommendation',
+        },
+        notes,
+      };
+    }
+
+    if (rec.action === 'add_descriptions') {
+      return {
+        accountId,
+        entityType: ModificationEntityType.AD,
+        entityId: rec.entityId,
+        entityName: rec.entityName,
+        modificationType: ModificationType.AD_DESCRIPTIONS,
+        beforeValue,
+        afterValue: {
+          descriptions: rec.suggestedValue,
+          source: 'ai_recommendation',
+        },
+        notes,
+      };
+    }
+
+    if (rec.action === 'rewrite' || rec.action === 'unpin') {
+      return {
+        accountId,
+        entityType: ModificationEntityType.AD,
+        entityId: rec.entityId,
+        entityName: rec.entityName,
+        modificationType: ModificationType.AD_HEADLINES,
+        beforeValue,
+        afterValue: {
+          action: rec.action,
+          suggestedValue: rec.suggestedValue,
+          source: 'ai_recommendation',
+        },
+        notes,
+      };
+    }
+
+    // ─── KEYWORD LANDING PAGE ───
+    if (
+      rec.action === 'improve_landing_page' ||
+      rec.action === 'set_keyword_url' ||
+      rec.action === 'create_specific_landing'
+    ) {
+      return {
+        accountId,
+        entityType: ModificationEntityType.KEYWORD,
+        entityId: rec.entityId,
+        entityName: rec.entityName,
+        modificationType: ModificationType.KEYWORD_FINAL_URL,
+        beforeValue,
+        afterValue: {
+          finalUrl: rec.suggestedValue,
+          action: rec.action,
+          source: 'ai_recommendation',
+        },
+        notes,
+      };
+    }
+
+    // ─── AD FINAL URL ───
+    if (rec.action === 'improve_ad_relevance') {
+      return {
+        accountId,
+        entityType: ModificationEntityType.AD,
+        entityId: rec.entityId,
+        entityName: rec.entityName,
+        modificationType: ModificationType.AD_FINAL_URL,
+        beforeValue,
+        afterValue: {
+          action: 'improve_relevance',
+          suggestedValue: rec.suggestedValue,
+          source: 'ai_recommendation',
+        },
+        notes,
+      };
+    }
+
+    // ─── CONVERSION ACTIONS ───
+    if (rec.action === 'set_primary' || rec.action === 'disable') {
+      if (
+        rec.entityType === 'conversion_action' ||
+        rec.entityType === 'conversion'
+      ) {
+        return {
+          accountId,
+          entityType: ModificationEntityType.CONVERSION_ACTION,
+          entityId: rec.entityId,
+          entityName: rec.entityName,
+          modificationType:
+            rec.action === 'set_primary'
+              ? ModificationType.CONVERSION_PRIMARY
+              : ModificationType.CONVERSION_DEFAULT_VALUE,
+          beforeValue,
+          afterValue: {
+            action: rec.action,
+            suggestedValue: rec.suggestedValue,
+            source: 'ai_recommendation',
+          },
+          notes,
+        };
+      }
+    }
+
+    // ─── GENERIC CAMPAIGN STATUS ACTIONS ───
+    if (
+      rec.action === 'scale' ||
+      rec.action === 'restructure' ||
+      rec.action === 'merge' ||
+      rec.action === 'optimize' ||
+      rec.action === 'improve_ctr' ||
+      rec.action === 'improve_conversion_rate' ||
+      rec.action === 'optimize_quality' ||
+      rec.action === 'improve_quality' ||
+      rec.action === 'improve_quality_score' ||
+      rec.action === 'add_keyword_to_headline' ||
+      rec.action === 'restructure_ad_group'
+    ) {
+      const entityType = this.inferEntityType(rec.entityType);
+      const modificationType = this.inferStatusModificationType(entityType);
+      if (!modificationType) return null;
+
+      return {
+        accountId,
+        entityType,
+        entityId: rec.entityId,
+        entityName: rec.entityName,
+        modificationType,
+        beforeValue,
+        afterValue: {
+          action: rec.action,
+          suggestedValue: rec.suggestedValue,
+          source: 'ai_recommendation',
+        },
+        notes,
+      };
+    }
+
+    // ─── EXTENSION ACTIONS ───
+    if (
+      rec.action === 'add_call_extension' ||
+      rec.action === 'add_message_extension' ||
+      rec.action === 'optimize_schedule' ||
+      rec.action === 'enable_tracking' ||
+      rec.action === 'check_tracking' ||
+      rec.action === 'optimize_for_calls' ||
+      rec.action === 'optimize_for_leads' ||
+      rec.action === 'enable_consent_mode' ||
+      rec.action === 'verify_tags' ||
+      rec.action === 'check_implementation'
+    ) {
+      return {
+        accountId,
+        entityType: ModificationEntityType.CAMPAIGN,
+        entityId: rec.entityId,
+        entityName: rec.entityName,
+        modificationType: ModificationType.CAMPAIGN_STATUS,
+        beforeValue,
+        afterValue: {
+          action: rec.action,
+          suggestedValue: rec.suggestedValue,
+          source: 'ai_recommendation',
+        },
+        notes,
+      };
+    }
+
+    // ─── AD STATUS ACTIONS ───
+    if (rec.action === 'create_variant') {
+      return {
+        accountId,
+        entityType: ModificationEntityType.AD,
+        entityId: rec.entityId,
+        entityName: rec.entityName,
+        modificationType: ModificationType.AD_STATUS,
+        beforeValue,
+        afterValue: {
+          action: rec.action,
+          suggestedValue: rec.suggestedValue,
+          source: 'ai_recommendation',
+        },
+        notes,
+      };
+    }
+
+    // ─── SCHEDULING / GEO EXCLUSION ───
+    if (
+      rec.action === 'exclude' ||
+      rec.action === 'set_bid_modifier' ||
+      rec.action === 'add_schedule'
+    ) {
+      return {
+        accountId,
+        entityType: ModificationEntityType.CAMPAIGN,
+        entityId: rec.entityId,
+        entityName: rec.entityName,
+        modificationType: ModificationType.CAMPAIGN_STATUS,
+        beforeValue,
+        afterValue: {
+          action: rec.action,
+          suggestedValue: rec.suggestedValue,
+          source: 'ai_recommendation',
+        },
+        notes,
+      };
+    }
+
+    // ─── SET VALUE (conversion) ───
+    if (rec.action === 'set_value') {
+      return {
+        accountId,
+        entityType: ModificationEntityType.CONVERSION_ACTION,
+        entityId: rec.entityId,
+        entityName: rec.entityName,
+        modificationType: ModificationType.CONVERSION_DEFAULT_VALUE,
+        beforeValue,
+        afterValue: {
+          value: rec.suggestedValue,
+          source: 'ai_recommendation',
+        },
+        notes,
+      };
+    }
+
+    // ─── REMOVE (generic) ───
+    if (rec.action === 'remove' || rec.action === 'replace' || rec.action === 'add_new') {
+      const entityType = this.inferEntityType(rec.entityType);
+      const modificationType = this.inferStatusModificationType(entityType);
+      if (!modificationType) return null;
+
+      return {
+        accountId,
+        entityType,
+        entityId: rec.entityId,
+        entityName: rec.entityName,
+        modificationType,
+        beforeValue,
+        afterValue: {
+          action: rec.action,
+          suggestedValue: rec.suggestedValue,
+          source: 'ai_recommendation',
+        },
+        notes,
+      };
+    }
+
+    // ─── REDUCE BID (keyword-level context) ───
+    if (rec.action === 'reduce_bid') {
+      return {
+        accountId,
+        entityType: ModificationEntityType.KEYWORD,
+        entityId: rec.entityId,
+        entityName: rec.entityName,
+        modificationType: ModificationType.KEYWORD_CPC_BID,
+        beforeValue,
+        afterValue: {
+          cpcBid: rec.suggestedValue,
+          action: 'decrease_bid',
+          source: 'ai_recommendation',
+        },
+        notes,
+      };
+    }
+
+    // Unmapped action — skip
+    return null;
+  }
+
+  /**
+   * Infer the ModificationEntityType from the AI's entity type string
+   */
+  private inferEntityType(aiEntityType: string): ModificationEntityType {
+    const mapping: Record<string, ModificationEntityType> = {
+      campaign: ModificationEntityType.CAMPAIGN,
+      ad_group: ModificationEntityType.AD_GROUP,
+      adgroup: ModificationEntityType.AD_GROUP,
+      ad: ModificationEntityType.AD,
+      keyword: ModificationEntityType.KEYWORD,
+      search_term: ModificationEntityType.KEYWORD,
+      negative_keyword: ModificationEntityType.NEGATIVE_KEYWORD,
+      conversion_action: ModificationEntityType.CONVERSION_ACTION,
+      conversion: ModificationEntityType.CONVERSION_ACTION,
+      extension: ModificationEntityType.CAMPAIGN,
+    };
+
+    return mapping[aiEntityType.toLowerCase()] || ModificationEntityType.CAMPAIGN;
+  }
+
+  /**
+   * Infer the status modification type from the entity type
+   */
+  private inferStatusModificationType(
+    entityType: ModificationEntityType,
+  ): ModificationType | null {
+    const mapping: Record<ModificationEntityType, ModificationType> = {
+      [ModificationEntityType.CAMPAIGN]: ModificationType.CAMPAIGN_STATUS,
+      [ModificationEntityType.AD_GROUP]: ModificationType.AD_GROUP_STATUS,
+      [ModificationEntityType.AD]: ModificationType.AD_STATUS,
+      [ModificationEntityType.KEYWORD]: ModificationType.KEYWORD_STATUS,
+      [ModificationEntityType.NEGATIVE_KEYWORD]:
+        ModificationType.NEGATIVE_KEYWORD_ADD,
+      [ModificationEntityType.CONVERSION_ACTION]:
+        ModificationType.CONVERSION_PRIMARY,
+    };
+
+    return mapping[entityType] || null;
   }
 
   async getSummary(accountId: string) {
