@@ -118,17 +118,28 @@ function applyCampaignBudget(entityId, afterValue) {
   var campaign = campaignIterator.next();
   var budget = campaign.getBudget();
 
+  // Supporta sia budgetMicros (numero) che budget (stringa euro)
+  var budgetValue;
+  if (afterValue.budgetMicros) {
+    budgetValue = afterValue.budgetMicros / 1000000;
+  } else if (afterValue.budget) {
+    var raw = parseFloat(afterValue.budget);
+    budgetValue = raw > 1000 ? raw / 1000000 : raw;
+  } else {
+    throw new Error('Nessun valore budget trovato in afterValue');
+  }
+
   if (CONFIG.DRY_RUN) {
     Logger.log('[DRY RUN] Budget campagna ' + campaign.getName() + ': ' +
-               budget.getAmount() + ' -> ' + afterValue.budgetMicros / 1000000);
+               budget.getAmount() + ' -> ' + budgetValue);
     return { dryRun: true };
   }
 
-  budget.setAmount(afterValue.budgetMicros / 1000000);
+  budget.setAmount(budgetValue);
 
   return {
     previousValue: budget.getAmount(),
-    newValue: afterValue.budgetMicros / 1000000
+    newValue: budgetValue
   };
 }
 
@@ -202,14 +213,25 @@ function applyAdGroupCpcBid(entityId, afterValue) {
 
   var adGroup = adGroupIterator.next();
 
+  // Supporta sia cpcBidMicros (numero) che cpcBid (stringa euro)
+  var bidValue;
+  if (afterValue.cpcBidMicros) {
+    bidValue = afterValue.cpcBidMicros / 1000000;
+  } else if (afterValue.cpcBid) {
+    var raw = parseFloat(afterValue.cpcBid);
+    bidValue = raw > 1000 ? raw / 1000000 : raw;
+  } else {
+    throw new Error('Nessun valore CPC bid trovato in afterValue');
+  }
+
   if (CONFIG.DRY_RUN) {
-    Logger.log('[DRY RUN] CPC bid gruppo ' + adGroup.getName() + ' -> ' + afterValue.cpcBidMicros / 1000000);
+    Logger.log('[DRY RUN] CPC bid gruppo ' + adGroup.getName() + ' -> ' + bidValue);
     return { dryRun: true };
   }
 
-  adGroup.bidding().setCpc(afterValue.cpcBidMicros / 1000000);
+  adGroup.bidding().setCpc(bidValue);
 
-  return { newCpcBid: afterValue.cpcBidMicros / 1000000 };
+  return { newCpcBid: bidValue };
 }
 
 /**
@@ -273,53 +295,109 @@ function applyKeywordCpcBid(entityId, afterValue) {
 
   var keyword = keywordIterator.next();
 
+  // Supporta sia cpcBidMicros (numero) che cpcBid (stringa euro)
+  var bidValue;
+  if (afterValue.cpcBidMicros) {
+    bidValue = afterValue.cpcBidMicros / 1000000;
+  } else if (afterValue.cpcBid) {
+    var raw = parseFloat(afterValue.cpcBid);
+    bidValue = raw > 1000 ? raw / 1000000 : raw;
+  } else {
+    throw new Error('Nessun valore CPC bid trovato in afterValue');
+  }
+
   if (CONFIG.DRY_RUN) {
-    Logger.log('[DRY RUN] CPC bid keyword ' + keyword.getText() + ' -> ' + afterValue.cpcBidMicros / 1000000);
+    Logger.log('[DRY RUN] CPC bid keyword ' + keyword.getText() + ' -> ' + bidValue);
     return { dryRun: true };
   }
 
-  keyword.bidding().setCpc(afterValue.cpcBidMicros / 1000000);
+  keyword.bidding().setCpc(bidValue);
 
-  return { newCpcBid: afterValue.cpcBidMicros / 1000000 };
+  return { newCpcBid: bidValue };
 }
 
 /**
- * Aggiunge una keyword negativa a livello di campagna
+ * Aggiunge una keyword negativa a livello di campagna o gruppo annunci
  */
 function applyNegativeKeywordAdd(entityId, afterValue) {
-  // entityId is the campaign ID
-  var campaignIterator = AdsApp.campaigns()
-    .withCondition('campaign.id = ' + entityId)
-    .get();
+  var level = (afterValue.level || 'campaign').toLowerCase();
+  var keywordText = afterValue.keyword || afterValue.text;
 
-  if (!campaignIterator.hasNext()) {
-    throw new Error('Campagna non trovata: ' + entityId);
+  if (!keywordText) {
+    throw new Error('Keyword text mancante in afterValue');
   }
 
-  var campaign = campaignIterator.next();
-
-  if (CONFIG.DRY_RUN) {
-    Logger.log('[DRY RUN] Aggiungi negativa "' + afterValue.keyword + '" a campagna ' + campaign.getName());
-    return { dryRun: true };
-  }
-
-  // Determine match type
+  // Determine match type and format keyword
   var matchType = afterValue.matchType || 'EXACT';
-  var keywordText = afterValue.keyword;
+  var formattedKeyword = keywordText;
 
   if (matchType === 'EXACT') {
-    keywordText = '[' + keywordText + ']';
+    formattedKeyword = '[' + keywordText + ']';
   } else if (matchType === 'PHRASE') {
-    keywordText = '"' + keywordText + '"';
+    formattedKeyword = '"' + keywordText + '"';
   }
 
-  campaign.createNegativeKeyword(keywordText);
+  if (level === 'adgroup' || level === 'ad_group') {
+    // Negativa a livello gruppo annunci
+    var adGroupId = afterValue.adGroupId;
+    if (!adGroupId) {
+      throw new Error('adGroupId mancante per negativa a livello ad group');
+    }
 
-  return {
-    keyword: afterValue.keyword,
-    matchType: matchType,
-    campaignName: campaign.getName()
-  };
+    var adGroupIterator = AdsApp.adGroups()
+      .withCondition('ad_group.id = ' + adGroupId)
+      .get();
+
+    if (!adGroupIterator.hasNext()) {
+      throw new Error('Gruppo annunci non trovato: ' + adGroupId);
+    }
+
+    var adGroup = adGroupIterator.next();
+
+    if (CONFIG.DRY_RUN) {
+      Logger.log('[DRY RUN] Aggiungi negativa "' + formattedKeyword + '" a gruppo ' + adGroup.getName());
+      return { dryRun: true };
+    }
+
+    adGroup.createNegativeKeyword(formattedKeyword);
+
+    return {
+      keyword: keywordText,
+      matchType: matchType,
+      adGroupName: adGroup.getName()
+    };
+
+  } else if (level === 'account') {
+    // Negativa a livello account - non supportata direttamente via Scripts
+    Logger.log('ATTENZIONE: Negativa a livello account non supportata via Google Ads Scripts. Richiede shared negative keyword list.');
+    return { warning: 'Account-level negatives require shared negative keyword list', keyword: keywordText };
+
+  } else {
+    // Default: negativa a livello campagna
+    var campaignId = afterValue.campaignId || entityId;
+    var campaignIterator = AdsApp.campaigns()
+      .withCondition('campaign.id = ' + campaignId)
+      .get();
+
+    if (!campaignIterator.hasNext()) {
+      throw new Error('Campagna non trovata: ' + campaignId);
+    }
+
+    var campaign = campaignIterator.next();
+
+    if (CONFIG.DRY_RUN) {
+      Logger.log('[DRY RUN] Aggiungi negativa "' + formattedKeyword + '" a campagna ' + campaign.getName());
+      return { dryRun: true };
+    }
+
+    campaign.createNegativeKeyword(formattedKeyword);
+
+    return {
+      keyword: keywordText,
+      matchType: matchType,
+      campaignName: campaign.getName()
+    };
+  }
 }
 
 /**

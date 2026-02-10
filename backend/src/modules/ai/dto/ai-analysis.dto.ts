@@ -20,6 +20,8 @@ export class AIRecommendation {
   suggestedValue?: string;
   rationale: string;
   expectedImpact?: string;
+  campaignId?: string;
+  adGroupId?: string;
 }
 
 export class AIAnalysisResponse {

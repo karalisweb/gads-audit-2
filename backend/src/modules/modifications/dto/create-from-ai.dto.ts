@@ -49,6 +49,14 @@ export class AIRecommendationItem {
   @IsString()
   @IsOptional()
   expectedImpact?: string;
+
+  @IsString()
+  @IsOptional()
+  campaignId?: string;
+
+  @IsString()
+  @IsOptional()
+  adGroupId?: string;
 }
 
 export class CreateFromAIDto {

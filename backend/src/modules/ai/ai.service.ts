@@ -435,6 +435,8 @@ export class AIService {
     if (data.keywords) {
       return data.keywords.slice(0, 200).map((k: Keyword) => ({
         id: k.keywordId,
+        adGroupId: k.adGroupId,
+        campaignId: k.campaignId,
         text: k.keywordText,
         matchType: k.matchType,
         adGroup: k.adGroupName,
@@ -527,7 +529,9 @@ export class AIService {
       keyword: st.keywordText,
       matchType: st.matchTypeTriggered,
       campaign: st.campaignName,
+      campaignId: st.campaignId,
       adGroup: st.adGroupName,
+      adGroupId: st.adGroupId,
       cost: (Number(st.costMicros || 0) / 1_000_000).toFixed(2),
       conversions: st.conversions,
       ctr: st.ctr,
@@ -583,6 +587,8 @@ export class AIService {
           suggestedValue: rec.suggestedValue,
           rationale: rec.rationale || '',
           expectedImpact: rec.expectedImpact,
+          campaignId: rec.campaignId || undefined,
+          adGroupId: rec.adGroupId || undefined,
         }),
       );
 

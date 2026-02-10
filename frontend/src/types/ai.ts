@@ -9,6 +9,8 @@ export interface AIRecommendation {
   suggestedValue?: string;
   rationale: string;
   expectedImpact?: string;
+  campaignId?: string;
+  adGroupId?: string;
 }
 
 export interface AIAnalysisResponse {

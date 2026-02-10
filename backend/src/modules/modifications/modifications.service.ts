@@ -387,6 +387,17 @@ export class ModificationsService {
       ? { value: rec.currentValue }
       : null;
 
+    // ─── NORMALIZZAZIONE entityId per keyword ───
+    // Lo script Google Ads si aspetta il formato "adGroupId~keywordId"
+    if (
+      rec.entityType === 'keyword' &&
+      rec.entityId &&
+      !rec.entityId.includes('~') &&
+      rec.adGroupId
+    ) {
+      rec.entityId = `${rec.adGroupId}~${rec.entityId}`;
+    }
+
     // ─── SEARCH TERMS (module 22) ───
     if (rec.action === 'add_negative_campaign') {
       return {
@@ -400,6 +411,7 @@ export class ModificationsService {
           keyword: rec.entityName,
           matchType: rec.suggestedValue || 'EXACT',
           level: 'campaign',
+          campaignId: rec.campaignId || rec.entityId,
           source: 'ai_recommendation',
         },
         notes,
@@ -418,6 +430,8 @@ export class ModificationsService {
           keyword: rec.entityName,
           matchType: rec.suggestedValue || 'EXACT',
           level: 'adgroup',
+          campaignId: rec.campaignId || undefined,
+          adGroupId: rec.adGroupId || rec.entityId,
           source: 'ai_recommendation',
         },
         notes,
@@ -436,6 +450,7 @@ export class ModificationsService {
           keyword: rec.entityName,
           matchType: rec.suggestedValue || 'EXACT',
           level: 'account',
+          campaignId: rec.campaignId || undefined,
           source: 'ai_recommendation',
         },
         notes,
@@ -453,6 +468,8 @@ export class ModificationsService {
         afterValue: {
           keyword: rec.entityName,
           matchType: rec.suggestedValue || 'EXACT',
+          campaignId: rec.campaignId || undefined,
+          adGroupId: rec.adGroupId || undefined,
           source: 'ai_recommendation',
         },
         notes,
@@ -587,6 +604,7 @@ export class ModificationsService {
         beforeValue,
         afterValue: {
           budget: rec.suggestedValue,
+          budgetMicros: this.parseToMicros(rec.suggestedValue),
           source: 'ai_recommendation',
         },
         notes,
@@ -627,6 +645,7 @@ export class ModificationsService {
           beforeValue,
           afterValue: {
             cpcBid: rec.suggestedValue,
+            cpcBidMicros: this.parseToMicros(rec.suggestedValue),
             action: rec.action,
             source: 'ai_recommendation',
           },
@@ -643,6 +662,7 @@ export class ModificationsService {
           beforeValue,
           afterValue: {
             cpcBid: rec.suggestedValue,
+            cpcBidMicros: this.parseToMicros(rec.suggestedValue),
             action: rec.action,
             source: 'ai_recommendation',
           },
@@ -938,6 +958,7 @@ export class ModificationsService {
         beforeValue,
         afterValue: {
           cpcBid: rec.suggestedValue,
+          cpcBidMicros: this.parseToMicros(rec.suggestedValue),
           action: 'decrease_bid',
           source: 'ai_recommendation',
         },
@@ -947,6 +968,17 @@ export class ModificationsService {
 
     // Unmapped action — skip
     return null;
+  }
+
+  /**
+   * Converte un valore in euro (es. "1.50", "25,00 EUR") in micros (es. 1500000).
+   */
+  private parseToMicros(value: string | undefined): number | undefined {
+    if (!value) return undefined;
+    const cleaned = value.replace(/[^0-9.,]/g, '').replace(',', '.');
+    const num = parseFloat(cleaned);
+    if (isNaN(num)) return undefined;
+    return Math.round(num * 1_000_000);
   }
 
   /**
