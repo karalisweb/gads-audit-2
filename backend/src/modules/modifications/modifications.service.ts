@@ -243,6 +243,41 @@ export class ModificationsService {
     return modifications;
   }
 
+  async getFailedForAccount(customerId: string) {
+    const account = await this.accountsRepository.findOne({
+      where: { customerId: customerId.replace(/-/g, '') },
+    });
+
+    if (!account) {
+      return [];
+    }
+
+    return this.modificationsRepository.find({
+      where: {
+        accountId: account.id,
+        status: ModificationStatus.FAILED,
+      },
+      order: { createdAt: 'ASC' },
+    });
+  }
+
+  async deleteFailedForAccount(customerId: string) {
+    const account = await this.accountsRepository.findOne({
+      where: { customerId: customerId.replace(/-/g, '') },
+    });
+
+    if (!account) {
+      return { deleted: 0 };
+    }
+
+    const result = await this.modificationsRepository.delete({
+      accountId: account.id,
+      status: ModificationStatus.FAILED,
+    });
+
+    return { deleted: result.affected || 0 };
+  }
+
   async markAsProcessing(id: string) {
     const modification = await this.findOne(id);
 

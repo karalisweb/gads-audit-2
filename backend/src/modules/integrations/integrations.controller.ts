@@ -2,8 +2,10 @@ import {
   Controller,
   Post,
   Get,
+  Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   Req,
   HttpCode,
@@ -75,5 +77,37 @@ export class IntegrationsController {
     @Body() result: UpdateModificationResultDto,
   ) {
     return this.modificationsService.updateResult(id, result);
+  }
+
+  @Public() // Skip JWT auth - uses HMAC instead
+  @UseGuards(HmacAuthGuard)
+  @Delete('google-ads/modifications/failed')
+  @HttpCode(HttpStatus.OK)
+  async deleteFailedModifications(@Req() req: RequestWithAccount) {
+    return this.modificationsService.deleteFailedForAccount(
+      req.googleAdsAccount.customerId,
+    );
+  }
+
+  @Public() // Skip JWT auth - uses HMAC instead
+  @UseGuards(HmacAuthGuard)
+  @Get('google-ads/modifications/failed')
+  async getFailedModifications(@Req() req: RequestWithAccount) {
+    const modifications = await this.modificationsService.getFailedForAccount(
+      req.googleAdsAccount.customerId,
+    );
+
+    return {
+      count: modifications.length,
+      modifications: modifications.map((mod) => ({
+        id: mod.id,
+        entityType: mod.entityType,
+        entityId: mod.entityId,
+        entityName: mod.entityName,
+        modificationType: mod.modificationType,
+        status: mod.status,
+        resultMessage: mod.resultMessage,
+      })),
+    };
   }
 }
