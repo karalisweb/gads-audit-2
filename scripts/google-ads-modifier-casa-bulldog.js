@@ -19,11 +19,13 @@ var CONFIG = {
   SHARED_SECRET: '07d58eab9931bf88638be45e876fa353dd99228e40af9370660afd143f1d7402',
   DRY_RUN: false
 };
-
 // ============================================================================
 // FUNZIONI HELPER
 // ============================================================================
 
+/**
+ * Genera firma HMAC per autenticazione
+ */
 function generateSignature(timestamp, body, secret) {
   var payload = timestamp + body;
   var signature = Utilities.computeHmacSha256Signature(payload, secret);
@@ -32,8 +34,11 @@ function generateSignature(timestamp, body, secret) {
   }).join('');
 }
 
+/**
+ * Effettua richiesta HTTP autenticata al backend
+ */
 function apiRequest(method, endpoint, body) {
-  var customerId = AdsApp.currentAccount().getCustomerId().replace(/-/g, '');
+  var customerId = AdsApp.currentAccount().getCustomerId().replace(/-/g, ''); // Senza trattini
   var timestamp = new Date().toISOString();
   var bodyStr = body ? JSON.stringify(body) : '{}';
 
@@ -69,14 +74,23 @@ function apiRequest(method, endpoint, body) {
   }
 }
 
+/**
+ * Recupera le modifiche approvate dal backend
+ */
 function getPendingModifications() {
   return apiRequest('GET', '/modifications/pending', null);
 }
 
+/**
+ * Segna una modifica come in elaborazione
+ */
 function markAsProcessing(modificationId) {
   return apiRequest('POST', '/modifications/' + modificationId + '/start', {});
 }
 
+/**
+ * Invia il risultato di una modifica al backend
+ */
 function sendResult(modificationId, success, message, details) {
   return apiRequest('POST', '/modifications/' + modificationId + '/result', {
     success: success,
@@ -89,6 +103,9 @@ function sendResult(modificationId, success, message, details) {
 // FUNZIONI DI MODIFICA GOOGLE ADS
 // ============================================================================
 
+/**
+ * Applica una modifica al budget di una campagna
+ */
 function applyCampaignBudget(entityId, afterValue) {
   var campaignIterator = AdsApp.campaigns()
     .withCondition('campaign.id = ' + entityId)
@@ -126,6 +143,9 @@ function applyCampaignBudget(entityId, afterValue) {
   };
 }
 
+/**
+ * Applica una modifica allo stato di una campagna
+ */
 function applyCampaignStatus(entityId, afterValue) {
   var campaignIterator = AdsApp.campaigns()
     .withCondition('campaign.id = ' + entityId)
@@ -151,6 +171,9 @@ function applyCampaignStatus(entityId, afterValue) {
   return { newStatus: afterValue.status };
 }
 
+/**
+ * Applica una modifica allo stato di un gruppo annunci
+ */
 function applyAdGroupStatus(entityId, afterValue) {
   var adGroupIterator = AdsApp.adGroups()
     .withCondition('ad_group.id = ' + entityId)
@@ -176,6 +199,9 @@ function applyAdGroupStatus(entityId, afterValue) {
   return { newStatus: afterValue.status };
 }
 
+/**
+ * Applica una modifica al CPC bid di un gruppo annunci
+ */
 function applyAdGroupCpcBid(entityId, afterValue) {
   var adGroupIterator = AdsApp.adGroups()
     .withCondition('ad_group.id = ' + entityId)
@@ -208,7 +234,11 @@ function applyAdGroupCpcBid(entityId, afterValue) {
   return { newCpcBid: bidValue };
 }
 
+/**
+ * Applica una modifica allo stato di una keyword
+ */
 function applyKeywordStatus(entityId, afterValue) {
+  // entityId format: "adGroupId~criterionId"
   var parts = entityId.split('~');
   if (parts.length !== 2) {
     throw new Error('Formato entityId keyword non valido: ' + entityId);
@@ -242,6 +272,9 @@ function applyKeywordStatus(entityId, afterValue) {
   return { newStatus: afterValue.status };
 }
 
+/**
+ * Applica una modifica al CPC bid di una keyword
+ */
 function applyKeywordCpcBid(entityId, afterValue) {
   var parts = entityId.split('~');
   if (parts.length !== 2) {
@@ -283,16 +316,18 @@ function applyKeywordCpcBid(entityId, afterValue) {
   return { newCpcBid: bidValue };
 }
 
+/**
+ * Aggiunge una keyword negativa a livello di campagna o gruppo annunci
+ */
 function applyNegativeKeywordAdd(entityId, afterValue) {
-  var level = (afterValue.level || 'campaign').toLowerCase();
-  var keywordText = afterValue.keyword || afterValue.text;
+  var level = (afterValue.level || 'CAMPAIGN').toUpperCase();
+  var keywordText = afterValue.text || afterValue.keyword;
 
   if (!keywordText) {
     throw new Error('Keyword text mancante in afterValue');
   }
 
-  // Determine match type and format keyword
-  var matchType = afterValue.matchType || 'EXACT';
+  var matchType = (afterValue.matchType || 'EXACT').toUpperCase();
   var formattedKeyword = keywordText;
 
   if (matchType === 'EXACT') {
@@ -301,8 +336,7 @@ function applyNegativeKeywordAdd(entityId, afterValue) {
     formattedKeyword = '"' + keywordText + '"';
   }
 
-  if (level === 'adgroup' || level === 'ad_group') {
-    // Negativa a livello gruppo annunci
+  if (level === 'AD_GROUP' || level === 'ADGROUP') {
     var adGroupId = afterValue.adGroupId;
     if (!adGroupId) {
       throw new Error('adGroupId mancante per negativa a livello ad group');
@@ -325,19 +359,14 @@ function applyNegativeKeywordAdd(entityId, afterValue) {
 
     adGroup.createNegativeKeyword(formattedKeyword);
 
-    return {
-      keyword: keywordText,
-      matchType: matchType,
-      adGroupName: adGroup.getName()
-    };
+    return { keyword: keywordText, matchType: matchType, adGroupName: adGroup.getName() };
 
-  } else if (level === 'account') {
-    // Negativa a livello account - non supportata direttamente via Scripts
-    Logger.log('ATTENZIONE: Negativa a livello account non supportata via Google Ads Scripts. Richiede shared negative keyword list.');
+  } else if (level === 'ACCOUNT') {
+    Logger.log('ATTENZIONE: Negativa a livello account non supportata via Google Ads Scripts.');
     return { warning: 'Account-level negatives require shared negative keyword list', keyword: keywordText };
 
   } else {
-    // Default: negativa a livello campagna
+    // Default: CAMPAIGN
     var campaignId = afterValue.campaignId || entityId;
     var campaignIterator = AdsApp.campaigns()
       .withCondition('campaign.id = ' + campaignId)
@@ -356,15 +385,72 @@ function applyNegativeKeywordAdd(entityId, afterValue) {
 
     campaign.createNegativeKeyword(formattedKeyword);
 
-    return {
-      keyword: keywordText,
-      matchType: matchType,
-      campaignName: campaign.getName()
-    };
+    return { keyword: keywordText, matchType: matchType, campaignName: campaign.getName() };
   }
 }
 
+/**
+ * Rimuove una keyword negativa da campagna o ad group
+ */
+function applyNegativeKeywordRemove(entityId, afterValue) {
+  var keywordText = afterValue.text || afterValue.keyword;
+  if (!keywordText) {
+    throw new Error('Keyword text mancante in afterValue');
+  }
+
+  var campaignId = afterValue.campaignId || entityId;
+  var campaignIterator = AdsApp.campaigns()
+    .withCondition('campaign.id = ' + campaignId)
+    .get();
+
+  if (campaignIterator.hasNext()) {
+    var campaign = campaignIterator.next();
+    var negKeywords = campaign.negativeKeywords().get();
+
+    while (negKeywords.hasNext()) {
+      var negKw = negKeywords.next();
+      if (negKw.getText().toLowerCase() === keywordText.toLowerCase()) {
+        if (CONFIG.DRY_RUN) {
+          Logger.log('[DRY RUN] Rimuovi negativa "' + keywordText + '" da campagna ' + campaign.getName());
+          return { dryRun: true };
+        }
+        negKw.remove();
+        return { removed: keywordText, campaignName: campaign.getName() };
+      }
+    }
+  }
+
+  if (afterValue.adGroupId) {
+    var adGroupIterator = AdsApp.adGroups()
+      .withCondition('ad_group.id = ' + afterValue.adGroupId)
+      .get();
+
+    if (adGroupIterator.hasNext()) {
+      var adGroup = adGroupIterator.next();
+      var negKws = adGroup.negativeKeywords().get();
+
+      while (negKws.hasNext()) {
+        var negKw = negKws.next();
+        if (negKw.getText().toLowerCase() === keywordText.toLowerCase()) {
+          if (CONFIG.DRY_RUN) {
+            Logger.log('[DRY RUN] Rimuovi negativa "' + keywordText + '" da gruppo ' + adGroup.getName());
+            return { dryRun: true };
+          }
+          negKw.remove();
+          return { removed: keywordText, adGroupName: adGroup.getName() };
+        }
+      }
+    }
+  }
+
+  throw new Error('Keyword negativa "' + keywordText + '" non trovata');
+}
+
+/**
+ * Applica una modifica allo stato di un annuncio
+ */
 function applyAdStatus(entityId, afterValue) {
+  // entityId format: "adGroupId~adId"
   var parts = entityId.split('~');
   if (parts.length !== 2) {
     throw new Error('Formato entityId annuncio non valido: ' + entityId);
@@ -398,19 +484,179 @@ function applyAdStatus(entityId, afterValue) {
   return { newStatus: afterValue.status };
 }
 
+/**
+ * Modifica i titoli di un annuncio RSA
+ * NOTA: Google Ads API non permette di modificare direttamente i titoli di un RSA esistente.
+ * Questo richiede la creazione di un nuovo annuncio e la pausa del vecchio.
+ */
 function applyAdHeadlines(entityId, afterValue) {
   Logger.log('ATTENZIONE: La modifica dei titoli RSA richiede la creazione di un nuovo annuncio.');
   return {
-    warning: 'RSA headline modification requires creating a new ad',
+    warning: 'RSA headline modification requires creating a new ad. Applica manualmente.',
     headlines: afterValue.headlines
   };
 }
 
+/**
+ * Modifica le descrizioni di un annuncio RSA
+ */
 function applyAdDescriptions(entityId, afterValue) {
   Logger.log('ATTENZIONE: La modifica delle descrizioni RSA richiede la creazione di un nuovo annuncio.');
   return {
-    warning: 'RSA description modification requires creating a new ad',
+    warning: 'RSA description modification requires creating a new ad. Applica manualmente.',
     descriptions: afterValue.descriptions
+  };
+}
+
+/**
+ * Modifica il target CPA di una campagna
+ */
+function applyCampaignTargetCpa(entityId, afterValue) {
+  var campaignIterator = AdsApp.campaigns()
+    .withCondition('campaign.id = ' + entityId)
+    .get();
+
+  if (!campaignIterator.hasNext()) {
+    throw new Error('Campagna non trovata: ' + entityId);
+  }
+
+  var campaign = campaignIterator.next();
+
+  var targetCpaValue;
+  if (afterValue.targetCpa) {
+    var raw = parseFloat(String(afterValue.targetCpa).replace(/[^0-9.,]/g, '').replace(',', '.'));
+    targetCpaValue = raw > 1000 ? raw / 1000000 : raw;
+  } else {
+    throw new Error('Nessun valore targetCpa trovato in afterValue');
+  }
+
+  if (CONFIG.DRY_RUN) {
+    Logger.log('[DRY RUN] Target CPA campagna ' + campaign.getName() + ' -> ' + targetCpaValue);
+    return { dryRun: true };
+  }
+
+  campaign.bidding().setTargetCpa(targetCpaValue);
+
+  return { targetCpa: targetCpaValue, campaignName: campaign.getName() };
+}
+
+/**
+ * Modifica il target ROAS di una campagna
+ */
+function applyCampaignTargetRoas(entityId, afterValue) {
+  var campaignIterator = AdsApp.campaigns()
+    .withCondition('campaign.id = ' + entityId)
+    .get();
+
+  if (!campaignIterator.hasNext()) {
+    throw new Error('Campagna non trovata: ' + entityId);
+  }
+
+  var campaign = campaignIterator.next();
+
+  var targetRoasValue;
+  if (afterValue.targetRoas) {
+    var raw = parseFloat(String(afterValue.targetRoas).replace(/[^0-9.,]/g, '').replace(',', '.'));
+    targetRoasValue = raw;
+  } else {
+    throw new Error('Nessun valore targetRoas trovato in afterValue');
+  }
+
+  if (CONFIG.DRY_RUN) {
+    Logger.log('[DRY RUN] Target ROAS campagna ' + campaign.getName() + ' -> ' + targetRoasValue);
+    return { dryRun: true };
+  }
+
+  campaign.bidding().setTargetRoas(targetRoasValue);
+
+  return { targetRoas: targetRoasValue, campaignName: campaign.getName() };
+}
+
+/**
+ * Modifica l'URL finale di una keyword
+ */
+function applyKeywordFinalUrl(entityId, afterValue) {
+  var parts = entityId.split('~');
+  if (parts.length !== 2) {
+    throw new Error('Formato entityId keyword non valido: ' + entityId + ' (atteso: adGroupId~criterionId)');
+  }
+
+  var adGroupId = parts[0];
+  var criterionId = parts[1];
+
+  var keywordIterator = AdsApp.keywords()
+    .withCondition('ad_group.id = ' + adGroupId)
+    .withCondition('ad_group_criterion.criterion_id = ' + criterionId)
+    .get();
+
+  if (!keywordIterator.hasNext()) {
+    throw new Error('Keyword non trovata: ' + entityId);
+  }
+
+  var keyword = keywordIterator.next();
+  var finalUrl = afterValue.finalUrl || afterValue.suggestedValue;
+
+  if (!finalUrl) {
+    throw new Error('URL finale mancante in afterValue');
+  }
+
+  if (CONFIG.DRY_RUN) {
+    Logger.log('[DRY RUN] URL finale keyword ' + keyword.getText() + ' -> ' + finalUrl);
+    return { dryRun: true };
+  }
+
+  keyword.urls().setFinalUrl(finalUrl);
+
+  return { keyword: keyword.getText(), finalUrl: finalUrl };
+}
+
+/**
+ * Modifica l'URL finale di un annuncio
+ */
+function applyAdFinalUrl(entityId, afterValue) {
+  var parts = entityId.split('~');
+  if (parts.length !== 2) {
+    throw new Error('Formato entityId annuncio non valido: ' + entityId + ' (atteso: adGroupId~adId)');
+  }
+
+  var adGroupId = parts[0];
+  var adId = parts[1];
+
+  var adIterator = AdsApp.ads()
+    .withCondition('ad_group.id = ' + adGroupId)
+    .withCondition('ad_group_ad.ad.id = ' + adId)
+    .get();
+
+  if (!adIterator.hasNext()) {
+    throw new Error('Annuncio non trovato: ' + entityId);
+  }
+
+  var ad = adIterator.next();
+  var finalUrl = afterValue.finalUrl || afterValue.suggestedValue;
+
+  if (!finalUrl) {
+    throw new Error('URL finale mancante in afterValue');
+  }
+
+  if (CONFIG.DRY_RUN) {
+    Logger.log('[DRY RUN] URL finale annuncio -> ' + finalUrl);
+    return { dryRun: true };
+  }
+
+  ad.urls().setFinalUrl(finalUrl);
+
+  return { finalUrl: finalUrl };
+}
+
+/**
+ * Gestione azioni di conversione (non supportato in Scripts)
+ */
+function applyConversionAction(entityId, afterValue) {
+  Logger.log('ATTENZIONE: La gestione delle azioni di conversione non è supportata negli Google Ads Scripts.');
+  return {
+    warning: 'Conversion action management requires Google Ads API. Applica manualmente.',
+    action: afterValue.action,
+    conversionId: entityId
   };
 }
 
@@ -418,6 +664,9 @@ function applyAdDescriptions(entityId, afterValue) {
 // DISPATCHER PRINCIPALE
 // ============================================================================
 
+/**
+ * Applica una singola modifica
+ */
 function applyModification(modification) {
   var entityId = modification.entityId;
   var afterValue = modification.afterValue;
@@ -430,6 +679,10 @@ function applyModification(modification) {
       return applyCampaignBudget(entityId, afterValue);
     case 'campaign.status':
       return applyCampaignStatus(entityId, afterValue);
+    case 'campaign.target_cpa':
+      return applyCampaignTargetCpa(entityId, afterValue);
+    case 'campaign.target_roas':
+      return applyCampaignTargetRoas(entityId, afterValue);
     case 'ad_group.status':
       return applyAdGroupStatus(entityId, afterValue);
     case 'ad_group.cpc_bid':
@@ -438,14 +691,23 @@ function applyModification(modification) {
       return applyKeywordStatus(entityId, afterValue);
     case 'keyword.cpc_bid':
       return applyKeywordCpcBid(entityId, afterValue);
+    case 'keyword.final_url':
+      return applyKeywordFinalUrl(entityId, afterValue);
     case 'negative_keyword.add':
       return applyNegativeKeywordAdd(entityId, afterValue);
+    case 'negative_keyword.remove':
+      return applyNegativeKeywordRemove(entityId, afterValue);
     case 'ad.status':
       return applyAdStatus(entityId, afterValue);
     case 'ad.headlines':
       return applyAdHeadlines(entityId, afterValue);
     case 'ad.descriptions':
       return applyAdDescriptions(entityId, afterValue);
+    case 'ad.final_url':
+      return applyAdFinalUrl(entityId, afterValue);
+    case 'conversion.primary':
+    case 'conversion.default_value':
+      return applyConversionAction(entityId, afterValue);
     default:
       throw new Error('Tipo di modifica non supportato: ' + modType);
   }
