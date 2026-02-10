@@ -2,9 +2,10 @@
 
 ## Server Remoto (Produzione)
 
-**Host:** `vmi2996361.contaboserver.net`
+**Host:** `vmi2996361.contaboserver.net` (185.192.97.108)
 **Accesso SSH:** `root@vmi2996361.contaboserver.net`
-**Path progetto:** `~/gads-audit-2`
+**Path progetto:** `/var/www/gads-audit-2`
+**URL pubblica:** `https://gads.karalisdemo.it`
 
 ### PostgreSQL Remoto
 | Parametro | Valore |
@@ -13,8 +14,8 @@
 | Port | 5432 |
 | Database | `gadsaudit` |
 | User | `gadsaudit` |
-| Password | `GadsAudit2024` |
-| URL | `postgres://gadsaudit:GadsAudit2024@localhost:5432/gadsaudit` |
+| Password | `Karalisweb2025` |
+| URL | `postgres://gadsaudit:Karalisweb2025@localhost:5432/gadsaudit` |
 
 ### Ruoli PostgreSQL
 - `gadsaudit` - utente applicazione
@@ -46,7 +47,7 @@
 |-----------|--------|--------|
 | Database name | `google_ads_audit` | `gadsaudit` |
 | User | `audit` | `gadsaudit` |
-| Password | `dev_password` | `GadsAudit2024` |
+| Password | `dev_password` | `Karalisweb2025` |
 
 ---
 
@@ -69,12 +70,12 @@ brew services start postgresql@15
 
 ### Connessione al DB remoto (via SSH)
 ```bash
-ssh root@vmi2996361.contaboserver.net "PGPASSWORD=GadsAudit2024 psql -h localhost -U gadsaudit -d gadsaudit"
+ssh root@vmi2996361.contaboserver.net "PGPASSWORD=Karalisweb2025 psql -h localhost -U gadsaudit -d gadsaudit"
 ```
 
 ### Dump database remoto
 ```bash
-ssh root@vmi2996361.contaboserver.net "PGPASSWORD=GadsAudit2024 pg_dump -h localhost -U gadsaudit gadsaudit > /tmp/dump.sql"
+ssh root@vmi2996361.contaboserver.net "PGPASSWORD=Karalisweb2025 pg_dump -h localhost -U gadsaudit gadsaudit > /tmp/dump.sql"
 ```
 
 ---
@@ -90,12 +91,11 @@ DATABASE_PASSWORD=dev_password
 DATABASE_NAME=google_ads_audit
 ```
 
-### Backend Remoto (`~/gads-audit-2/backend/.env`)
+### Backend Remoto (`/var/www/gads-audit-2/backend/.env`)
 ```
-DATABASE_URL=postgres://gadsaudit:GadsAudit2024@localhost:5432/gadsaudit
 DATABASE_HOST=localhost
 DATABASE_PORT=5432
 DATABASE_USER=gadsaudit
-DATABASE_PASSWORD=GadsAudit2024
+DATABASE_PASSWORD=Karalisweb2025
 DATABASE_NAME=gadsaudit
 ```

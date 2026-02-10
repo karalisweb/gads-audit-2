@@ -438,14 +438,14 @@ export class ModificationsService {
       return {
         accountId,
         entityType: ModificationEntityType.NEGATIVE_KEYWORD,
-        entityId: rec.entityId,
+        entityId: rec.campaignId || rec.entityId,
         entityName: rec.entityName,
         modificationType: ModificationType.NEGATIVE_KEYWORD_ADD,
         beforeValue: null,
         afterValue: {
-          keyword: rec.entityName,
-          matchType: rec.suggestedValue || 'EXACT',
-          level: 'campaign',
+          text: rec.entityName,
+          matchType: this.normalizeMatchType(rec.suggestedValue),
+          level: 'CAMPAIGN',
           campaignId: rec.campaignId || rec.entityId,
           source: 'ai_recommendation',
         },
@@ -457,14 +457,14 @@ export class ModificationsService {
       return {
         accountId,
         entityType: ModificationEntityType.NEGATIVE_KEYWORD,
-        entityId: rec.entityId,
+        entityId: rec.adGroupId || rec.entityId,
         entityName: rec.entityName,
         modificationType: ModificationType.NEGATIVE_KEYWORD_ADD,
         beforeValue: null,
         afterValue: {
-          keyword: rec.entityName,
-          matchType: rec.suggestedValue || 'EXACT',
-          level: 'adgroup',
+          text: rec.entityName,
+          matchType: this.normalizeMatchType(rec.suggestedValue),
+          level: 'AD_GROUP',
           campaignId: rec.campaignId || undefined,
           adGroupId: rec.adGroupId || rec.entityId,
           source: 'ai_recommendation',
@@ -482,9 +482,9 @@ export class ModificationsService {
         modificationType: ModificationType.NEGATIVE_KEYWORD_ADD,
         beforeValue: null,
         afterValue: {
-          keyword: rec.entityName,
-          matchType: rec.suggestedValue || 'EXACT',
-          level: 'account',
+          text: rec.entityName,
+          matchType: this.normalizeMatchType(rec.suggestedValue),
+          level: 'ACCOUNT',
           campaignId: rec.campaignId || undefined,
           source: 'ai_recommendation',
         },
@@ -493,16 +493,19 @@ export class ModificationsService {
     }
 
     if (rec.action === 'add_negative') {
+      // Determine level from available data
+      const level = rec.adGroupId ? 'AD_GROUP' : rec.campaignId ? 'CAMPAIGN' : 'CAMPAIGN';
       return {
         accountId,
         entityType: ModificationEntityType.NEGATIVE_KEYWORD,
-        entityId: rec.entityId,
+        entityId: rec.campaignId || rec.entityId,
         entityName: rec.entityName,
         modificationType: ModificationType.NEGATIVE_KEYWORD_ADD,
         beforeValue: null,
         afterValue: {
-          keyword: rec.entityName,
-          matchType: rec.suggestedValue || 'EXACT',
+          text: rec.entityName,
+          matchType: this.normalizeMatchType(rec.suggestedValue),
+          level,
           campaignId: rec.campaignId || undefined,
           adGroupId: rec.adGroupId || undefined,
           source: 'ai_recommendation',
@@ -518,8 +521,9 @@ export class ModificationsService {
         entityId: rec.entityId,
         entityName: rec.entityName,
         modificationType: ModificationType.NEGATIVE_KEYWORD_REMOVE,
-        beforeValue: { keyword: rec.entityName },
+        beforeValue: { text: rec.entityName },
         afterValue: {
+          text: rec.entityName,
           removed: true,
           source: 'ai_recommendation',
         },
@@ -536,8 +540,10 @@ export class ModificationsService {
         modificationType: ModificationType.NEGATIVE_KEYWORD_ADD,
         beforeValue,
         afterValue: {
-          keyword: rec.entityName,
-          suggestedChange: rec.suggestedValue,
+          text: rec.entityName,
+          matchType: this.normalizeMatchType(rec.suggestedValue),
+          campaignId: rec.campaignId || undefined,
+          adGroupId: rec.adGroupId || undefined,
           action: rec.action,
           source: 'ai_recommendation',
         },
@@ -1014,6 +1020,19 @@ export class ModificationsService {
     const num = parseFloat(cleaned);
     if (isNaN(num)) return undefined;
     return Math.round(num * 1_000_000);
+  }
+
+  /**
+   * Normalizes match type from AI output to valid Google Ads values.
+   */
+  private normalizeMatchType(value: string | undefined): string {
+    if (!value) return 'EXACT';
+    const upper = value.toUpperCase().trim();
+    if (['EXACT', 'PHRASE', 'BROAD'].includes(upper)) return upper;
+    if (upper.includes('EXACT')) return 'EXACT';
+    if (upper.includes('PHRASE')) return 'PHRASE';
+    if (upper.includes('BROAD')) return 'BROAD';
+    return 'EXACT';
   }
 
   /**

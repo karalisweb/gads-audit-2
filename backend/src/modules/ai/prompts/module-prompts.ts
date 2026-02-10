@@ -849,6 +849,12 @@ SOGLIE:
 - Spesa minima per valutazione: 20 EUR
 - CTR minimo per promozione: 3%
 
+REGOLE OBBLIGATORIE PER IL FORMATO OUTPUT:
+1. entityId DEVE essere il valore numerico di campaignId preso dai dati (es. "20680249611"). NON inventare ID.
+2. campaignId e adGroupId DEVONO essere i valori numerici esatti presenti nei dati forniti.
+3. suggestedValue DEVE essere SOLO uno tra: "EXACT", "PHRASE", "BROAD" - nient'altro.
+4. Se non trovi campaignId/adGroupId nei dati per un search term, NON generare la raccomandazione.
+
 Genera raccomandazioni in formato JSON:
 {
   "summary": "Riepilogo search terms",
@@ -857,13 +863,13 @@ Genera raccomandazioni in formato JSON:
       "id": "rec_1",
       "priority": "high|medium|low",
       "entityType": "search_term",
-      "entityId": "campaignId (OBBLIGATORIO: usa il vero campaignId dai dati forniti)",
+      "entityId": "20680249611",
       "entityName": "search term text",
       "action": "promote_to_keyword|add_negative_campaign|add_negative_adgroup|add_negative_account",
-      "campaignId": "campaignId reale dai dati (OBBLIGATORIO)",
-      "adGroupId": "adGroupId reale dai dati (OBBLIGATORIO)",
+      "campaignId": "20680249611",
+      "adGroupId": "148939991025",
       "currentValue": "metriche: spesa, conv, CTR",
-      "suggestedValue": "match type per promozione/negativa",
+      "suggestedValue": "EXACT",
       "rationale": "Spiegazione dettagliata",
       "expectedImpact": "Risparmio o conversioni aggiuntive"
     }
@@ -902,6 +908,13 @@ NEGATIVE KEYWORDS ESISTENTI:
 SEARCH TERMS RECENTI (per gap analysis):
 {{searchTermsData}}
 
+REGOLE OBBLIGATORIE PER IL FORMATO OUTPUT:
+1. entityId DEVE essere il valore numerico di campaignId per negative a livello campagna, o adGroupId per livello ad group. NON inventare ID.
+2. campaignId e adGroupId DEVONO essere i valori numerici esatti presenti nei dati forniti.
+3. suggestedValue per add_negative DEVE essere SOLO uno tra: "EXACT", "PHRASE", "BROAD" - nient'altro.
+4. entityName DEVE essere il testo della keyword negativa (es. "escavatore usato").
+5. Se non trovi campaignId/adGroupId nei dati, NON generare la raccomandazione.
+
 Genera raccomandazioni in formato JSON:
 {
   "summary": "Riepilogo strategia negative",
@@ -910,11 +923,13 @@ Genera raccomandazioni in formato JSON:
       "id": "rec_1",
       "priority": "high|medium|low",
       "entityType": "negative_keyword",
-      "entityId": "negative_id o 'new'",
+      "entityId": "20680249611",
       "entityName": "keyword text",
       "action": "add_negative|remove_negative|change_level|change_match_type",
+      "campaignId": "20680249611",
+      "adGroupId": "148939991025",
       "currentValue": "livello/match type attuale",
-      "suggestedValue": "nuovo livello/match type",
+      "suggestedValue": "EXACT",
       "rationale": "Spiegazione",
       "expectedImpact": "Risparmio stimato"
     }
