@@ -553,17 +553,21 @@ export class ModificationsService {
 
     // ─── PROMOTE SEARCH TERM TO KEYWORD ───
     if (rec.action === 'promote_to_keyword') {
+      // entityId from AI is the campaignId; we need adGroupId to add the keyword
+      const campaignId = rec.campaignId || rec.entityId;
+      const adGroupId = rec.adGroupId;
       return {
         accountId,
         entityType: ModificationEntityType.KEYWORD,
-        entityId: rec.entityId,
+        entityId: campaignId,
         entityName: rec.entityName,
-        modificationType: ModificationType.KEYWORD_STATUS,
+        modificationType: ModificationType.KEYWORD_ADD,
         beforeValue: null,
         afterValue: {
           keyword: rec.entityName,
-          matchType: rec.suggestedValue || 'EXACT',
-          action: 'add',
+          matchType: this.normalizeMatchType(rec.suggestedValue),
+          campaignId,
+          adGroupId: adGroupId || undefined,
           source: 'ai_recommendation',
         },
         notes,

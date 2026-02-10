@@ -649,6 +649,106 @@ function applyAdFinalUrl(entityId, afterValue) {
 }
 
 /**
+ * Aggiunge una nuova keyword a un ad group (promote search term)
+ */
+function applyKeywordAdd(entityId, afterValue) {
+  var keywordText = afterValue.keyword;
+  if (!keywordText) {
+    throw new Error('Keyword text mancante in afterValue');
+  }
+
+  var matchType = (afterValue.matchType || 'EXACT').toUpperCase();
+
+  // Trova l'ad group dove aggiungere la keyword
+  var adGroupId = afterValue.adGroupId;
+  var campaignId = afterValue.campaignId || entityId;
+
+  if (adGroupId) {
+    // Abbiamo l'adGroupId specifico
+    var adGroupIterator = AdsApp.adGroups()
+      .withCondition('ad_group.id = ' + adGroupId)
+      .get();
+
+    if (!adGroupIterator.hasNext()) {
+      throw new Error('Gruppo annunci non trovato: ' + adGroupId);
+    }
+
+    var adGroup = adGroupIterator.next();
+
+    if (CONFIG.DRY_RUN) {
+      Logger.log('[DRY RUN] Aggiungi keyword "' + keywordText + '" (' + matchType + ') a gruppo ' + adGroup.getName());
+      return { dryRun: true };
+    }
+
+    var keywordOperation = adGroup.newKeywordBuilder()
+      .withText(formatKeywordForMatchType(keywordText, matchType))
+      .build();
+
+    if (!keywordOperation.isSuccessful()) {
+      throw new Error('Errore creazione keyword: ' + keywordOperation.getErrors().join(', '));
+    }
+
+    return {
+      keyword: keywordText,
+      matchType: matchType,
+      adGroupName: adGroup.getName(),
+      campaignName: adGroup.getCampaign().getName()
+    };
+
+  } else {
+    // Solo campaignId: prendi il primo ad group della campagna
+    var campaignIterator = AdsApp.campaigns()
+      .withCondition('campaign.id = ' + campaignId)
+      .get();
+
+    if (!campaignIterator.hasNext()) {
+      throw new Error('Campagna non trovata: ' + campaignId);
+    }
+
+    var campaign = campaignIterator.next();
+    var adGroupIterator = campaign.adGroups().get();
+
+    if (!adGroupIterator.hasNext()) {
+      throw new Error('Nessun gruppo annunci nella campagna: ' + campaign.getName());
+    }
+
+    var adGroup = adGroupIterator.next();
+
+    if (CONFIG.DRY_RUN) {
+      Logger.log('[DRY RUN] Aggiungi keyword "' + keywordText + '" (' + matchType + ') a gruppo ' + adGroup.getName());
+      return { dryRun: true };
+    }
+
+    var keywordOperation = adGroup.newKeywordBuilder()
+      .withText(formatKeywordForMatchType(keywordText, matchType))
+      .build();
+
+    if (!keywordOperation.isSuccessful()) {
+      throw new Error('Errore creazione keyword: ' + keywordOperation.getErrors().join(', '));
+    }
+
+    return {
+      keyword: keywordText,
+      matchType: matchType,
+      adGroupName: adGroup.getName(),
+      campaignName: campaign.getName()
+    };
+  }
+}
+
+/**
+ * Formatta la keyword in base al match type
+ */
+function formatKeywordForMatchType(text, matchType) {
+  if (matchType === 'EXACT') {
+    return '[' + text + ']';
+  } else if (matchType === 'PHRASE') {
+    return '"' + text + '"';
+  }
+  return text; // BROAD
+}
+
+/**
  * Gestione azioni di conversione (non supportato in Scripts)
  */
 function applyConversionAction(entityId, afterValue) {
@@ -689,6 +789,8 @@ function applyModification(modification) {
       return applyAdGroupCpcBid(entityId, afterValue);
     case 'keyword.status':
       return applyKeywordStatus(entityId, afterValue);
+    case 'keyword.add':
+      return applyKeywordAdd(entityId, afterValue);
     case 'keyword.cpc_bid':
       return applyKeywordCpcBid(entityId, afterValue);
     case 'keyword.final_url':
@@ -720,21 +822,14 @@ function applyModification(modification) {
 function main() {
   Logger.log('=================================================');
   Logger.log('GADS Audit 2.0 - Modifier Script');
-  Logger.log('ACCOUNT CONFIGURATO: SFRIDO');
-  Logger.log('Account corrente: ' + AdsApp.currentAccount().getName());
+  Logger.log('Account: ' + AdsApp.currentAccount().getName());
   Logger.log('Customer ID: ' + AdsApp.currentAccount().getCustomerId());
   Logger.log('Data: ' + new Date().toISOString());
   Logger.log('Dry Run: ' + CONFIG.DRY_RUN);
   Logger.log('=================================================');
 
-  var currentCustomerId = AdsApp.currentAccount().getCustomerId().replace(/-/g, '');
-  if (currentCustomerId !== '2409021335') {
-    Logger.log('ATTENZIONE: Questo script è configurato per SFRIDO (2409021335)');
-    Logger.log('Account corrente: ' + currentCustomerId);
-    Logger.log('Continuando comunque...');
-  }
-
   try {
+    // 1. Recupera le modifiche approvate
     Logger.log('\n1. Recupero modifiche approvate...');
     var response = getPendingModifications();
     var modifications = response.modifications || [];
@@ -746,7 +841,12 @@ function main() {
       return;
     }
 
-    var results = { success: 0, failed: 0, skipped: 0 };
+    // 2. Applica ogni modifica
+    var results = {
+      success: 0,
+      failed: 0,
+      skipped: 0
+    };
 
     for (var i = 0; i < modifications.length; i++) {
       var mod = modifications[i];
@@ -756,13 +856,16 @@ function main() {
       Logger.log('Entità: ' + mod.entityName + ' (' + mod.entityId + ')');
 
       try {
+        // Segna come in elaborazione
         if (!CONFIG.DRY_RUN) {
           markAsProcessing(mod.id);
         }
 
+        // Applica la modifica
         var result = applyModification(mod);
         Logger.log('Risultato: ' + JSON.stringify(result));
 
+        // Invia risultato positivo
         if (!CONFIG.DRY_RUN) {
           sendResult(mod.id, true, 'Modifica applicata con successo', result);
         }
@@ -772,6 +875,7 @@ function main() {
       } catch (error) {
         Logger.log('ERRORE: ' + error.message);
 
+        // Invia risultato negativo
         if (!CONFIG.DRY_RUN) {
           try {
             sendResult(mod.id, false, error.message, { stack: error.stack });
@@ -784,8 +888,9 @@ function main() {
       }
     }
 
+    // 3. Riepilogo
     Logger.log('\n=================================================');
-    Logger.log('RIEPILOGO - SFRIDO');
+    Logger.log('RIEPILOGO');
     Logger.log('Successo: ' + results.success);
     Logger.log('Fallite: ' + results.failed);
     Logger.log('Saltate: ' + results.skipped);

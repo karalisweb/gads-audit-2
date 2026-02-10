@@ -649,6 +649,106 @@ function applyAdFinalUrl(entityId, afterValue) {
 }
 
 /**
+ * Aggiunge una nuova keyword a un ad group (promote search term)
+ */
+function applyKeywordAdd(entityId, afterValue) {
+  var keywordText = afterValue.keyword;
+  if (!keywordText) {
+    throw new Error('Keyword text mancante in afterValue');
+  }
+
+  var matchType = (afterValue.matchType || 'EXACT').toUpperCase();
+
+  // Trova l'ad group dove aggiungere la keyword
+  var adGroupId = afterValue.adGroupId;
+  var campaignId = afterValue.campaignId || entityId;
+
+  if (adGroupId) {
+    // Abbiamo l'adGroupId specifico
+    var adGroupIterator = AdsApp.adGroups()
+      .withCondition('ad_group.id = ' + adGroupId)
+      .get();
+
+    if (!adGroupIterator.hasNext()) {
+      throw new Error('Gruppo annunci non trovato: ' + adGroupId);
+    }
+
+    var adGroup = adGroupIterator.next();
+
+    if (CONFIG.DRY_RUN) {
+      Logger.log('[DRY RUN] Aggiungi keyword "' + keywordText + '" (' + matchType + ') a gruppo ' + adGroup.getName());
+      return { dryRun: true };
+    }
+
+    var keywordOperation = adGroup.newKeywordBuilder()
+      .withText(formatKeywordForMatchType(keywordText, matchType))
+      .build();
+
+    if (!keywordOperation.isSuccessful()) {
+      throw new Error('Errore creazione keyword: ' + keywordOperation.getErrors().join(', '));
+    }
+
+    return {
+      keyword: keywordText,
+      matchType: matchType,
+      adGroupName: adGroup.getName(),
+      campaignName: adGroup.getCampaign().getName()
+    };
+
+  } else {
+    // Solo campaignId: prendi il primo ad group della campagna
+    var campaignIterator = AdsApp.campaigns()
+      .withCondition('campaign.id = ' + campaignId)
+      .get();
+
+    if (!campaignIterator.hasNext()) {
+      throw new Error('Campagna non trovata: ' + campaignId);
+    }
+
+    var campaign = campaignIterator.next();
+    var adGroupIterator = campaign.adGroups().get();
+
+    if (!adGroupIterator.hasNext()) {
+      throw new Error('Nessun gruppo annunci nella campagna: ' + campaign.getName());
+    }
+
+    var adGroup = adGroupIterator.next();
+
+    if (CONFIG.DRY_RUN) {
+      Logger.log('[DRY RUN] Aggiungi keyword "' + keywordText + '" (' + matchType + ') a gruppo ' + adGroup.getName());
+      return { dryRun: true };
+    }
+
+    var keywordOperation = adGroup.newKeywordBuilder()
+      .withText(formatKeywordForMatchType(keywordText, matchType))
+      .build();
+
+    if (!keywordOperation.isSuccessful()) {
+      throw new Error('Errore creazione keyword: ' + keywordOperation.getErrors().join(', '));
+    }
+
+    return {
+      keyword: keywordText,
+      matchType: matchType,
+      adGroupName: adGroup.getName(),
+      campaignName: campaign.getName()
+    };
+  }
+}
+
+/**
+ * Formatta la keyword in base al match type
+ */
+function formatKeywordForMatchType(text, matchType) {
+  if (matchType === 'EXACT') {
+    return '[' + text + ']';
+  } else if (matchType === 'PHRASE') {
+    return '"' + text + '"';
+  }
+  return text; // BROAD
+}
+
+/**
  * Gestione azioni di conversione (non supportato in Scripts)
  */
 function applyConversionAction(entityId, afterValue) {
@@ -689,6 +789,8 @@ function applyModification(modification) {
       return applyAdGroupCpcBid(entityId, afterValue);
     case 'keyword.status':
       return applyKeywordStatus(entityId, afterValue);
+    case 'keyword.add':
+      return applyKeywordAdd(entityId, afterValue);
     case 'keyword.cpc_bid':
       return applyKeywordCpcBid(entityId, afterValue);
     case 'keyword.final_url':

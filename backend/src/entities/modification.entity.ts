@@ -50,6 +50,7 @@ export enum ModificationType {
   KEYWORD_STATUS = 'keyword.status',
   KEYWORD_CPC_BID = 'keyword.cpc_bid',
   KEYWORD_FINAL_URL = 'keyword.final_url',
+  KEYWORD_ADD = 'keyword.add',
 
   // Negative keyword modifications
   NEGATIVE_KEYWORD_ADD = 'negative_keyword.add',
