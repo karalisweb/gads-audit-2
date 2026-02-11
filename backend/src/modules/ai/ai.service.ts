@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import OpenAI from 'openai';
 import {
   Campaign,
@@ -138,6 +138,18 @@ export class AIService {
     });
   }
 
+  /**
+   * Recupera gli ID delle campagne attive (ENABLED) per un account/run.
+   * Usato per filtrare search terms, geo/device performance, ecc.
+   */
+  private async getActiveCampaignIds(accountId: string, runId: string): Promise<string[]> {
+    const activeCampaigns = await this.campaignRepository.find({
+      where: { accountId, runId, status: 'ENABLED' },
+      select: ['campaignId'],
+    });
+    return activeCampaigns.map(c => c.campaignId);
+  }
+
   private async fetchModuleData(
     accountId: string,
     runId: string,
@@ -150,7 +162,7 @@ export class AIService {
       case 1: // Conversion Goals
       case 2: // Consent Mode
         const conversions = await this.conversionActionRepository.find({
-          where: baseWhere,
+          where: { ...baseWhere, status: 'ENABLED' },
         });
         return {
           data: { conversions },
@@ -180,9 +192,13 @@ export class AIService {
         };
 
       case 11: // Targeting Settings
+        const activeCampaignIdsForTargeting = await this.getActiveCampaignIds(accountId, runId);
+        const targetingCampaignFilter = activeCampaignIdsForTargeting.length > 0
+          ? { ...baseWhere, campaignId: In(activeCampaignIdsForTargeting) }
+          : baseWhere;
         const [geoData, deviceData] = await Promise.all([
-          this.geoPerformanceRepository.find({ where: baseWhere }),
-          this.devicePerformanceRepository.find({ where: baseWhere }),
+          this.geoPerformanceRepository.find({ where: targetingCampaignFilter }),
+          this.devicePerformanceRepository.find({ where: targetingCampaignFilter }),
         ]);
         return {
           data: { geoData, deviceData },
@@ -194,7 +210,7 @@ export class AIService {
 
       case 14: // Assets
         const assets = await this.assetRepository.find({
-          where: baseWhere,
+          where: { ...baseWhere, status: 'ENABLED' },
         });
         return {
           data: { assets },
@@ -215,7 +231,7 @@ export class AIService {
       case 18: // Message Extensions
         const [campaignsForExt, assetsForExt] = await Promise.all([
           this.campaignRepository.find({ where: { ...baseWhere, status: 'ENABLED' } }),
-          this.assetRepository.find({ where: baseWhere }),
+          this.assetRepository.find({ where: { ...baseWhere, status: 'ENABLED' } }),
         ]);
         return {
           data: {
@@ -251,8 +267,12 @@ export class AIService {
         };
 
       case 22: // Search Terms Analysis
+        const activeCampaignIdsForST = await this.getActiveCampaignIds(accountId, runId);
+        const stCampaignFilter = activeCampaignIdsForST.length > 0
+          ? { ...baseWhere, campaignId: In(activeCampaignIdsForST) }
+          : baseWhere;
         const searchTerms = await this.searchTermRepository.find({
-          where: baseWhere,
+          where: stCampaignFilter,
           order: { costMicros: 'DESC' },
           take: 500, // Limit to top 500 by cost
         });
@@ -262,10 +282,14 @@ export class AIService {
         };
 
       case 23: // Negative Keywords
+        const activeCampaignIdsForNeg = await this.getActiveCampaignIds(accountId, runId);
+        const negCampaignFilter = activeCampaignIdsForNeg.length > 0
+          ? { ...baseWhere, campaignId: In(activeCampaignIdsForNeg) }
+          : baseWhere;
         const [negatives, searchTermsForNeg] = await Promise.all([
-          this.negativeKeywordRepository.find({ where: baseWhere }),
+          this.negativeKeywordRepository.find({ where: negCampaignFilter }),
           this.searchTermRepository.find({
-            where: baseWhere,
+            where: negCampaignFilter,
             order: { costMicros: 'DESC' },
             take: 200,
           }),
