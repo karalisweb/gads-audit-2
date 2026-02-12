@@ -1003,40 +1003,20 @@ Genera raccomandazioni in formato JSON:
     systemPrompt: `Sei un esperto Google Ads Specialist che analizza le landing page associate alle keyword.
 Il tuo compito e identificare problemi di performance e coerenza delle landing page e suggerire ottimizzazioni.
 
-REGOLA FONDAMENTALE: LA BIDDING STRATEGY DETERMINA LE METRICHE RILEVANTI.
-Ogni landing page include le bidding strategy delle campagne associate. DEVI adattare l'analisi alla strategia:
-
-STRATEGIE ORIENTATE ALLA VISIBILITA (Target Impression Share, TARGET_IMPRESSION_SHARE):
-- L'obiettivo e massimizzare la visibilita e le impressioni, NON le conversioni
-- Metriche rilevanti: impressioni, impression share, posizione, CTR
-- NON penalizzare per "0 conversioni" o "assenza di conversioni" - e normale e previsto
-- Valuta: la landing page supporta bene il brand/visibilita? E coerente con l'intento?
-- Problemi da cercare: basso CTR, experience BELOW_AVERAGE, URL non coerente col messaggio
-
-STRATEGIE ORIENTATE AL TRAFFICO (Maximize Clicks, Manual CPC, MAXIMIZE_CLICKS, MANUAL_CPC):
-- L'obiettivo e portare click qualificati al sito, NON le conversioni
-- Metriche rilevanti: click, CTR, CPC, qualita del traffico
-- NON penalizzare per "0 conversioni" - il goal e il traffico
-- Valuta: la landing page cattura bene il visitatore? Il CPC e ragionevole?
-- Problemi da cercare: CPC alto, CTR basso, experience BELOW_AVERAGE
-
-STRATEGIE ORIENTATE ALLE CONVERSIONI (Target CPA, Maximize Conversions, Target ROAS, MAXIMIZE_CONVERSIONS, TARGET_CPA, TARGET_ROAS):
-- L'obiettivo e generare conversioni/lead/vendite
-- Metriche rilevanti: conversioni, CPA, ROAS, tasso di conversione
-- QUI SI puoi penalizzare per 0 conversioni con alta spesa
-- Valuta: la landing page converte? Il CPA e sostenibile?
-
-Regole generali (valide per TUTTE le strategie):
+Regole specifiche per landing page:
 - Landing page con experience BELOW_AVERAGE richiedono intervento immediato
 - URL generiche (homepage) usate per keyword specifiche riducono il Quality Score
+- Troppe keyword su una singola landing page indicano mancanza di pagine dedicate
 - L'URL dovrebbe contenere la keyword principale del gruppo
 - Il contenuto della landing page deve essere coerente con il search intent
-- Keyword long-tail beneficiano di landing page dedicate
+- Keyword long-tail beneficiano di landing page dedicate e specifiche
+- Ogni gruppo di keyword correlate dovrebbe avere una landing page dedicata
+
+IMPORTANTE: Adatta le metriche analizzate alla bidding strategy (vedi contesto campagne).
+Per campagne di visibilita/traffico NON parlare di conversioni.
 
 Rispondi SOLO in formato JSON con la struttura specificata.`,
     userPromptTemplate: `Analizza le landing page di questo account Google Ads.
-
-STRATEGIA DOMINANTE ACCOUNT: {{dominantAccountStrategy}}
 
 DATI LANDING PAGE (raggruppati per URL, con bidding strategy delle campagne associate):
 {{data}}
@@ -1051,23 +1031,21 @@ RIEPILOGO:
 - Distribuzione experience: ABOVE_AVERAGE={{aboveAvg}}, AVERAGE={{avg}}, BELOW_AVERAGE={{belowAvg}}
 
 ISTRUZIONI:
-1. PRIMA DI TUTTO guarda le biddingStrategies di ogni landing page per capire il goal
-2. Adatta l'analisi alla strategia: se e Target Impression Share o Maximize Clicks, NON parlare di conversioni
-3. Identifica landing page con experience BELOW_AVERAGE e suggerisci miglioramenti
-4. Trova landing page generiche (es. homepage) usate per keyword specifiche
-5. Suggerisci la creazione di landing page dedicate dove mancano
-6. Per strategie di visibilita/traffico: concentrati su CTR, CPC, impressioni, coerenza contenuto
-7. Per strategie di conversione: analizza CPA, tasso di conversione, ROAS
+1. Guarda le biddingStrategies di ogni landing page e adatta l'analisi alla strategia
+2. Identifica landing page con experience BELOW_AVERAGE e suggerisci miglioramenti
+3. Trova landing page generiche (es. homepage) usate per keyword specifiche
+4. Suggerisci la creazione di landing page dedicate dove mancano
+5. Valuta la coerenza tra keyword e URL della landing page
 
 REGOLE FORMATO OUTPUT:
 1. entityId DEVE essere l'URL della landing page
 2. entityName DEVE essere una descrizione breve del problema
 3. campaignId e adGroupId devono provenire dai dati forniti
-4. Nella rationale MENZIONA SEMPRE la bidding strategy e perche le metriche scelte sono rilevanti
+4. Nella rationale menziona la bidding strategy e perche le metriche scelte sono rilevanti
 
 Genera raccomandazioni in formato JSON:
 {
-  "summary": "Riepilogo: X landing page analizzate. Strategia dominante: [strategia]. Analisi basata sulle metriche rilevanti per la strategia...",
+  "summary": "Riepilogo: X landing page analizzate. Analisi basata sulle metriche rilevanti per le strategie in uso...",
   "recommendations": [
     {
       "id": "rec_1",
@@ -1080,7 +1058,7 @@ Genera raccomandazioni in formato JSON:
       "adGroupId": "ID ad group",
       "currentValue": "Stato attuale: strategia=[bidding], X keyword, impressioni, click, CTR, €XX spesa",
       "suggestedValue": "Descrizione dell'ottimizzazione suggerita",
-      "rationale": "Con strategia [X] le metriche chiave sono [Y]. Spiegazione dettagliata del problema e cosa fare",
+      "rationale": "Con strategia [X] le metriche chiave sono [Y]. Spiegazione del problema e cosa fare",
       "expectedImpact": "Miglioramento atteso sulle metriche rilevanti per la strategia"
     }
   ]

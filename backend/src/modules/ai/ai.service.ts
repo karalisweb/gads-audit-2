@@ -108,6 +108,12 @@ export class AIService {
       throw new BadRequestException('No data available for this account');
     }
 
+    // Fetch active campaigns with bidding strategies (contesto globale per tutti i moduli)
+    const activeCampaigns = await this.campaignRepository.find({
+      where: { accountId, runId: latestRun.runId, status: 'ENABLED' },
+    });
+    const campaignStrategyContext = this.buildCampaignStrategyContext(activeCampaigns);
+
     // Fetch data based on module requirements
     const { data, stats } = await this.fetchModuleData(
       accountId,
@@ -119,11 +125,15 @@ export class AIService {
     // Build the prompt with actual data
     const userPrompt = this.buildUserPrompt(moduleConfig, data, stats);
 
+    // Prepend strategy context to both system and user prompts
+    const enrichedSystemPrompt = campaignStrategyContext.systemPrefix + '\n\n' + moduleConfig.systemPrompt;
+    const enrichedUserPrompt = campaignStrategyContext.userPrefix + '\n\n' + userPrompt;
+
     // Call OpenAI
     const recommendations = await this.callOpenAI(
       openai,
-      moduleConfig.systemPrompt,
-      userPrompt,
+      enrichedSystemPrompt,
+      enrichedUserPrompt,
     );
 
     return {
@@ -168,6 +178,64 @@ export class AIService {
       select: ['adGroupId'],
     });
     return activeAdGroups.map(ag => ag.adGroupId);
+  }
+
+  /**
+   * Costruisce il contesto globale sulle bidding strategy delle campagne.
+   * Viene iniettato in TUTTI i moduli AI come prefisso al system prompt e user prompt.
+   */
+  private buildCampaignStrategyContext(campaigns: Campaign[]): { systemPrefix: string; userPrefix: string } {
+    // Raggruppa campagne per strategia
+    const byStrategy: Record<string, { names: string[]; ids: string[]; cost: number }> = {};
+    for (const c of campaigns) {
+      const strategy = c.biddingStrategyType || 'UNKNOWN';
+      if (!byStrategy[strategy]) {
+        byStrategy[strategy] = { names: [], ids: [], cost: 0 };
+      }
+      byStrategy[strategy].names.push(c.campaignName);
+      byStrategy[strategy].ids.push(c.campaignId);
+      byStrategy[strategy].cost += Number(c.costMicros || 0) / 1_000_000;
+    }
+
+    // Determina la categoria per ogni strategia
+    const visibilityStrategies = ['TARGET_IMPRESSION_SHARE'];
+    const trafficStrategies = ['MAXIMIZE_CLICKS', 'MANUAL_CPC', 'MANUAL_CPM', 'TARGET_CPM'];
+    const conversionStrategies = ['MAXIMIZE_CONVERSIONS', 'MAXIMIZE_CONVERSION_VALUE', 'TARGET_CPA', 'TARGET_ROAS'];
+
+    const categorized = Object.entries(byStrategy).map(([strategy, data]) => {
+      let category: string;
+      if (visibilityStrategies.includes(strategy)) {
+        category = 'VISIBILITA';
+      } else if (trafficStrategies.includes(strategy)) {
+        category = 'TRAFFICO';
+      } else if (conversionStrategies.includes(strategy)) {
+        category = 'CONVERSIONI';
+      } else {
+        category = 'ALTRO';
+      }
+      return { strategy, category, ...data };
+    });
+
+    const systemPrefix = `REGOLA FONDAMENTALE - ADATTA L'ANALISI ALLA BIDDING STRATEGY:
+La bidding strategy della campagna determina quali metriche sono rilevanti per TUTTE le entita al suo interno (ad group, keyword, annunci, search terms, landing page, ecc.).
+
+- Campagne VISIBILITA (Target Impression Share): l'obiettivo e apparire. Metriche rilevanti: impressioni, impression share, posizione. NON penalizzare per assenza di conversioni.
+- Campagne TRAFFICO (Maximize Clicks, Manual CPC): l'obiettivo e portare click. Metriche rilevanti: click, CTR, CPC. NON penalizzare per assenza di conversioni.
+- Campagne CONVERSIONI (Target CPA, Maximize Conversions, Target ROAS): l'obiettivo e convertire. Metriche rilevanti: conversioni, CPA, ROAS, tasso di conversione.
+
+QUANDO analizzi un ad group, keyword, annuncio o qualsiasi entita, DEVI prima verificare a quale campagna appartiene e quale strategia usa. Le raccomandazioni devono essere coerenti con la strategia.`;
+
+    // Build user context block
+    const campaignLines = categorized.map(c =>
+      `- [${c.category}] Strategia: ${c.strategy} | Campagne: ${c.names.join(', ')} | Spesa: €${c.cost.toFixed(2)}`
+    ).join('\n');
+
+    const userPrefix = `CONTESTO CAMPAGNE E STRATEGIE:
+${campaignLines}
+
+Usa questo contesto per interpretare correttamente i dati che seguono. Le metriche da valutare dipendono dalla strategia della campagna padre.`;
+
+    return { systemPrefix, userPrefix };
   }
 
   private async fetchModuleData(
