@@ -332,6 +332,9 @@ export class AuditService {
     qb.where('ag.accountId = :accountId', { accountId });
     qb.andWhere('ag.runId = :runId', { runId });
 
+    // Filtra solo ad group in campagne ENABLED
+    qb.innerJoin('campaigns', 'c', 'c.campaignId = ag.campaignId AND c.accountId = ag.accountId AND c.runId = ag.runId AND c.status = :cEnabled', { cEnabled: 'ENABLED' });
+
     if (filters.search) {
       qb.andWhere('(ag.adGroupName ILIKE :search OR ag.campaignName ILIKE :search)', {
         search: `%${filters.search}%`,
@@ -388,6 +391,10 @@ export class AuditService {
     const qb = this.adRepository.createQueryBuilder('ad');
     qb.where('ad.accountId = :accountId', { accountId });
     qb.andWhere('ad.runId = :runId', { runId });
+
+    // Filtra solo annunci in campagne ENABLED e ad group ENABLED
+    qb.innerJoin('campaigns', 'c', 'c.campaignId = ad.campaignId AND c.accountId = ad.accountId AND c.runId = ad.runId AND c.status = :cEnabled', { cEnabled: 'ENABLED' });
+    qb.innerJoin('ad_groups', 'ag', 'ag.adGroupId = ad.adGroupId AND ag.accountId = ad.accountId AND ag.runId = ad.runId AND ag.status = :agEnabled', { agEnabled: 'ENABLED' });
 
     if (filters.search) {
       qb.andWhere(
@@ -470,6 +477,10 @@ export class AuditService {
       )
     )`);
 
+    // Filtra solo keyword in campagne ENABLED e ad group ENABLED
+    qb.innerJoin('campaigns', 'c', 'c.campaignId = kw.campaignId AND c.accountId = kw.accountId AND c.runId = kw.runId AND c.status = :cEnabled', { cEnabled: 'ENABLED' });
+    qb.innerJoin('ad_groups', 'ag', 'ag.adGroupId = kw.adGroupId AND ag.accountId = kw.accountId AND ag.runId = kw.runId AND ag.status = :agEnabled', { agEnabled: 'ENABLED' });
+
     if (filters.search) {
       qb.andWhere('kw.keywordText ILIKE :search', { search: `%${filters.search}%` });
     }
@@ -544,6 +555,10 @@ export class AuditService {
     const qb = this.searchTermRepository.createQueryBuilder('st');
     qb.where('st.accountId = :accountId', { accountId });
     qb.andWhere('st.runId = :runId', { runId });
+
+    // Filtra solo search terms di campagne ENABLED e ad group ENABLED
+    qb.innerJoin('campaigns', 'c', 'c.campaignId = st.campaignId AND c.accountId = st.accountId AND c.runId = st.runId AND c.status = :cEnabled', { cEnabled: 'ENABLED' });
+    qb.innerJoin('ad_groups', 'ag', 'ag.adGroupId = st.adGroupId AND ag.accountId = st.accountId AND ag.runId = st.runId AND ag.status = :agEnabled', { agEnabled: 'ENABLED' });
 
     if (filters.search) {
       qb.andWhere('st.searchTerm ILIKE :search', { search: `%${filters.search}%` });
