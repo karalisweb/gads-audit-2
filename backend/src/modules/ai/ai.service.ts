@@ -158,6 +158,12 @@ export class AIService {
   ): Promise<{ data: any; stats: { totalRecords: number; analyzedRecords: number } }> {
     const baseWhere = { accountId, runId };
 
+    // Pre-calcola gli ID delle campagne attive (usato da molti moduli)
+    const activeCampaignIds = await this.getActiveCampaignIds(accountId, runId);
+    const activeCampaignFilter = activeCampaignIds.length > 0
+      ? { ...baseWhere, campaignId: In(activeCampaignIds) }
+      : baseWhere;
+
     switch (moduleId) {
       case 1: // Conversion Goals
       case 2: // Consent Mode
@@ -184,7 +190,7 @@ export class AIService {
       case 12: // CPA per Ad Group
       case 13: // Impression Share Ad Group
         const adGroups = await this.adGroupRepository.find({
-          where: { ...baseWhere, status: 'ENABLED' },
+          where: { ...activeCampaignFilter, status: 'ENABLED' },
         });
         return {
           data: { adGroups, aggregates: this.calculateAdGroupAggregates(adGroups) },
@@ -192,13 +198,9 @@ export class AIService {
         };
 
       case 11: // Targeting Settings
-        const activeCampaignIdsForTargeting = await this.getActiveCampaignIds(accountId, runId);
-        const targetingCampaignFilter = activeCampaignIdsForTargeting.length > 0
-          ? { ...baseWhere, campaignId: In(activeCampaignIdsForTargeting) }
-          : baseWhere;
         const [geoData, deviceData] = await Promise.all([
-          this.geoPerformanceRepository.find({ where: targetingCampaignFilter }),
-          this.devicePerformanceRepository.find({ where: targetingCampaignFilter }),
+          this.geoPerformanceRepository.find({ where: activeCampaignFilter }),
+          this.devicePerformanceRepository.find({ where: activeCampaignFilter }),
         ]);
         return {
           data: { geoData, deviceData },
@@ -220,7 +222,7 @@ export class AIService {
       case 15: // Ad Effectiveness
       case 16: // Ad Conversions
         const ads = await this.adRepository.find({
-          where: { ...baseWhere, status: 'ENABLED' },
+          where: { ...activeCampaignFilter, status: 'ENABLED' },
         });
         return {
           data: { ads, aggregates: this.calculateAdAggregates(ads) },
@@ -249,12 +251,12 @@ export class AIService {
       case 20: // Keyword Impression Share
       case 21: // Keyword-Ad-Landing Coherence
         const keywords = await this.keywordRepository.find({
-          where: { ...baseWhere, status: 'ENABLED' },
+          where: { ...activeCampaignFilter, status: 'ENABLED' },
         });
         let adsForCoherence: Ad[] = [];
         if (moduleId === 21) {
           adsForCoherence = await this.adRepository.find({
-            where: { ...baseWhere, status: 'ENABLED' },
+            where: { ...activeCampaignFilter, status: 'ENABLED' },
           });
         }
         return {
@@ -267,12 +269,8 @@ export class AIService {
         };
 
       case 22: // Search Terms Analysis
-        const activeCampaignIdsForST = await this.getActiveCampaignIds(accountId, runId);
-        const stCampaignFilter = activeCampaignIdsForST.length > 0
-          ? { ...baseWhere, campaignId: In(activeCampaignIdsForST) }
-          : baseWhere;
         const searchTerms = await this.searchTermRepository.find({
-          where: stCampaignFilter,
+          where: activeCampaignFilter,
           order: { costMicros: 'DESC' },
           take: 500, // Limit to top 500 by cost
         });
@@ -282,14 +280,10 @@ export class AIService {
         };
 
       case 23: // Negative Keywords
-        const activeCampaignIdsForNeg = await this.getActiveCampaignIds(accountId, runId);
-        const negCampaignFilter = activeCampaignIdsForNeg.length > 0
-          ? { ...baseWhere, campaignId: In(activeCampaignIdsForNeg) }
-          : baseWhere;
         const [negatives, searchTermsForNeg] = await Promise.all([
-          this.negativeKeywordRepository.find({ where: negCampaignFilter }),
+          this.negativeKeywordRepository.find({ where: activeCampaignFilter }),
           this.searchTermRepository.find({
-            where: negCampaignFilter,
+            where: activeCampaignFilter,
             order: { costMicros: 'DESC' },
             take: 200,
           }),

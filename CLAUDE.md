@@ -63,7 +63,7 @@ git pull origin main
 cd frontend && npm install && npm run build && cd ..
 cd backend && npm install && npm run build && cd ..
 cp -r frontend/dist/* /var/www/gads-audit-2/public/
-pm2 restart gads-audit-backend --update-env
+pm2 restart gads-audit --update-env
 ```
 
 ## Infrastruttura produzione
@@ -72,7 +72,7 @@ pm2 restart gads-audit-backend --update-env
 - **Path progetto**: `/var/www/gads-audit-2`
 - **URL pubblica**: https://gads.karalisdemo.it
 - **Nginx config**: `/etc/nginx/sites-available/gads-audit`
-- **PM2 processo**: `gads-audit-backend` (porta 3001)
+- **PM2 processo**: `gads-audit` (porta 3001)
 - **DB produzione**: PostgreSQL su localhost:5432, db=`gadsaudit`, user=`gadsaudit`, pass=`Karalisweb2025`
 - **DB locale**: PostgreSQL su localhost:5432, db=`google_ads_audit`, user=`audit`, pass=`dev_password`
 
