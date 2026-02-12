@@ -12,16 +12,10 @@ interface AIRecommendationsProps {
   isCreating?: boolean;
 }
 
-const priorityColors = {
-  high: 'bg-red-100 text-red-800 border-red-200',
-  medium: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-  low: 'bg-green-100 text-green-800 border-green-200',
-};
-
-const priorityLabels = {
-  high: 'Alta',
-  medium: 'Media',
-  low: 'Bassa',
+const priorityConfig = {
+  high: { badge: 'bg-red-500/10 text-red-600 border-red-200 dark:border-red-800', label: 'Alta' },
+  medium: { badge: 'bg-yellow-500/10 text-yellow-600 border-yellow-200 dark:border-yellow-800', label: 'Media' },
+  low: { badge: 'bg-green-500/10 text-green-600 border-green-200 dark:border-green-800', label: 'Bassa' },
 };
 
 const actionLabels: Record<string, string> = {
@@ -82,29 +76,20 @@ export function AIRecommendations({ analysis, onApproveSelected, onClose, isCrea
     onApproveSelected(selected);
   };
 
-  const highPriorityCount = analysis.recommendations.filter((r) => r.priority === 'high').length;
-  const mediumPriorityCount = analysis.recommendations.filter((r) => r.priority === 'medium').length;
-  const lowPriorityCount = analysis.recommendations.filter((r) => r.priority === 'low').length;
+  const highCount = analysis.recommendations.filter((r) => r.priority === 'high').length;
+  const mediumCount = analysis.recommendations.filter((r) => r.priority === 'medium').length;
+  const lowCount = analysis.recommendations.filter((r) => r.priority === 'low').length;
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-4xl max-h-[90vh] flex flex-col">
-        <CardHeader className="border-b">
+      <Card className="w-full max-w-4xl max-h-[90vh] flex flex-col bg-background">
+        {/* Header */}
+        <CardHeader className="border-b border-border pb-4">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="flex items-center gap-2">
-                <svg
-                  className="w-5 h-5 text-purple-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-                  />
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
                 Analisi AI: {analysis.moduleName}
               </CardTitle>
@@ -112,10 +97,7 @@ export function AIRecommendations({ analysis, onApproveSelected, onClose, isCrea
                 Analizzati {analysis.dataStats.analyzedRecords} record su {analysis.dataStats.totalRecords}
               </CardDescription>
             </div>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-            >
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -123,112 +105,110 @@ export function AIRecommendations({ analysis, onApproveSelected, onClose, isCrea
           </div>
         </CardHeader>
 
-        <div className="p-4 border-b bg-gradient-to-r from-purple-50 to-blue-50">
-          <h3 className="font-semibold text-gray-900 mb-2">Riepilogo AI</h3>
-          <p className="text-gray-700">{analysis.summary}</p>
-          <div className="flex gap-4 mt-3">
-            <Badge variant="outline" className={priorityColors.high}>
-              {highPriorityCount} priorita alta
+        {/* Riepilogo */}
+        <div className="px-5 py-4 border-b border-border">
+          <h3 className="font-semibold text-foreground text-sm mb-2">Riepilogo AI</h3>
+          <p className="text-sm text-muted-foreground leading-relaxed">{analysis.summary}</p>
+          <div className="flex gap-3 mt-3">
+            <Badge variant="outline" className={priorityConfig.high.badge}>
+              {highCount} priorita alta
             </Badge>
-            <Badge variant="outline" className={priorityColors.medium}>
-              {mediumPriorityCount} priorita media
+            <Badge variant="outline" className={priorityConfig.medium.badge}>
+              {mediumCount} priorita media
             </Badge>
-            <Badge variant="outline" className={priorityColors.low}>
-              {lowPriorityCount} priorita bassa
+            <Badge variant="outline" className={priorityConfig.low.badge}>
+              {lowCount} priorita bassa
             </Badge>
           </div>
         </div>
 
+        {/* Lista raccomandazioni */}
         <CardContent className="flex-1 overflow-y-auto p-0">
           {analysis.recommendations.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              <svg
-                className="w-12 h-12 mx-auto mb-4 text-green-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
+            <div className="p-8 text-center text-muted-foreground">
+              <svg className="w-12 h-12 mx-auto mb-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <p className="text-lg font-medium">Nessuna raccomandazione</p>
               <p className="text-sm">L'account sembra essere ben ottimizzato per questo modulo.</p>
             </div>
           ) : (
-            <div className="divide-y">
-              <div className="p-3 bg-gray-50 flex items-center gap-3 sticky top-0 z-10">
+            <div>
+              {/* Select all */}
+              <div className="px-5 py-2.5 border-b border-border flex items-center gap-3 sticky top-0 z-10 bg-background">
                 <Checkbox
                   checked={selectedIds.size === analysis.recommendations.length}
                   onCheckedChange={toggleAll}
                 />
-                <span className="text-sm font-medium text-gray-600">
+                <span className="text-sm text-muted-foreground">
                   {selectedIds.size > 0
                     ? `${selectedIds.size} selezionate`
                     : 'Seleziona tutte'}
                 </span>
               </div>
 
+              {/* Cards */}
               {analysis.recommendations.map((rec) => (
                 <div
                   key={rec.id}
-                  className={`p-4 hover:bg-gray-50 transition-colors ${
-                    selectedIds.has(rec.id) ? 'bg-purple-50' : ''
+                  className={`px-5 py-4 border-b border-border/50 transition-colors cursor-pointer ${
+                    selectedIds.has(rec.id)
+                      ? 'bg-purple-500/5'
+                      : 'bg-background hover:bg-muted/40'
                   }`}
+                  onClick={() => toggleSelection(rec.id)}
                 >
                   <div className="flex items-start gap-3">
                     <Checkbox
                       checked={selectedIds.has(rec.id)}
                       onCheckedChange={() => toggleSelection(rec.id)}
-                      className="mt-1"
+                      className="mt-0.5"
                     />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge
-                          variant="outline"
-                          className={priorityColors[rec.priority]}
-                        >
-                          {priorityLabels[rec.priority]}
+                    <div className="flex-1 min-w-0 space-y-2">
+                      {/* Badge row */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="outline" className={priorityConfig[rec.priority].badge}>
+                          {priorityConfig[rec.priority].label}
                         </Badge>
-                        <Badge variant="secondary" className="text-xs">
+                        <Badge variant="secondary" className="text-xs font-normal">
                           {actionLabels[rec.action] || rec.action}
                         </Badge>
-                        <span className="text-xs text-gray-500">
-                          {rec.entityType}
-                        </span>
+                        <span className="text-xs text-muted-foreground">{rec.entityType}</span>
                       </div>
 
-                      <h4 className="font-medium text-gray-900 mb-1">
+                      {/* Entity name */}
+                      <h4 className="font-medium text-foreground text-sm">
                         {rec.entityName}
                       </h4>
 
-                      <p className="text-sm text-gray-600 mb-2">
+                      {/* Rationale */}
+                      <p className="text-sm text-muted-foreground leading-relaxed">
                         {rec.rationale}
                       </p>
 
-                      <div className="flex flex-wrap gap-4 text-xs">
-                        {rec.currentValue && (
-                          <div>
-                            <span className="text-gray-500">Attuale: </span>
-                            <span className="font-medium text-red-600">{rec.currentValue}</span>
-                          </div>
-                        )}
-                        {rec.suggestedValue && (
-                          <div>
-                            <span className="text-gray-500">Suggerito: </span>
-                            <span className="font-medium text-green-600">{rec.suggestedValue}</span>
-                          </div>
-                        )}
-                        {rec.expectedImpact && (
-                          <div>
-                            <span className="text-gray-500">Impatto: </span>
-                            <span className="font-medium text-blue-600">{rec.expectedImpact}</span>
-                          </div>
-                        )}
-                      </div>
+                      {/* Values */}
+                      {(rec.currentValue || rec.suggestedValue || rec.expectedImpact) && (
+                        <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs pt-1">
+                          {rec.currentValue && (
+                            <p>
+                              <span className="text-muted-foreground">Attuale: </span>
+                              <span className="text-red-500 font-medium">{rec.currentValue}</span>
+                            </p>
+                          )}
+                          {rec.suggestedValue && (
+                            <p>
+                              <span className="text-muted-foreground">Suggerito: </span>
+                              <span className="text-green-500 font-medium">{rec.suggestedValue}</span>
+                            </p>
+                          )}
+                          {rec.expectedImpact && (
+                            <p>
+                              <span className="text-muted-foreground">Impatto: </span>
+                              <span className="text-blue-500 font-medium">{rec.expectedImpact}</span>
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -237,16 +217,17 @@ export function AIRecommendations({ analysis, onApproveSelected, onClose, isCrea
           )}
         </CardContent>
 
-        <div className="border-t p-4 bg-gray-50 flex items-center justify-between">
-          <p className="text-sm text-gray-500">
-            Analisi completata il{' '}
-            {new Date(analysis.analyzedAt).toLocaleString('it-IT')}
+        {/* Footer */}
+        <div className="border-t border-border px-5 py-3 flex items-center justify-between bg-background">
+          <p className="text-xs text-muted-foreground">
+            Analisi del {new Date(analysis.analyzedAt).toLocaleString('it-IT')}
           </p>
           <div className="flex gap-3">
-            <Button variant="outline" onClick={onClose}>
+            <Button variant="outline" size="sm" onClick={onClose}>
               Chiudi
             </Button>
             <Button
+              size="sm"
               onClick={handleApprove}
               disabled={selectedIds.size === 0 || isCreating}
               className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
@@ -257,7 +238,7 @@ export function AIRecommendations({ analysis, onApproveSelected, onClose, isCrea
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  Creazione modifiche...
+                  Creazione...
                 </span>
               ) : (
                 `Crea modifiche (${selectedIds.size})`
