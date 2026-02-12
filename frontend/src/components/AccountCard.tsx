@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Building2, Key, Trash2, Calendar, Wrench, DollarSign, Target, Megaphone } from 'lucide-react';
+import { Building2, Key, Trash2, Calendar, Wrench, DollarSign, Target, Megaphone, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
 import { formatCurrency, formatNumber } from '@/lib/format';
 import type { AccountWithStats } from '@/api/audit';
 
@@ -12,8 +12,38 @@ interface AccountCardProps {
   showActions?: boolean;
 }
 
+function TrendBadge({ value, inverted = false }: { value: number; inverted?: boolean }) {
+  if (value === 0) return null;
+  // inverted = true means lower is better (cost, CPA)
+  const isPositive = inverted ? value < 0 : value > 0;
+  const color = isPositive ? 'text-green-600' : 'text-red-600';
+  const Icon = value > 0 ? TrendingUp : TrendingDown;
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium ${color}`}>
+      <Icon className="h-3 w-3" />
+      {Math.abs(value).toFixed(0)}%
+    </span>
+  );
+}
+
+function HealthScoreBadge({ score }: { score: number }) {
+  let color = 'bg-red-500';
+  if (score >= 75) color = 'bg-green-500';
+  else if (score >= 50) color = 'bg-yellow-500';
+  else if (score >= 25) color = 'bg-orange-500';
+
+  return (
+    <div className="flex items-center gap-1.5" title={`Health Score: ${score}/100`}>
+      <div className={`w-8 h-8 rounded-full ${color} flex items-center justify-center`}>
+        <span className="text-xs font-bold text-white">{score}</span>
+      </div>
+    </div>
+  );
+}
+
 export function AccountCard({ account, onRevealSecret, onDelete, showActions = true }: AccountCardProps) {
   const stats = account.stats;
+  const trends = account.trends;
 
   const handleRevealClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -30,7 +60,7 @@ export function AccountCard({ account, onRevealSecret, onDelete, showActions = t
   return (
     <Card className="bg-card border-border hover:border-primary/30 transition-colors">
       <CardContent className="p-4">
-        {/* Header: Nome e ID */}
+        {/* Header: Nome, ID e Health Score */}
         <div className="flex items-start justify-between mb-3">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 mb-1">
@@ -42,6 +72,17 @@ export function AccountCard({ account, onRevealSecret, onDelete, showActions = t
             <p className="text-xs text-muted-foreground">
               ID: {account.customerId}
             </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {stats && stats.urgentIssues > 0 && (
+              <div className="flex items-center gap-1 text-red-500" title={`${stats.urgentIssues} problemi urgenti`}>
+                <AlertTriangle className="h-4 w-4" />
+                <span className="text-xs font-medium">{stats.urgentIssues}</span>
+              </div>
+            )}
+            {account.healthScore !== null && (
+              <HealthScoreBadge score={account.healthScore} />
+            )}
           </div>
         </div>
 
@@ -65,33 +106,61 @@ export function AccountCard({ account, onRevealSecret, onDelete, showActions = t
           </div>
         </div>
 
-        {/* Stats: Costo, Conversioni, Campagne */}
-        <div className="grid grid-cols-3 gap-2 mb-3">
+        {/* Stats Grid: Costo, Conv, CPA, CTR, Camp */}
+        <div className="grid grid-cols-3 gap-2 mb-2">
           <div className="bg-muted/50 rounded-lg p-2">
-            <div className="flex items-center gap-1 text-muted-foreground mb-0.5">
-              <DollarSign className="h-3 w-3" />
-              <span className="text-[10px]">Costo</span>
+            <div className="flex items-center justify-between mb-0.5">
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <DollarSign className="h-3 w-3" />
+                <span className="text-[10px]">Costo</span>
+              </div>
+              {trends && <TrendBadge value={trends.cost} inverted />}
             </div>
             <p className="text-sm font-semibold text-foreground">
               {stats ? formatCurrency(stats.cost * 1000000) : '-'}
             </p>
           </div>
           <div className="bg-muted/50 rounded-lg p-2">
-            <div className="flex items-center gap-1 text-muted-foreground mb-0.5">
-              <Target className="h-3 w-3" />
-              <span className="text-[10px]">Conv.</span>
+            <div className="flex items-center justify-between mb-0.5">
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <Target className="h-3 w-3" />
+                <span className="text-[10px]">Conv.</span>
+              </div>
+              {trends && <TrendBadge value={trends.conversions} />}
             </div>
             <p className="text-sm font-semibold text-foreground">
               {stats ? formatNumber(stats.conversions) : '-'}
             </p>
           </div>
           <div className="bg-muted/50 rounded-lg p-2">
-            <div className="flex items-center gap-1 text-muted-foreground mb-0.5">
-              <Megaphone className="h-3 w-3" />
-              <span className="text-[10px]">Camp.</span>
+            <div className="flex items-center justify-between mb-0.5">
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <Megaphone className="h-3 w-3" />
+                <span className="text-[10px]">Camp.</span>
+              </div>
             </div>
             <p className="text-sm font-semibold text-foreground">
-              {stats?.totalCampaigns || 0}
+              {stats?.activeCampaigns || 0}
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          <div className="bg-muted/50 rounded-lg p-2">
+            <div className="flex items-center justify-between mb-0.5">
+              <span className="text-[10px] text-muted-foreground">CPA</span>
+              {trends && <TrendBadge value={trends.cpa} inverted />}
+            </div>
+            <p className="text-sm font-semibold text-foreground">
+              {stats && stats.cpa > 0 ? `€${stats.cpa.toFixed(2)}` : '-'}
+            </p>
+          </div>
+          <div className="bg-muted/50 rounded-lg p-2">
+            <div className="flex items-center justify-between mb-0.5">
+              <span className="text-[10px] text-muted-foreground">CTR</span>
+              {trends && <TrendBadge value={trends.ctr} />}
+            </div>
+            <p className="text-sm font-semibold text-foreground">
+              {stats && stats.ctr > 0 ? `${stats.ctr.toFixed(2)}%` : '-'}
             </p>
           </div>
         </div>

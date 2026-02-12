@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, LessThan } from 'typeorm';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import {
@@ -23,6 +23,7 @@ import {
   DevicePerformance,
   AuditIssue,
   User,
+  ImportStatus,
 } from '../../entities';
 import {
   PaginatedResponse,
@@ -91,31 +92,56 @@ export class AuditService {
           return {
             ...account,
             stats: null,
+            healthScore: null,
+            trends: null,
             lastImportDate: null,
           };
         }
 
-        // Get KPIs for this account
-        const kpis = await this.getKpis(account.id, latestRun.runId);
+        // Get KPIs, health score, and previous run in parallel
+        const [kpis, healthScoreResult, previousRun] = await Promise.all([
+          this.getKpis(account.id, latestRun.runId),
+          this.calculateHealthScore(account.id, latestRun.runId),
+          this.getPreviousRun(account.id, latestRun.completedAt),
+        ]);
 
-        // Get issue count - use latestRun.id (UUID) not latestRun.runId (string)
-        const openIssueCount = await this.issueRepository.count({
-          where: {
-            accountId: account.id,
-            runId: latestRun.id,
-            status: 'open' as any,
-            severity: 'critical' as any,
-          },
-        });
+        // Get issue count
+        const [openIssueCount, highIssueCount] = await Promise.all([
+          this.issueRepository.count({
+            where: {
+              accountId: account.id,
+              runId: latestRun.id,
+              status: 'open' as any,
+              severity: 'critical' as any,
+            },
+          }),
+          this.issueRepository.count({
+            where: {
+              accountId: account.id,
+              runId: latestRun.id,
+              status: 'open' as any,
+              severity: 'high' as any,
+            },
+          }),
+        ]);
 
-        const highIssueCount = await this.issueRepository.count({
-          where: {
-            accountId: account.id,
-            runId: latestRun.id,
-            status: 'open' as any,
-            severity: 'high' as any,
-          },
-        });
+        // Calculate trend vs previous run
+        let trends: any = null;
+        if (previousRun) {
+          const prevKpis = await this.getKpis(account.id, previousRun.runId);
+          if (prevKpis) {
+            const calcDelta = (curr: number, prev: number) =>
+              prev > 0 ? ((curr - prev) / prev) * 100 : curr > 0 ? 100 : 0;
+
+            trends = {
+              cost: calcDelta(kpis?.performance?.cost || 0, prevKpis?.performance?.cost || 0),
+              conversions: calcDelta(kpis?.performance?.conversions || 0, prevKpis?.performance?.conversions || 0),
+              cpa: calcDelta(kpis?.performance?.cpa || 0, prevKpis?.performance?.cpa || 0),
+              ctr: calcDelta(kpis?.performance?.ctr || 0, prevKpis?.performance?.ctr || 0),
+              impressions: calcDelta(kpis?.performance?.impressions || 0, prevKpis?.performance?.impressions || 0),
+            };
+          }
+        }
 
         return {
           ...account,
@@ -131,12 +157,32 @@ export class AuditService {
             totalCampaigns: kpis?.overview?.totalCampaigns || 0,
             activeCampaigns: kpis?.overview?.activeCampaigns || 0,
           },
+          healthScore: healthScoreResult?.score ?? null,
+          trends,
           lastImportDate: latestRun.completedAt,
         };
       }),
     );
 
-    return accountsWithStats;
+    // Ordina per health score crescente (peggiori prima)
+    return accountsWithStats.sort((a, b) => {
+      if (a.healthScore === null) return 1;
+      if (b.healthScore === null) return -1;
+      return a.healthScore - b.healthScore;
+    });
+  }
+
+  // Trova il run precedente a quello corrente
+  private async getPreviousRun(accountId: string, beforeDate: Date): Promise<ImportRun | null> {
+    if (!beforeDate) return null;
+    return this.importRunRepository.findOne({
+      where: {
+        accountId,
+        status: ImportStatus.COMPLETED,
+        completedAt: LessThan(beforeDate),
+      },
+      order: { completedAt: 'DESC' },
+    });
   }
 
   async createAccount(dto: CreateAccountDto): Promise<GoogleAdsAccount> {

@@ -55,8 +55,18 @@ export interface AccountStats {
   activeCampaigns: number;
 }
 
+export interface AccountTrends {
+  cost: number;
+  conversions: number;
+  cpa: number;
+  ctr: number;
+  impressions: number;
+}
+
 export interface AccountWithStats extends GoogleAdsAccount {
   stats: AccountStats | null;
+  healthScore: number | null;
+  trends: AccountTrends | null;
   lastImportDate: string | null;
   lastModificationDate: string | null;
 }
