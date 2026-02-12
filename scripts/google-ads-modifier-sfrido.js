@@ -156,9 +156,10 @@ function applyCampaignStatus(entityId, afterValue) {
   }
 
   var campaign = campaignIterator.next();
+  var campaignName = campaign.getName();
 
   if (CONFIG.DRY_RUN) {
-    Logger.log('[DRY RUN] Stato campagna ' + campaign.getName() + ' -> ' + afterValue.status);
+    Logger.log('[DRY RUN] Stato campagna ' + campaignName + ' -> ' + afterValue.status);
     return { dryRun: true };
   }
 
@@ -166,6 +167,34 @@ function applyCampaignStatus(entityId, afterValue) {
     campaign.enable();
   } else if (afterValue.status === 'PAUSED') {
     campaign.pause();
+
+    // Cascade: metti in pausa tutti gli ad group, annunci e keyword della campagna
+    var pausedAdGroups = 0;
+    var pausedAds = 0;
+    var pausedKeywords = 0;
+
+    var adGroupIterator = campaign.adGroups().withCondition('ad_group.status = "ENABLED"').get();
+    while (adGroupIterator.hasNext()) {
+      var adGroup = adGroupIterator.next();
+
+      var kwIterator = adGroup.keywords().withCondition('ad_group_criterion.status = "ENABLED"').get();
+      while (kwIterator.hasNext()) {
+        kwIterator.next().pause();
+        pausedKeywords++;
+      }
+
+      var adIterator = adGroup.ads().withCondition('ad_group_ad.status = "ENABLED"').get();
+      while (adIterator.hasNext()) {
+        adIterator.next().pause();
+        pausedAds++;
+      }
+
+      adGroup.pause();
+      pausedAdGroups++;
+    }
+
+    Logger.log('Cascade pause per campagna "' + campaignName + '": ' +
+      pausedAdGroups + ' ad group, ' + pausedAds + ' annunci, ' + pausedKeywords + ' keyword messi in pausa');
   }
 
   return { newStatus: afterValue.status };
