@@ -82,6 +82,14 @@ export class AuditController {
     return this.auditService.getKpis(accountId, runId);
   }
 
+  @Get('accounts/:accountId/health-score')
+  async getHealthScore(
+    @Param('accountId', ParseUUIDPipe) accountId: string,
+    @Query('runId') runId?: string,
+  ) {
+    return this.auditService.calculateHealthScore(accountId, runId);
+  }
+
   // =========================================================================
   // CAMPAIGNS
   // =========================================================================

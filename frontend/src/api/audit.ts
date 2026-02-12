@@ -84,6 +84,30 @@ export async function getKpis(accountId: string, runId?: string): Promise<KpiDat
   return apiClient.get<KpiData | null>(`/audit/accounts/${accountId}/kpis`, params);
 }
 
+// Health Score
+export interface HealthScoreBreakdownItem {
+  score: number;
+  max: number;
+  detail: string;
+}
+
+export interface HealthScoreResult {
+  score: number;
+  breakdown: {
+    qualityScore: HealthScoreBreakdownItem;
+    wastedSpend: HealthScoreBreakdownItem;
+    negativeCoverage: HealthScoreBreakdownItem;
+    impressionShare: HealthScoreBreakdownItem;
+    accountStructure: HealthScoreBreakdownItem;
+    issueSeverity: HealthScoreBreakdownItem;
+  };
+}
+
+export async function getHealthScore(accountId: string, runId?: string): Promise<HealthScoreResult> {
+  const params = runId ? { runId } : undefined;
+  return apiClient.get<HealthScoreResult>(`/audit/accounts/${accountId}/health-score`, params);
+}
+
 // Campaigns
 export async function getCampaigns(
   accountId: string,

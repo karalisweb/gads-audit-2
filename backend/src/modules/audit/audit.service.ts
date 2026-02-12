@@ -835,6 +835,176 @@ export class AuditService {
     };
   }
 
+  // =========================================================================
+  // HEALTH SCORE
+  // =========================================================================
+
+  async calculateHealthScore(accountId: string, runId?: string): Promise<{
+    score: number;
+    breakdown: {
+      qualityScore: { score: number; max: number; detail: string };
+      wastedSpend: { score: number; max: number; detail: string };
+      negativeCoverage: { score: number; max: number; detail: string };
+      impressionShare: { score: number; max: number; detail: string };
+      accountStructure: { score: number; max: number; detail: string };
+      issueSeverity: { score: number; max: number; detail: string };
+    };
+  }> {
+    const targetRunId = runId || (await this.getLatestRunId(accountId));
+    if (!targetRunId) {
+      return {
+        score: 0,
+        breakdown: {
+          qualityScore: { score: 0, max: 20, detail: 'Nessun dato' },
+          wastedSpend: { score: 0, max: 20, detail: 'Nessun dato' },
+          negativeCoverage: { score: 0, max: 15, detail: 'Nessun dato' },
+          impressionShare: { score: 0, max: 15, detail: 'Nessun dato' },
+          accountStructure: { score: 0, max: 15, detail: 'Nessun dato' },
+          issueSeverity: { score: 0, max: 15, detail: 'Nessun dato' },
+        },
+      };
+    }
+
+    // 1. Quality Score (max 20 punti) - media QS keyword attive
+    const qsResult = await this.keywordRepository
+      .createQueryBuilder('kw')
+      .innerJoin('campaigns', 'c', 'c.campaignId = kw.campaignId AND c.accountId = kw.accountId AND c.runId = kw.runId AND c.status = :en', { en: 'ENABLED' })
+      .innerJoin('ad_groups', 'ag', 'ag.adGroupId = kw.adGroupId AND ag.accountId = kw.accountId AND ag.runId = kw.runId AND ag.status = :en2', { en2: 'ENABLED' })
+      .select('AVG(kw.qualityScore)', 'avgQs')
+      .addSelect('COUNT(*)::int', 'count')
+      .where('kw.accountId = :accountId', { accountId })
+      .andWhere('kw.runId = :runId', { runId: targetRunId })
+      .andWhere('kw.status = :kwEn', { kwEn: 'ENABLED' })
+      .andWhere('kw.qualityScore IS NOT NULL')
+      .andWhere('kw.qualityScore > 0')
+      .getRawOne();
+
+    const avgQs = parseFloat(qsResult?.avgQs) || 0;
+    const qsScore = Math.round(Math.min((avgQs / 10) * 20, 20));
+    const qsDetail = qsResult?.count > 0 ? `QS medio: ${avgQs.toFixed(1)}/10 su ${qsResult.count} keyword` : 'Nessuna keyword con QS';
+
+    // 2. Spreco budget (max 20 punti) - % costo search terms senza conversioni
+    const wasteResult = await this.searchTermRepository
+      .createQueryBuilder('st')
+      .innerJoin('campaigns', 'c', 'c.campaignId = st.campaignId AND c.accountId = st.accountId AND c.runId = st.runId AND c.status = :en3', { en3: 'ENABLED' })
+      .innerJoin('ad_groups', 'ag', 'ag.adGroupId = st.adGroupId AND ag.accountId = st.accountId AND ag.runId = st.runId AND ag.status = :en4', { en4: 'ENABLED' })
+      .select('SUM(CAST(st.costMicros AS BIGINT))', 'totalCost')
+      .addSelect('SUM(CASE WHEN CAST(st.conversions AS DECIMAL) = 0 THEN CAST(st.costMicros AS BIGINT) ELSE 0 END)', 'wastedCost')
+      .where('st.accountId = :accountId', { accountId })
+      .andWhere('st.runId = :runId', { runId: targetRunId })
+      .getRawOne();
+
+    const totalStCost = parseInt(wasteResult?.totalCost) || 0;
+    const wastedCost = parseInt(wasteResult?.wastedCost) || 0;
+    const wastePercent = totalStCost > 0 ? (wastedCost / totalStCost) * 100 : 0;
+    // 0% spreco = 20pt, 100% spreco = 0pt
+    const wasteScore = Math.round(Math.max(0, 20 - (wastePercent / 100 * 20)));
+    const wasteDetail = totalStCost > 0 ? `${wastePercent.toFixed(0)}% del budget search terms senza conversioni (€${(wastedCost / 1_000_000).toFixed(0)})` : 'Nessun dato search terms';
+
+    // 3. Copertura negative keywords (max 15 punti)
+    const [negCount, stCount] = await Promise.all([
+      this.negativeKeywordRepository
+        .createQueryBuilder('nk')
+        .innerJoin('campaigns', 'c', 'c.campaignId = nk.campaignId AND c.accountId = nk.accountId AND c.runId = nk.runId AND c.status = :en5', { en5: 'ENABLED' })
+        .where('nk.accountId = :accountId', { accountId })
+        .andWhere('nk.runId = :runId', { runId: targetRunId })
+        .getCount(),
+      this.searchTermRepository
+        .createQueryBuilder('st2')
+        .innerJoin('campaigns', 'c2', 'c2.campaignId = st2.campaignId AND c2.accountId = st2.accountId AND c2.runId = st2.runId AND c2.status = :en6', { en6: 'ENABLED' })
+        .where('st2.accountId = :accountId', { accountId })
+        .andWhere('st2.runId = :runId', { runId: targetRunId })
+        .getCount(),
+    ]);
+
+    // Rapporto ideale negative/search_terms >= 0.3 = 15pt
+    const negRatio = stCount > 0 ? negCount / stCount : 0;
+    const negScore = Math.round(Math.min((negRatio / 0.3) * 15, 15));
+    const negDetail = `${negCount} negative su ${stCount} search terms (rapporto: ${negRatio.toFixed(2)})`;
+
+    // 4. Impression Share (max 15 punti)
+    const isResult = await this.campaignRepository
+      .createQueryBuilder('c')
+      .select('AVG(c.searchImpressionShare)', 'avgIs')
+      .where('c.accountId = :accountId', { accountId })
+      .andWhere('c.runId = :runId', { runId: targetRunId })
+      .andWhere('c.status = :enabled', { enabled: 'ENABLED' })
+      .andWhere('c.searchImpressionShare IS NOT NULL')
+      .andWhere('c.searchImpressionShare > 0')
+      .getRawOne();
+
+    const avgIs = parseFloat(isResult?.avgIs) || 0;
+    // IS 100% = 15pt, IS 0% = 0pt
+    const isScore = Math.round(Math.min(avgIs * 15, 15));
+    const isDetail = avgIs > 0 ? `Impression Share medio: ${(avgIs * 100).toFixed(0)}%` : 'Nessun dato impression share';
+
+    // 5. Struttura account (max 15 punti)
+    const structResult = await this.campaignRepository
+      .createQueryBuilder('c')
+      .select('COUNT(DISTINCT c.campaignId)::int', 'campaigns')
+      .where('c.accountId = :accountId', { accountId })
+      .andWhere('c.runId = :runId', { runId: targetRunId })
+      .andWhere('c.status = :enabled', { enabled: 'ENABLED' })
+      .getRawOne();
+
+    const agResult = await this.adGroupRepository
+      .createQueryBuilder('ag')
+      .innerJoin('campaigns', 'c', 'c.campaignId = ag.campaignId AND c.accountId = ag.accountId AND c.runId = ag.runId AND c.status = :en7', { en7: 'ENABLED' })
+      .select('COUNT(*)::int', 'adGroups')
+      .where('ag.accountId = :accountId', { accountId })
+      .andWhere('ag.runId = :runId', { runId: targetRunId })
+      .andWhere('ag.status = :enabled', { enabled: 'ENABLED' })
+      .getRawOne();
+
+    const activeCampaigns = parseInt(structResult?.campaigns) || 0;
+    const activeAdGroups = parseInt(agResult?.adGroups) || 0;
+    const adGroupsPerCampaign = activeCampaigns > 0 ? activeAdGroups / activeCampaigns : 0;
+
+    // Ideale: 3-10 ad groups per campagna = 15pt
+    let structScore = 0;
+    if (adGroupsPerCampaign >= 3 && adGroupsPerCampaign <= 10) {
+      structScore = 15;
+    } else if (adGroupsPerCampaign >= 2 && adGroupsPerCampaign <= 15) {
+      structScore = 10;
+    } else if (adGroupsPerCampaign >= 1) {
+      structScore = 5;
+    }
+    const structDetail = `${activeAdGroups} ad group su ${activeCampaigns} campagne (media: ${adGroupsPerCampaign.toFixed(1)}/campagna)`;
+
+    // 6. Issue severity (max 15 punti)
+    const latestRun = await this.getLatestRun(accountId);
+    let criticalCount = 0;
+    let highCount = 0;
+    if (latestRun) {
+      [criticalCount, highCount] = await Promise.all([
+        this.issueRepository.count({
+          where: { accountId, runId: latestRun.id, status: 'open' as any, severity: 'critical' as any },
+        }),
+        this.issueRepository.count({
+          where: { accountId, runId: latestRun.id, status: 'open' as any, severity: 'high' as any },
+        }),
+      ]);
+    }
+    // 0 critical + 0 high = 15pt, ogni critical -5pt, ogni high -2pt
+    const issuePenalty = Math.min(15, criticalCount * 5 + highCount * 2);
+    const issueScore = Math.max(0, 15 - issuePenalty);
+    const issueDetail = `${criticalCount} critici, ${highCount} alti (penalità: -${issuePenalty}pt)`;
+
+    const totalScore = qsScore + wasteScore + negScore + isScore + structScore + issueScore;
+
+    return {
+      score: totalScore,
+      breakdown: {
+        qualityScore: { score: qsScore, max: 20, detail: qsDetail },
+        wastedSpend: { score: wasteScore, max: 20, detail: wasteDetail },
+        negativeCoverage: { score: negScore, max: 15, detail: negDetail },
+        impressionShare: { score: isScore, max: 15, detail: isDetail },
+        accountStructure: { score: structScore, max: 15, detail: structDetail },
+        issueSeverity: { score: issueScore, max: 15, detail: issueDetail },
+      },
+    };
+  }
+
   async getConversionActions(
     accountId: string,
     filters: {
