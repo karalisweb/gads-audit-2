@@ -302,13 +302,24 @@ export class AIService {
         };
 
       case 22: // Search Terms Analysis
-        const searchTerms = await this.searchTermRepository.find({
-          where: activeAdGroupFilter,
-          order: { costMicros: 'DESC' },
-          take: 500, // Limit to top 500 by cost
-        });
+        const [searchTerms, activeKeywordsForST, negativesForST] = await Promise.all([
+          this.searchTermRepository.find({
+            where: activeAdGroupFilter,
+            order: { costMicros: 'DESC' },
+            take: 500,
+          }),
+          this.keywordRepository.find({
+            where: { ...activeAdGroupFilter, status: 'ENABLED' },
+          }),
+          this.negativeKeywordRepository.find({ where: activeCampaignFilter }),
+        ]);
         return {
-          data: { searchTerms, aggregates: this.calculateSearchTermAggregates(searchTerms) },
+          data: {
+            searchTerms,
+            activeKeywords: activeKeywordsForST,
+            negativeKeywords: negativesForST,
+            aggregates: this.calculateSearchTermAggregates(searchTerms),
+          },
           stats: { totalRecords: searchTerms.length, analyzedRecords: Math.min(searchTerms.length, 500) },
         };
 
@@ -444,6 +455,22 @@ export class AIService {
     }
     if (data.searchTerms) {
       prompt = prompt.replace('{{searchTermsData}}', JSON.stringify(this.prepareSearchTermsForPrompt(data.searchTerms), null, 2));
+    }
+    // Keyword attive per anti-cannibalizzazione (modulo 22)
+    if (data.activeKeywords) {
+      const kwSummary = this.prepareActiveKeywordsForContext(data.activeKeywords);
+      prompt = prompt.replace('{{activeKeywords}}', JSON.stringify(kwSummary, null, 2));
+    }
+    // Negative keywords esistenti per contesto (modulo 22)
+    if (data.negativeKeywords) {
+      const negSummary = data.negativeKeywords.slice(0, 150).map((nk: NegativeKeyword) => ({
+        text: nk.keywordText,
+        matchType: nk.matchType,
+        level: nk.adGroupId ? 'ad_group' : nk.campaignId ? 'campaign' : 'account',
+        campaignId: nk.campaignId,
+        adGroupId: nk.adGroupId,
+      }));
+      prompt = prompt.replace('{{negativeKeywords}}', JSON.stringify(negSummary, null, 2));
     }
 
     return prompt;
@@ -588,6 +615,29 @@ export class AIService {
       impressions: st.impressions,
       ctr: st.ctr,
     }));
+  }
+
+  // Prepara le keyword attive raggruppate per ad group (per contesto anti-cannibalizzazione)
+  private prepareActiveKeywordsForContext(keywords: Keyword[]): any[] {
+    // Raggruppa per ad group per dare contesto strutturale
+    const byAdGroup: Record<string, { adGroupName: string; adGroupId: string; campaignName: string; campaignId: string; keywords: { text: string; matchType: string }[] }> = {};
+    for (const kw of keywords) {
+      const key = kw.adGroupId;
+      if (!byAdGroup[key]) {
+        byAdGroup[key] = {
+          adGroupName: kw.adGroupName,
+          adGroupId: kw.adGroupId,
+          campaignName: kw.campaignName,
+          campaignId: kw.campaignId,
+          keywords: [],
+        };
+      }
+      byAdGroup[key].keywords.push({
+        text: kw.keywordText,
+        matchType: kw.matchType,
+      });
+    }
+    return Object.values(byAdGroup);
   }
 
   private async callOpenAI(

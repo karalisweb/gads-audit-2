@@ -828,37 +828,55 @@ Genera raccomandazioni in formato JSON:
 
 OBIETTIVO PRINCIPALE: Massimizzare l'impatto con il MINIMO numero di azioni. Ogni raccomandazione deve coprire il maggior numero possibile di search terms.
 
-STRATEGIA DI RAGGRUPPAMENTO NEGATIVE KEYWORDS:
+=== STRATEGIA NEGATIVE KEYWORDS (raggruppamento) ===
 - PRIMA analizza TUTTI i search terms irrilevanti e raggruppali per PATTERN COMUNE (parola o radice condivisa)
 - Poi suggerisci UNA SOLA keyword negativa in PHRASE o BROAD che copra l'intero gruppo
-- Esempio: se trovi "noleggio escavatore usato", "escavatore usato prezzo", "vendita escavatore usato" -> suggerisci la negativa "usato" in PHRASE che copre tutti e 3
-- Esempio: se trovi "taxi roma centro", "taxi roma fiumicino", "taxi roma termini" e il business e a Cagliari -> suggerisci la negativa "roma" in PHRASE
-- SEMPRE indicare nella rationale QUANTI search terms verranno eliminati e QUALI sono
+- Esempio: "noleggio escavatore usato", "escavatore usato prezzo", "vendita escavatore usato" -> negativa "usato" in PHRASE copre tutti e 3
+- Esempio: "taxi roma centro", "taxi roma fiumicino", "taxi roma termini" con business a Cagliari -> negativa "roma" in PHRASE
+- SEMPRE indicare nella rationale QUANTI e QUALI search terms vengono eliminati
 - Preferisci negative a livello CAMPAGNA o ACCOUNT per massimizzare la copertura
+- ATTENZIONE: Prima di suggerire una negativa, VERIFICA che non blocchi keyword attive! Controlla la lista KEYWORD ATTIVE.
 
-REGOLE DI PRIORITA:
-1. HIGH: Negativa che elimina 5+ search terms irrilevanti, o search term con spesa alta senza conversioni
-2. MEDIUM: Negativa che elimina 2-4 search terms, o search term con CTR basso
-3. LOW: Singolo search term da promuovere o escludere
+=== STRATEGIA KEYWORD POSITIVE (promozione search terms) ===
+REGOLE ANTI-CANNIBALIZZAZIONE:
+- Prima di promuovere un search term a keyword, CONTROLLA le KEYWORD ATTIVE fornite
+- Se la keyword (o una simile) ESISTE GIA in un ad group, NON suggerirla di nuovo
+- Se una keyword simile esiste in match type BROAD o PHRASE, il search term e gia coperto -> non serve aggiungerla
+- Esempio: se esiste "noleggio auto" in PHRASE nell'ad group A, NON aggiungere "noleggio auto cagliari" in EXACT nello stesso gruppo
 
-REGOLE DI ANALISI:
-- Search term con conversioni e buon CPA: promuovere a keyword exact
-- Search term con spesa > 20 EUR e 0 conversioni: aggiungere come negativa (o meglio ancora trovare il pattern comune)
-- Termini irrilevanti: cercare PRIMA la parola comune per eliminarne molti con una sola azione
-- Search term con CTR molto alto e rilevante: potenziale keyword
+SCELTA DELL'AD GROUP CORRETTO:
+- Analizza la STRUTTURA degli ad group (nomi e keyword contenute) per capire la tematica di ciascuno
+- Assegna la nuova keyword all'ad group PIU PERTINENTE tematicamente
+- Se il search term proviene da un ad group specifico (campo "adGroup" nei dati), privilegia quello SOLO se e coerente
+- Se nessun ad group e adatto, suggerisci di creare la keyword nel gruppo da cui proviene il search term
 
-PATTERN COMUNI DA CERCARE:
-- Termini brand competitor (es. nome competitor): una negativa copre molti search terms
-- Termini informativi ("come", "cosa", "perche", "tutorial", "gratis"): spesso una sola negativa ne elimina tanti
+SCELTA DEL MATCH TYPE:
+- EXACT: per search terms molto specifici con buone conversioni (alta confidenza)
+- PHRASE: per search terms rilevanti con volume da esplorare
+- BROAD: raramente suggerito per promozioni, solo se strategicamente sensato
+
+=== REGOLE DI PRIORITA ===
+1. HIGH: Negativa che elimina 5+ search terms irrilevanti, o promozione di search term con molte conversioni e buon CPA
+2. MEDIUM: Negativa che elimina 2-4 search terms, o promozione search term con buon CTR
+3. LOW: Singolo search term da escludere, o suggerimento di bassa urgenza
+
+=== PATTERN COMUNI DA CERCARE PER NEGATIVE ===
+- Termini brand competitor: una negativa copre molti search terms
+- Termini informativi ("come", "cosa", "perche", "tutorial", "gratis"): una sola negativa ne elimina tanti
 - Localita non target: es. "roma", "milano" se il business e locale
 - Termini settore sbagliato: es. "usato", "fai da te", "noleggio" se non pertinenti
-- Termini genere/categoria sbagliata
 
 Rispondi SOLO in formato JSON.`,
-    userPromptTemplate: `Analizza i termini di ricerca con focus sul RAGGRUPPAMENTO INTELLIGENTE.
+    userPromptTemplate: `Analizza i termini di ricerca con focus su RAGGRUPPAMENTO INTELLIGENTE e ANTI-CANNIBALIZZAZIONE.
 
 DATI SEARCH TERMS:
 {{data}}
+
+KEYWORD ATTIVE PER AD GROUP (usa per evitare cannibalizzazione e scegliere il gruppo giusto):
+{{activeKeywords}}
+
+NEGATIVE KEYWORDS ESISTENTI (non suggerire negative gia presenti):
+{{negativeKeywords}}
 
 SOGLIE:
 - CPA target: {{targetCpa}}
@@ -866,36 +884,39 @@ SOGLIE:
 - CTR minimo per promozione: 3%
 
 ISTRUZIONI CRUCIALI:
-1. PRIMA: Scorri TUTTI i search terms e identifica PATTERN COMUNI tra quelli irrilevanti/poco performanti
-2. POI: Per ogni pattern, suggerisci UNA keyword negativa (PHRASE o BROAD) che elimina il gruppo intero
-3. INFINE: Gestisci i casi singoli (promozioni a keyword, negative individuali)
-4. Nella "rationale" DEVI elencare TUTTI i search terms che verranno coperti dalla negativa suggerita
-5. In "expectedImpact" indica la spesa totale che verra risparmiata sommando tutti i search terms coperti
+1. NEGATIVE: Scorri TUTTI i search terms irrilevanti, raggruppa per PATTERN COMUNE, suggerisci UNA negativa per gruppo
+2. POSITIVE: Per i search terms da promuovere, verifica che NON esistano gia come keyword attive (controlla la lista sopra!)
+3. AD GROUP: Per ogni keyword positiva, scegli l'ad group PIU PERTINENTE analizzando i nomi e le keyword esistenti di ogni gruppo
+4. MATCH TYPE: Scegli il match type appropriato (EXACT per alta confidenza, PHRASE per esplorare)
+5. NON suggerire negative gia presenti nella lista "NEGATIVE KEYWORDS ESISTENTI"
+6. NON suggerire negative che bloccherebbero keyword attive
+7. Nella "rationale" per le negative, elenca TUTTI i search terms coperti. Per le positive, spiega PERCHE quel gruppo e quel match type.
 
 REGOLE OBBLIGATORIE PER IL FORMATO OUTPUT:
 1. entityId DEVE essere il valore numerico di campaignId preso dai dati (es. "20680249611"). NON inventare ID.
 2. campaignId e adGroupId DEVONO essere i valori numerici esatti presenti nei dati forniti.
 3. suggestedValue DEVE essere SOLO uno tra: "EXACT", "PHRASE", "BROAD" - nient'altro.
-4. Se non trovi campaignId/adGroupId nei dati per un search term, NON generare la raccomandazione.
-5. Per le negative raggruppate: entityName e la keyword negativa da aggiungere (es. "usato"), NON il search term singolo.
+4. Se non trovi campaignId/adGroupId nei dati, NON generare la raccomandazione.
+5. Per negative raggruppate: entityName = keyword negativa (es. "usato"), NON il search term singolo.
+6. Per keyword positive: entityName = testo keyword da aggiungere, adGroupId = ad group scelto.
 
 Genera raccomandazioni in formato JSON:
 {
-  "summary": "Riepilogo: X search terms analizzati, Y pattern individuati che coprono Z search terms con sole Y negative keywords",
+  "summary": "Riepilogo: X search terms analizzati. NEGATIVE: Y pattern individuati che coprono Z terms con sole Y negative. POSITIVE: W search terms da promuovere a keyword.",
   "recommendations": [
     {
       "id": "rec_1",
       "priority": "high",
       "entityType": "search_term",
       "entityId": "20680249611",
-      "entityName": "parola_negativa_suggerita",
-      "action": "add_negative_campaign|add_negative_account",
+      "entityName": "parola_negativa_o_keyword_positiva",
+      "action": "add_negative_campaign|add_negative_account|promote_to_keyword",
       "campaignId": "20680249611",
       "adGroupId": "148939991025",
-      "currentValue": "Copre N search terms: term1, term2, term3... | Spesa totale: €XX.XX | 0 conversioni",
+      "currentValue": "Per negative: 'Copre N terms: term1, term2... | Spesa: €XX | 0 conv'. Per positive: 'Search term con X conv, CPA €Y, CTR Z%'",
       "suggestedValue": "PHRASE",
-      "rationale": "La negativa 'parola' in PHRASE eliminera i seguenti N search terms irrilevanti: [elenco]. Questi search terms hanno generato una spesa complessiva di €XX senza conversioni.",
-      "expectedImpact": "Risparmio stimato: €XX.XX eliminando N search terms con una sola azione"
+      "rationale": "Spiegazione dettagliata con elenco search terms coperti (negative) o motivazione scelta ad group e match type (positive)",
+      "expectedImpact": "Risparmio stimato o conversioni aggiuntive attese"
     }
   ]
 }`,
