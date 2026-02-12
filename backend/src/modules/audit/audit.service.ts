@@ -718,25 +718,26 @@ export class AuditService {
       return null;
     }
 
-    // Get campaign aggregates
+    // Get campaign aggregates - conteggi su tutte, performance SOLO da campagne ENABLED
     const campaignStats = await this.campaignRepository
       .createQueryBuilder('c')
       .select([
         'COUNT(*)::int as "totalCampaigns"',
         'SUM(CASE WHEN c.status = \'ENABLED\' THEN 1 ELSE 0 END)::int as "activeCampaigns"',
-        'SUM(CAST(c.impressions AS BIGINT)) as "totalImpressions"',
-        'SUM(CAST(c.clicks AS BIGINT)) as "totalClicks"',
-        'SUM(CAST(c.costMicros AS BIGINT)) as "totalCostMicros"',
-        'SUM(CAST(c.conversions AS DECIMAL)) as "totalConversions"',
-        'SUM(CAST(c.conversionsValue AS DECIMAL)) as "totalConversionsValue"',
+        'SUM(CASE WHEN c.status = \'ENABLED\' THEN CAST(c.impressions AS BIGINT) ELSE 0 END) as "totalImpressions"',
+        'SUM(CASE WHEN c.status = \'ENABLED\' THEN CAST(c.clicks AS BIGINT) ELSE 0 END) as "totalClicks"',
+        'SUM(CASE WHEN c.status = \'ENABLED\' THEN CAST(c.costMicros AS BIGINT) ELSE 0 END) as "totalCostMicros"',
+        'SUM(CASE WHEN c.status = \'ENABLED\' THEN CAST(c.conversions AS DECIMAL) ELSE 0 END) as "totalConversions"',
+        'SUM(CASE WHEN c.status = \'ENABLED\' THEN CAST(c.conversionsValue AS DECIMAL) ELSE 0 END) as "totalConversionsValue"',
       ])
       .where('c.accountId = :accountId', { accountId })
       .andWhere('c.runId = :runId', { runId: targetRunId })
       .getRawOne();
 
-    // Get ad group count
+    // Get ad group count - solo quelli in campagne attive
     const adGroupStats = await this.adGroupRepository
       .createQueryBuilder('ag')
+      .innerJoin('campaigns', 'c', 'c.campaignId = ag.campaignId AND c.accountId = ag.accountId AND c.runId = ag.runId AND c.status = :cEnabled', { cEnabled: 'ENABLED' })
       .select([
         'COUNT(*)::int as "totalAdGroups"',
         'SUM(CASE WHEN ag.status = \'ENABLED\' THEN 1 ELSE 0 END)::int as "activeAdGroups"',
@@ -745,9 +746,11 @@ export class AuditService {
       .andWhere('ag.runId = :runId', { runId: targetRunId })
       .getRawOne();
 
-    // Get keyword stats
+    // Get keyword stats - solo in campagne e ad group attivi
     const keywordStats = await this.keywordRepository
       .createQueryBuilder('kw')
+      .innerJoin('campaigns', 'c', 'c.campaignId = kw.campaignId AND c.accountId = kw.accountId AND c.runId = kw.runId AND c.status = :cEnabled', { cEnabled: 'ENABLED' })
+      .innerJoin('ad_groups', 'ag', 'ag.adGroupId = kw.adGroupId AND ag.accountId = kw.accountId AND ag.runId = kw.runId AND ag.status = :agEnabled', { agEnabled: 'ENABLED' })
       .select([
         'COUNT(*)::int as "totalKeywords"',
         'SUM(CASE WHEN kw.status = \'ENABLED\' THEN 1 ELSE 0 END)::int as "activeKeywords"',
@@ -758,9 +761,11 @@ export class AuditService {
       .andWhere('kw.runId = :runId', { runId: targetRunId })
       .getRawOne();
 
-    // Get ad stats
+    // Get ad stats - solo in campagne e ad group attivi
     const adStats = await this.adRepository
       .createQueryBuilder('ad')
+      .innerJoin('campaigns', 'c', 'c.campaignId = ad.campaignId AND c.accountId = ad.accountId AND c.runId = ad.runId AND c.status = :cEnabled', { cEnabled: 'ENABLED' })
+      .innerJoin('ad_groups', 'ag', 'ag.adGroupId = ad.adGroupId AND ag.accountId = ad.accountId AND ag.runId = ad.runId AND ag.status = :agEnabled', { agEnabled: 'ENABLED' })
       .select([
         'COUNT(*)::int as "totalAds"',
         'SUM(CASE WHEN ad.adStrength = \'EXCELLENT\' THEN 1 ELSE 0 END)::int as "excellentAds"',
@@ -771,15 +776,22 @@ export class AuditService {
       .andWhere('ad.runId = :runId', { runId: targetRunId })
       .getRawOne();
 
-    // Get search terms count
-    const searchTermCount = await this.searchTermRepository.count({
-      where: { accountId, runId: targetRunId },
-    });
+    // Get search terms count - solo in campagne e ad group attivi
+    const searchTermCount = await this.searchTermRepository
+      .createQueryBuilder('st')
+      .innerJoin('campaigns', 'c', 'c.campaignId = st.campaignId AND c.accountId = st.accountId AND c.runId = st.runId AND c.status = :cEnabled', { cEnabled: 'ENABLED' })
+      .innerJoin('ad_groups', 'ag', 'ag.adGroupId = st.adGroupId AND ag.accountId = st.accountId AND ag.runId = st.runId AND ag.status = :agEnabled', { agEnabled: 'ENABLED' })
+      .where('st.accountId = :accountId', { accountId })
+      .andWhere('st.runId = :runId', { runId: targetRunId })
+      .getCount();
 
-    // Get negative keywords count
-    const negativeCount = await this.negativeKeywordRepository.count({
-      where: { accountId, runId: targetRunId },
-    });
+    // Get negative keywords count - solo in campagne attive
+    const negativeCount = await this.negativeKeywordRepository
+      .createQueryBuilder('nk')
+      .innerJoin('campaigns', 'c', 'c.campaignId = nk.campaignId AND c.accountId = nk.accountId AND c.runId = nk.runId AND c.status = :cEnabled', { cEnabled: 'ENABLED' })
+      .where('nk.accountId = :accountId', { accountId })
+      .andWhere('nk.runId = :runId', { runId: targetRunId })
+      .getCount();
 
     // Calculate derived metrics
     const totalCostMicros = parseInt(campaignStats.totalCostMicros) || 0;
