@@ -239,3 +239,59 @@ export async function getIssueSummary(accountId: string, runId?: string): Promis
   const params = runId ? { runId } : undefined;
   return apiClient.get<IssueSummary>(`/audit/accounts/${accountId}/issues/summary`, params);
 }
+
+// Landing Pages
+export interface LandingPageKeyword {
+  keywordId: string;
+  keywordText: string;
+  matchType: string;
+  qualityScore: number | null;
+  landingPageExperience: string | null;
+  impressions: number;
+  clicks: number;
+  costMicros: number;
+  conversions: number;
+  campaignId: string;
+  adGroupId: string;
+}
+
+export interface LandingPageData {
+  url: string;
+  keywordCount: number;
+  adCount: number;
+  campaignCount: number;
+  adGroupCount: number;
+  impressions: number;
+  clicks: number;
+  cost: number;
+  conversions: number;
+  conversionsValue: number;
+  ctr: number;
+  cpa: number;
+  roas: number;
+  avgQualityScore: number | null;
+  landingPageExperience: string;
+  experienceBreakdown: Record<string, number>;
+  keywords: LandingPageKeyword[];
+}
+
+export interface LandingPageAnalysis {
+  landingPages: LandingPageData[];
+  summary: {
+    totalPages: number;
+    totalKeywords: number;
+    totalCost: number;
+    totalConversions: number;
+    experienceDistribution: {
+      aboveAverage: number;
+      average: number;
+      belowAverage: number;
+      unknown: number;
+    };
+  };
+}
+
+export async function getLandingPageAnalysis(accountId: string, runId?: string): Promise<LandingPageAnalysis> {
+  const params = runId ? { runId } : undefined;
+  return apiClient.get<LandingPageAnalysis>(`/audit/accounts/${accountId}/landing-pages`, params);
+}

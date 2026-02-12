@@ -1361,4 +1361,180 @@ export class AuditService {
       searchTermsPerRun,
     };
   }
+
+  // =========================================================================
+  // LANDING PAGE ANALYSIS
+  // =========================================================================
+
+  async getLandingPageAnalysis(accountId: string, runId?: string) {
+    const targetRunId = runId || (await this.getLatestRunId(accountId));
+    if (!targetRunId) {
+      return { landingPages: [], summary: { totalPages: 0, totalKeywords: 0, avgExperience: 'N/A' } };
+    }
+
+    // Get all active keywords with final URLs, joined to active campaigns and ad groups
+    const keywords = await this.keywordRepository
+      .createQueryBuilder('kw')
+      .innerJoin('campaigns', 'c', 'c.campaignId = kw.campaignId AND c.accountId = kw.accountId AND c.runId = kw.runId AND c.status = :cEnabled', { cEnabled: 'ENABLED' })
+      .innerJoin('ad_groups', 'ag', 'ag.adGroupId = kw.adGroupId AND ag.accountId = kw.accountId AND ag.runId = kw.runId AND ag.status = :agEnabled', { agEnabled: 'ENABLED' })
+      .addSelect('c.campaignName', 'campaignName')
+      .addSelect('ag.adGroupName', 'adGroupName')
+      .where('kw.accountId = :accountId', { accountId })
+      .andWhere('kw.runId = :runId', { runId: targetRunId })
+      .andWhere('kw.status = :kwStatus', { kwStatus: 'ENABLED' })
+      .andWhere('kw.finalUrl IS NOT NULL')
+      .andWhere("kw.finalUrl != ''")
+      .getMany();
+
+    // Also get ad-level final URLs
+    const ads = await this.adRepository
+      .createQueryBuilder('ad')
+      .innerJoin('campaigns', 'c', 'c.campaignId = ad.campaignId AND c.accountId = ad.accountId AND c.runId = ad.runId AND c.status = :cEnabled', { cEnabled: 'ENABLED' })
+      .innerJoin('ad_groups', 'ag', 'ag.adGroupId = ad.adGroupId AND ag.accountId = ad.accountId AND ag.runId = ad.runId AND ag.status = :agEnabled', { agEnabled: 'ENABLED' })
+      .where('ad.accountId = :accountId', { accountId })
+      .andWhere('ad.runId = :runId', { runId: targetRunId })
+      .andWhere('ad.status = :adStatus', { adStatus: 'ENABLED' })
+      .getMany();
+
+    // Group keywords by landing page URL (normalize trailing slash)
+    const pageMap = new Map<string, {
+      url: string;
+      keywords: any[];
+      totalImpressions: number;
+      totalClicks: number;
+      totalCostMicros: number;
+      totalConversions: number;
+      totalConversionsValue: number;
+      experiences: string[];
+      qualityScores: number[];
+      campaigns: Set<string>;
+      adGroups: Set<string>;
+      adCount: number;
+    }>();
+
+    for (const kw of keywords) {
+      const url = (kw.finalUrl || '').replace(/\/+$/, '').toLowerCase();
+      if (!url) continue;
+
+      if (!pageMap.has(url)) {
+        pageMap.set(url, {
+          url: kw.finalUrl.replace(/\/+$/, ''),
+          keywords: [],
+          totalImpressions: 0,
+          totalClicks: 0,
+          totalCostMicros: 0,
+          totalConversions: 0,
+          totalConversionsValue: 0,
+          experiences: [],
+          qualityScores: [],
+          campaigns: new Set(),
+          adGroups: new Set(),
+          adCount: 0,
+        });
+      }
+
+      const page = pageMap.get(url)!;
+      page.keywords.push({
+        keywordId: kw.keywordId,
+        keywordText: kw.keywordText,
+        matchType: kw.matchType,
+        qualityScore: kw.qualityScore,
+        landingPageExperience: kw.landingPageExperience,
+        impressions: Number(kw.impressions || 0),
+        clicks: Number(kw.clicks || 0),
+        costMicros: Number(kw.costMicros || 0),
+        conversions: Number(kw.conversions || 0),
+        campaignId: kw.campaignId,
+        adGroupId: kw.adGroupId,
+      });
+      page.totalImpressions += Number(kw.impressions || 0);
+      page.totalClicks += Number(kw.clicks || 0);
+      page.totalCostMicros += Number(kw.costMicros || 0);
+      page.totalConversions += Number(kw.conversions || 0);
+      page.totalConversionsValue += Number(kw.conversionsValue || 0);
+      if (kw.landingPageExperience) {
+        page.experiences.push(kw.landingPageExperience);
+      }
+      if (kw.qualityScore && kw.qualityScore > 0) {
+        page.qualityScores.push(kw.qualityScore);
+      }
+      if (kw.campaignId) page.campaigns.add(kw.campaignId);
+      if (kw.adGroupId) page.adGroups.add(kw.adGroupId);
+    }
+
+    // Count ads per landing page URL
+    for (const ad of ads) {
+      const adUrls = ad.finalUrls || [];
+      for (const adUrl of adUrls) {
+        const normalized = (adUrl || '').replace(/\/+$/, '').toLowerCase();
+        if (pageMap.has(normalized)) {
+          pageMap.get(normalized)!.adCount++;
+        }
+      }
+    }
+
+    // Convert to array and calculate derived metrics
+    const landingPages = Array.from(pageMap.values()).map(page => {
+      const cost = page.totalCostMicros / 1_000_000;
+      const ctr = page.totalImpressions > 0 ? (page.totalClicks / page.totalImpressions) * 100 : 0;
+      const cpa = page.totalConversions > 0 ? cost / page.totalConversions : 0;
+      const roas = cost > 0 ? page.totalConversionsValue / cost : 0;
+      const avgQS = page.qualityScores.length > 0
+        ? page.qualityScores.reduce((a, b) => a + b, 0) / page.qualityScores.length
+        : null;
+
+      // Calculate dominant experience
+      const expCounts = page.experiences.reduce((acc, e) => {
+        acc[e] = (acc[e] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      const dominantExperience = Object.entries(expCounts)
+        .sort(([, a], [, b]) => b - a)[0]?.[0] || 'UNKNOWN';
+
+      return {
+        url: page.url,
+        keywordCount: page.keywords.length,
+        adCount: page.adCount,
+        campaignCount: page.campaigns.size,
+        adGroupCount: page.adGroups.size,
+        impressions: page.totalImpressions,
+        clicks: page.totalClicks,
+        cost,
+        conversions: page.totalConversions,
+        conversionsValue: page.totalConversionsValue,
+        ctr: parseFloat(ctr.toFixed(2)),
+        cpa: parseFloat(cpa.toFixed(2)),
+        roas: parseFloat(roas.toFixed(2)),
+        avgQualityScore: avgQS ? parseFloat(avgQS.toFixed(1)) : null,
+        landingPageExperience: dominantExperience,
+        experienceBreakdown: expCounts,
+        keywords: page.keywords,
+      };
+    });
+
+    // Sort by cost desc
+    landingPages.sort((a, b) => b.cost - a.cost);
+
+    // Summary
+    const allExperiences = landingPages.map(lp => lp.landingPageExperience);
+    const aboveAvg = allExperiences.filter(e => e === 'ABOVE_AVERAGE').length;
+    const avg = allExperiences.filter(e => e === 'AVERAGE').length;
+    const belowAvg = allExperiences.filter(e => e === 'BELOW_AVERAGE').length;
+
+    return {
+      landingPages,
+      summary: {
+        totalPages: landingPages.length,
+        totalKeywords: keywords.length,
+        totalCost: landingPages.reduce((s, lp) => s + lp.cost, 0),
+        totalConversions: landingPages.reduce((s, lp) => s + lp.conversions, 0),
+        experienceDistribution: {
+          aboveAverage: aboveAvg,
+          average: avg,
+          belowAverage: belowAvg,
+          unknown: allExperiences.filter(e => e === 'UNKNOWN').length,
+        },
+      },
+    };
+  }
 }

@@ -18,6 +18,7 @@ import {
   IssuesPage,
   ConversionsPage,
   ConversionActionsPage,
+  LandingPagesPage,
 } from '@/pages/audit';
 import { ModificationsPage } from '@/pages/modifications';
 
@@ -54,6 +55,7 @@ function App() {
             <Route path="issues" element={<IssuesPage />} />
             <Route path="conversions" element={<ConversionsPage />} />
             <Route path="conversion-actions" element={<ConversionActionsPage />} />
+            <Route path="landing-pages" element={<LandingPagesPage />} />
             <Route path="modifications" element={<ModificationsPage />} />
             <Route index element={<Navigate to="dashboard" replace />} />
           </Route>

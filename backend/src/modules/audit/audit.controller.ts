@@ -271,6 +271,18 @@ export class AuditController {
   }
 
   // =========================================================================
+  // LANDING PAGES
+  // =========================================================================
+
+  @Get('accounts/:accountId/landing-pages')
+  async getLandingPages(
+    @Param('accountId', ParseUUIDPipe) accountId: string,
+    @Query('runId') runId?: string,
+  ) {
+    return this.auditService.getLandingPageAnalysis(accountId, runId);
+  }
+
+  // =========================================================================
   // DEBUG/DIAGNOSTICS
   // =========================================================================
 

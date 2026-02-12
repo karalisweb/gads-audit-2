@@ -994,6 +994,79 @@ Genera raccomandazioni in formato JSON:
     requiredData: ['negative_keywords', 'search_terms'],
     actionTypes: ['add_negative', 'remove_negative', 'change_level', 'change_match_type'],
   },
+
+  // MODULO 24 - Landing Page Analysis
+  24: {
+    moduleId: 24,
+    moduleName: 'Landing Page Analysis',
+    moduleNameIt: 'Analisi Landing Page',
+    systemPrompt: `Sei un esperto Google Ads Specialist che analizza le landing page associate alle keyword.
+Il tuo compito e identificare problemi di performance e coerenza delle landing page e suggerire ottimizzazioni.
+
+Regole di analisi:
+- Landing page con experience BELOW_AVERAGE richiedono intervento immediato
+- URL generiche (homepage) usate per keyword specifiche riducono il Quality Score
+- Troppe keyword su una singola landing page potrebbero indicare mancanza di pagine specifiche
+- Landing page con alto costo e basse conversioni indicano problemi di rilevanza o UX
+- CPA elevato rispetto alla media dell'account suggerisce mismatch keyword-landing page
+- Landing page senza conversioni ma con spesa significativa sono candidati a ottimizzazione
+- Keyword long-tail beneficiano di landing page dedicate e specifiche
+
+Best practice:
+- Ogni gruppo di keyword correlate dovrebbe avere una landing page dedicata
+- L'URL dovrebbe contenere la keyword principale del gruppo
+- Experience ABOVE_AVERAGE e il target per tutte le landing page
+- Il contenuto della landing page deve essere coerente con il search intent delle keyword associate
+
+Rispondi SOLO in formato JSON con la struttura specificata.`,
+    userPromptTemplate: `Analizza le landing page di questo account Google Ads.
+
+DATI LANDING PAGE (raggruppati per URL):
+{{data}}
+
+RIEPILOGO:
+- Totale landing page uniche: {{totalPages}}
+- Totale keyword con landing page: {{totalKeywords}}
+- Spesa totale: €{{totalCost}}
+- Conversioni totali: {{totalConversions}}
+- Distribuzione experience: ABOVE_AVERAGE={{aboveAvg}}, AVERAGE={{avg}}, BELOW_AVERAGE={{belowAvg}}
+
+ISTRUZIONI:
+1. Identifica landing page con experience BELOW_AVERAGE e suggerisci miglioramenti
+2. Trova landing page generiche (es. homepage) usate per keyword specifiche
+3. Identifica landing page con alto costo e basse conversioni
+4. Suggerisci la creazione di landing page dedicate dove mancano
+5. Valuta la coerenza tra keyword e URL della landing page
+
+REGOLE FORMATO OUTPUT:
+1. entityId DEVE essere l'URL della landing page
+2. entityName DEVE essere una descrizione breve del problema
+3. campaignId e adGroupId devono provenire dai dati forniti
+4. Le azioni possono riguardare la creazione di nuove landing page o il redirect di keyword a pagine piu specifiche
+
+Genera raccomandazioni in formato JSON:
+{
+  "summary": "Riepilogo: X landing page analizzate, Y con problemi. Principali aree di miglioramento...",
+  "recommendations": [
+    {
+      "id": "rec_1",
+      "priority": "high|medium|low",
+      "entityType": "landing_page",
+      "entityId": "https://example.com/page",
+      "entityName": "Descrizione problema",
+      "action": "optimize_landing_page|create_specific_landing|set_keyword_url|consolidate_urls",
+      "campaignId": "ID campagna",
+      "adGroupId": "ID ad group",
+      "currentValue": "Stato attuale: X keyword, experience: BELOW_AVERAGE, €XX spesa, Y conv",
+      "suggestedValue": "Descrizione dell'ottimizzazione suggerita",
+      "rationale": "Spiegazione dettagliata del perche e cosa fare",
+      "expectedImpact": "Miglioramento atteso su Quality Score, CPA, conversioni"
+    }
+  ]
+}`,
+    requiredData: ['landing_pages'],
+    actionTypes: ['optimize_landing_page', 'create_specific_landing', 'set_keyword_url', 'consolidate_urls'],
+  },
 };
 
 // Funzione helper per ottenere il prompt di un modulo
@@ -1008,4 +1081,4 @@ export const SUPPORTED_MODULES = Object.keys(MODULE_PROMPTS).map(Number);
 export const DOCUMENTATION_ONLY_MODULES = [1, 2, 3, 5, 6, 8];
 
 // Moduli con azioni esportabili via CSV
-export const ACTIONABLE_MODULES = [4, 7, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
+export const ACTIONABLE_MODULES = [4, 7, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24];

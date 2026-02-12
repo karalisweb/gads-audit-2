@@ -9,3 +9,4 @@ export { AssetsPage } from './AssetsPage';
 export { IssuesPage } from './IssuesPage';
 export { ConversionsPage } from './ConversionsPage';
 export { ConversionActionsPage } from './ConversionActionsPage';
+export { LandingPagesPage } from './LandingPagesPage';

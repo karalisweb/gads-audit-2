@@ -345,6 +345,51 @@ export class AIService {
           stats: { totalRecords: negatives.length, analyzedRecords: negatives.length },
         };
 
+      case 24: // Landing Page Analysis
+        const lpKeywords = await this.keywordRepository.find({
+          where: { ...activeAdGroupFilter, status: 'ENABLED' },
+        });
+        // Filter to only keywords with final URLs
+        const kwWithUrls = lpKeywords.filter(kw => kw.finalUrl && kw.finalUrl.trim() !== '');
+        // Group by URL for summary
+        const urlGroups = new Map<string, { count: number; cost: number; conversions: number; experiences: string[] }>();
+        for (const kw of kwWithUrls) {
+          const url = kw.finalUrl.replace(/\/+$/, '').toLowerCase();
+          if (!urlGroups.has(url)) {
+            urlGroups.set(url, { count: 0, cost: 0, conversions: 0, experiences: [] });
+          }
+          const g = urlGroups.get(url)!;
+          g.count++;
+          g.cost += Number(kw.costMicros || 0) / 1_000_000;
+          g.conversions += Number(kw.conversions || 0);
+          if (kw.landingPageExperience) g.experiences.push(kw.landingPageExperience);
+        }
+        const landingPageSummary = Array.from(urlGroups.entries()).map(([url, g]) => ({
+          url,
+          keywordCount: g.count,
+          totalCost: parseFloat(g.cost.toFixed(2)),
+          totalConversions: parseFloat(g.conversions.toFixed(2)),
+          dominantExperience: g.experiences.length > 0
+            ? g.experiences.sort((a, b) =>
+                g.experiences.filter(e => e === b).length - g.experiences.filter(e => e === a).length
+              )[0]
+            : 'UNKNOWN',
+        })).sort((a, b) => b.totalCost - a.totalCost);
+
+        return {
+          data: {
+            keywords: kwWithUrls,
+            landingPages: landingPageSummary,
+            aggregates: {
+              totalPages: landingPageSummary.length,
+              totalKeywords: kwWithUrls.length,
+              totalCost: landingPageSummary.reduce((s, lp) => s + lp.totalCost, 0).toFixed(2),
+              totalConversions: landingPageSummary.reduce((s, lp) => s + lp.totalConversions, 0).toFixed(2),
+            },
+          },
+          stats: { totalRecords: kwWithUrls.length, analyzedRecords: kwWithUrls.length },
+        };
+
       default:
         throw new BadRequestException(`Module ${moduleId} data fetching not implemented`);
     }
@@ -516,6 +561,11 @@ export class AIService {
         impressionShare: ag.searchImpressionShare,
         isLostRank: ag.searchImpressionShareLostRank,
       }));
+    }
+
+    // Landing page summary for module 24 — must be before keywords check
+    if (data.landingPages) {
+      return data.landingPages.slice(0, 50);
     }
 
     if (data.keywords) {
