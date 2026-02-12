@@ -21,3 +21,4 @@ export * from './audit-issue.entity';
 export * from './modification.entity';
 export * from './email-otp.entity';
 export * from './system-setting.entity';
+export * from './run-kpi-snapshot.entity';

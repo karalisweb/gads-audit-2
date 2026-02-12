@@ -2,9 +2,12 @@ import {
   Injectable,
   BadRequestException,
   Logger,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
+import { AuditService } from '../audit/audit.service';
 import {
   GoogleAdsAccount,
   ImportRun,
@@ -33,6 +36,8 @@ export class IntegrationsService {
     private readonly importRunRepository: Repository<ImportRun>,
     @InjectRepository(ImportChunk)
     private readonly importChunkRepository: Repository<ImportChunk>,
+    @Inject(forwardRef(() => AuditService))
+    private readonly auditService: AuditService,
   ) {}
 
   async ingest(
@@ -133,6 +138,16 @@ export class IntegrationsService {
 
       await queryRunner.manager.save(importRun);
       await queryRunner.commitTransaction();
+
+      // Create KPI snapshot when import run completes
+      if (importRun.status === ImportStatus.COMPLETED) {
+        try {
+          await this.auditService.snapshotRunKpis(account.id, runId, importRun.id);
+          this.logger.log(`KPI snapshot created for run ${runId}`);
+        } catch (snapshotError) {
+          this.logger.error(`Failed to create KPI snapshot for run ${runId}: ${snapshotError.message}`);
+        }
+      }
 
       this.logger.log(
         `Processed chunk ${chunkIndex + 1}/${chunkTotal} of ${datasetName} for run ${runId}`,

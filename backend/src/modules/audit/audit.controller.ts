@@ -90,6 +90,14 @@ export class AuditController {
     return this.auditService.calculateHealthScore(accountId, runId);
   }
 
+  @Get('accounts/:accountId/performance-trend')
+  async getPerformanceTrend(
+    @Param('accountId', ParseUUIDPipe) accountId: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.auditService.getPerformanceTrend(accountId, limit ? parseInt(limit, 10) : 10);
+  }
+
   // =========================================================================
   // CAMPAIGNS
   // =========================================================================

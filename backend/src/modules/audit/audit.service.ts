@@ -24,6 +24,7 @@ import {
   AuditIssue,
   User,
   ImportStatus,
+  RunKpiSnapshot,
 } from '../../entities';
 import {
   PaginatedResponse,
@@ -68,6 +69,8 @@ export class AuditService {
     private readonly issueRepository: Repository<AuditIssue>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(RunKpiSnapshot)
+    private readonly snapshotRepository: Repository<RunKpiSnapshot>,
   ) {}
 
   // =========================================================================
@@ -1049,6 +1052,49 @@ export class AuditService {
         issueSeverity: { score: issueScore, max: 15, detail: issueDetail },
       },
     };
+  }
+
+  // =========================================================================
+  // KPI SNAPSHOTS (Performance Trend)
+  // =========================================================================
+
+  async snapshotRunKpis(accountId: string, runId: string, importRunId: string): Promise<RunKpiSnapshot> {
+    const kpis = await this.getKpis(accountId, runId);
+    let healthScore: number | null = null;
+    try {
+      const hs = await this.calculateHealthScore(accountId, runId);
+      healthScore = hs.score;
+    } catch {
+      // Health score calculation may fail if no data
+    }
+
+    const snapshot = this.snapshotRepository.create({
+      accountId,
+      runId,
+      importRunId,
+      cost: kpis?.performance?.cost || 0,
+      conversions: kpis?.performance?.conversions || 0,
+      conversionsValue: kpis?.performance?.conversionsValue || 0,
+      impressions: kpis?.performance?.impressions || 0,
+      clicks: kpis?.performance?.clicks || 0,
+      ctr: kpis?.performance?.ctr || 0,
+      cpa: kpis?.performance?.cpa || 0,
+      roas: kpis?.performance?.roas || 0,
+      avgQualityScore: kpis?.quality?.avgQualityScore || null,
+      activeCampaigns: kpis?.overview?.activeCampaigns || 0,
+      healthScore,
+      snapshotDate: new Date(),
+    });
+
+    return this.snapshotRepository.save(snapshot);
+  }
+
+  async getPerformanceTrend(accountId: string, limit = 10): Promise<RunKpiSnapshot[]> {
+    return this.snapshotRepository.find({
+      where: { accountId },
+      order: { snapshotDate: 'ASC' },
+      take: limit,
+    });
   }
 
   async getConversionActions(

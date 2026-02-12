@@ -18,6 +18,7 @@ import {
   DevicePerformance,
   AuditIssue,
   User,
+  RunKpiSnapshot,
 } from '../../entities';
 
 @Module({
@@ -37,6 +38,7 @@ import {
       DevicePerformance,
       AuditIssue,
       User,
+      RunKpiSnapshot,
     ]),
   ],
   controllers: [AuditController],

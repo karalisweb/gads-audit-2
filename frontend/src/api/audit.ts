@@ -118,6 +118,29 @@ export async function getHealthScore(accountId: string, runId?: string): Promise
   return apiClient.get<HealthScoreResult>(`/audit/accounts/${accountId}/health-score`, params);
 }
 
+// Performance Trend (KPI Snapshots)
+export interface KpiSnapshot {
+  id: string;
+  accountId: string;
+  runId: string;
+  cost: number;
+  conversions: number;
+  conversionsValue: number;
+  impressions: number;
+  clicks: number;
+  ctr: number;
+  cpa: number;
+  roas: number;
+  avgQualityScore: number | null;
+  activeCampaigns: number;
+  healthScore: number | null;
+  snapshotDate: string;
+}
+
+export async function getPerformanceTrend(accountId: string, limit = 10): Promise<KpiSnapshot[]> {
+  return apiClient.get<KpiSnapshot[]>(`/audit/accounts/${accountId}/performance-trend`, { limit });
+}
+
 // Campaigns
 export async function getCampaigns(
   accountId: string,

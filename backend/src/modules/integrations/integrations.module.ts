@@ -4,6 +4,7 @@ import { IntegrationsController } from './integrations.controller';
 import { IntegrationsService } from './integrations.service';
 import { HmacAuthGuard } from './guards/hmac-auth.guard';
 import { ModificationsModule } from '../modifications/modifications.module';
+import { AuditModule } from '../audit/audit.module';
 import {
   GoogleAdsAccount,
   ImportRun,
@@ -38,6 +39,7 @@ import {
       DevicePerformance,
     ]),
     forwardRef(() => ModificationsModule),
+    forwardRef(() => AuditModule),
   ],
   controllers: [IntegrationsController],
   providers: [IntegrationsService, HmacAuthGuard],
