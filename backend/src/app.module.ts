@@ -17,6 +17,7 @@ import { ModificationsModule } from './modules/modifications/modifications.modul
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { EmailModule } from './modules/email/email.module';
 import { SettingsModule } from './modules/settings/settings.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { SettingsModule } from './modules/settings/settings.module';
       }),
       inject: [ConfigService],
     }),
+    ScheduleModule.forRoot(),
     SettingsModule,
     AuthModule,
     UsersModule,

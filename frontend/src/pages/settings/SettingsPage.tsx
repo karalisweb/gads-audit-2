@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings, User, Lock, Shield, Check, Bot, Eye, EyeOff } from 'lucide-react';
+import { Settings, User, Lock, Shield, Check, Bot, Eye, EyeOff, Calendar } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,7 +8,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { apiClient } from '@/api/client';
 import type { ApiError } from '@/types';
 
-type TabType = 'profile' | 'password' | 'security' | 'ai';
+type TabType = 'profile' | 'password' | 'security' | 'ai' | 'schedule';
 
 interface AISettings {
   hasApiKey: boolean;
@@ -48,12 +48,23 @@ export function SettingsPage() {
   const [aiSuccess, setAiSuccess] = useState('');
   const [aiError, setAiError] = useState('');
 
+  // Schedule state
+  const [scheduleEnabled, setScheduleEnabled] = useState(false);
+  const [scheduleCron, setScheduleCron] = useState('0 7 * * 1');
+  const [scheduleRecipients, setScheduleRecipients] = useState('');
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [scheduleSuccess, setScheduleSuccess] = useState('');
+  const [scheduleError, setScheduleError] = useState('');
+
   const isAdmin = user?.role === 'admin';
 
-  // Load AI settings when tab changes to AI
+  // Load AI/Schedule settings when tab changes
   useEffect(() => {
     if (activeTab === 'ai' && isAdmin) {
       loadAISettings();
+    }
+    if (activeTab === 'schedule' && isAdmin) {
+      loadScheduleSettings();
     }
   }, [activeTab, isAdmin]);
 
@@ -190,11 +201,48 @@ export function SettingsPage() {
     }
   };
 
+  const loadScheduleSettings = async () => {
+    try {
+      const settings = await apiClient.get<{
+        enabled: boolean;
+        cronExpression: string;
+        emailRecipients: string[];
+      }>('/settings/schedule');
+      setScheduleEnabled(settings.enabled);
+      setScheduleCron(settings.cronExpression);
+      setScheduleRecipients(settings.emailRecipients.join(', '));
+    } catch (err) {
+      console.error('Failed to load schedule settings:', err);
+    }
+  };
+
+  const handleScheduleSave = async () => {
+    setScheduleLoading(true);
+    setScheduleError('');
+    setScheduleSuccess('');
+    try {
+      await apiClient.put('/settings/schedule', {
+        enabled: scheduleEnabled,
+        cronExpression: scheduleCron,
+        emailRecipients: scheduleRecipients.split(',').map(e => e.trim()).filter(Boolean),
+      });
+      setScheduleSuccess('Impostazioni schedulazione salvate');
+      setTimeout(() => setScheduleSuccess(''), 3000);
+    } catch (err) {
+      setScheduleError((err as ApiError)?.message || 'Errore nel salvataggio');
+    } finally {
+      setScheduleLoading(false);
+    }
+  };
+
   const tabs = [
     { id: 'profile' as TabType, label: 'Profilo', icon: User },
     { id: 'password' as TabType, label: 'Password', icon: Lock },
     { id: 'security' as TabType, label: 'Sicurezza', icon: Shield },
-    ...(isAdmin ? [{ id: 'ai' as TabType, label: 'AI', icon: Bot }] : []),
+    ...(isAdmin ? [
+      { id: 'ai' as TabType, label: 'AI', icon: Bot },
+      { id: 'schedule' as TabType, label: 'Schedule', icon: Calendar },
+    ] : []),
   ];
 
   return (
@@ -578,6 +626,149 @@ export function SettingsPage() {
                       <p className="text-muted-foreground">
                         La chiave API viene crittografata prima di essere salvata nel database. 
                         Non viene mai mostrata in chiaro dopo il salvataggio.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {activeTab === 'schedule' && isAdmin && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold text-foreground mb-2">Schedulazione Analisi AI</h3>
+                <p className="text-muted-foreground text-sm mb-4">
+                  Configura l'esecuzione automatica dell'analisi AI per tutti gli account attivi. I risultati verranno inviati via email.
+                </p>
+              </div>
+
+              {scheduleSuccess && (
+                <div className="bg-success/10 border border-success/30 text-success px-4 py-3 rounded-lg text-sm">
+                  {scheduleSuccess}
+                </div>
+              )}
+
+              {scheduleError && (
+                <div className="bg-destructive/10 border border-destructive/30 text-destructive px-4 py-3 rounded-lg text-sm">
+                  {scheduleError}
+                </div>
+              )}
+
+              {/* Enable/Disable Toggle */}
+              <Card className="bg-card/50 border-border">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        scheduleEnabled ? 'bg-success/20' : 'bg-muted'
+                      }`}>
+                        {scheduleEnabled ? (
+                          <Check className="h-5 w-5 text-success" />
+                        ) : (
+                          <Calendar className="h-5 w-5 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium text-foreground">
+                          {scheduleEnabled ? 'Schedulazione Attiva' : 'Schedulazione Disattivata'}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {scheduleEnabled
+                            ? 'L\'analisi AI verrà eseguita automaticamente'
+                            : 'Attiva per eseguire l\'analisi AI automaticamente'}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setScheduleEnabled(!scheduleEnabled)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        scheduleEnabled ? 'bg-primary' : 'bg-muted-foreground/30'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          scheduleEnabled ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Cron Expression */}
+              <div className="space-y-2">
+                <Label htmlFor="cronExpression" className="text-foreground">Espressione Cron</Label>
+                <Input
+                  id="cronExpression"
+                  type="text"
+                  value={scheduleCron}
+                  onChange={(e) => setScheduleCron(e.target.value)}
+                  placeholder="0 7 * * 1"
+                  className="bg-input border-border text-foreground font-mono"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Formato: minuto ora giorno-mese mese giorno-settimana (0=Dom, 1=Lun, ..., 6=Sab)
+                </p>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {[
+                    { label: 'Ogni giorno alle 7', value: '0 7 * * *' },
+                    { label: 'Lun-Ven alle 7', value: '0 7 * * 1,2,3,4,5' },
+                    { label: 'Ogni lunedì alle 7', value: '0 7 * * 1' },
+                    { label: 'Lun e Gio alle 7', value: '0 7 * * 1,4' },
+                  ].map((preset) => (
+                    <button
+                      key={preset.value}
+                      type="button"
+                      onClick={() => setScheduleCron(preset.value)}
+                      className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                        scheduleCron === preset.value
+                          ? 'bg-primary/20 border-primary text-primary'
+                          : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Email Recipients */}
+              <div className="space-y-2">
+                <Label htmlFor="emailRecipients" className="text-foreground">Destinatari Email</Label>
+                <textarea
+                  id="emailRecipients"
+                  value={scheduleRecipients}
+                  onChange={(e) => setScheduleRecipients(e.target.value)}
+                  placeholder="email1@example.com, email2@example.com"
+                  rows={3}
+                  className="w-full px-3 py-2 rounded-md border border-border bg-input text-foreground text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Inserisci gli indirizzi email separati da virgola. Il report con i risultati dell'analisi verrà inviato a tutti i destinatari.
+                </p>
+              </div>
+
+              {/* Save Button */}
+              <Button
+                onClick={handleScheduleSave}
+                disabled={scheduleLoading}
+                className="bg-gradient-to-r from-primary to-yellow-500 hover:from-primary/90 hover:to-yellow-500/90 text-primary-foreground"
+              >
+                {scheduleLoading ? 'Salvataggio...' : 'Salva impostazioni schedulazione'}
+              </Button>
+
+              {/* Info Card */}
+              <Card className="bg-blue-500/10 border-blue-500/30">
+                <CardContent className="p-4">
+                  <div className="flex gap-3">
+                    <Calendar className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm">
+                      <p className="font-medium text-blue-500 mb-1">Come funziona</p>
+                      <p className="text-muted-foreground">
+                        Il sistema controlla ogni giorno alle 7:00 se è il giorno giusto secondo l'espressione cron configurata.
+                        Se sì, esegue l'analisi AI su tutti gli account attivi e invia un report via email con il riepilogo delle raccomandazioni trovate.
                       </p>
                     </div>
                   </div>

@@ -106,4 +106,39 @@ export class SettingsService {
     const model = await this.getSetting('openai_model');
     return model || 'gpt-4o';
   }
+
+  // Schedule settings
+  async getScheduleSettings(): Promise<{
+    enabled: boolean;
+    cronExpression: string;
+    emailRecipients: string[];
+  }> {
+    const enabled = await this.getSetting('schedule_enabled');
+    const cron = await this.getSetting('schedule_cron');
+    const recipients = await this.getSetting('schedule_email_recipients');
+
+    return {
+      enabled: enabled === 'true',
+      cronExpression: cron || '0 7 * * 1', // Default: Monday 7 AM
+      emailRecipients: recipients ? recipients.split(',').map(e => e.trim()) : [],
+    };
+  }
+
+  async updateScheduleSettings(settings: {
+    enabled?: boolean;
+    cronExpression?: string;
+    emailRecipients?: string[];
+  }): Promise<{ enabled: boolean; cronExpression: string; emailRecipients: string[] }> {
+    if (settings.enabled !== undefined) {
+      await this.setSetting('schedule_enabled', String(settings.enabled));
+    }
+    if (settings.cronExpression !== undefined) {
+      await this.setSetting('schedule_cron', settings.cronExpression);
+    }
+    if (settings.emailRecipients !== undefined) {
+      await this.setSetting('schedule_email_recipients', settings.emailRecipients.join(','));
+    }
+    this.logger.log('Schedule settings updated');
+    return this.getScheduleSettings();
+  }
 }

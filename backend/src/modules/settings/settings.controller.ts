@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Put,
   Patch,
   Body,
   UseGuards,
@@ -27,5 +28,19 @@ export class SettingsController {
   @Roles(UserRole.ADMIN)
   async updateAISettings(@Body() dto: AISettingsDto): Promise<AISettingsResponseDto> {
     return this.settingsService.updateAISettings(dto);
+  }
+
+  @Get('schedule')
+  @Roles(UserRole.ADMIN)
+  async getScheduleSettings() {
+    return this.settingsService.getScheduleSettings();
+  }
+
+  @Put('schedule')
+  @Roles(UserRole.ADMIN)
+  async updateScheduleSettings(
+    @Body() dto: { enabled?: boolean; cronExpression?: string; emailRecipients?: string[] },
+  ) {
+    return this.settingsService.updateScheduleSettings(dto);
   }
 }

@@ -110,6 +110,106 @@ Se non hai richiesto questo codice, ignora questa email.
     }
   }
 
+  async sendAnalysisDigest(
+    recipients: string[],
+    results: { accountName: string; success: boolean; recommendations: number; error?: string }[],
+  ): Promise<void> {
+    const from = this.configService.get('SMTP_FROM', 'noreply@karalisweb.net');
+    const appName = 'GADS Audit';
+    const date = new Date().toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' });
+
+    const totalRecs = results.reduce((sum, r) => sum + r.recommendations, 0);
+    const successCount = results.filter(r => r.success).length;
+    const failCount = results.filter(r => !r.success).length;
+
+    const accountRows = results.map(r => `
+      <tr>
+        <td style="padding: 8px 12px; color: #e0e0e0; border-bottom: 1px solid #2a2a2a;">${r.accountName}</td>
+        <td style="padding: 8px 12px; color: ${r.success ? '#4ade80' : '#f87171'}; border-bottom: 1px solid #2a2a2a;">${r.success ? 'OK' : 'Errore'}</td>
+        <td style="padding: 8px 12px; color: #e0e0e0; text-align: right; border-bottom: 1px solid #2a2a2a;">${r.recommendations}</td>
+        <td style="padding: 8px 12px; color: #707070; font-size: 12px; border-bottom: 1px solid #2a2a2a;">${r.error || '-'}</td>
+      </tr>
+    `).join('');
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Report Analisi AI</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #0d0d0d;">
+  <table role="presentation" cellspacing="0" cellpadding="0" width="100%" style="background-color: #0d0d0d;">
+    <tr>
+      <td style="padding: 40px 20px;">
+        <table role="presentation" cellspacing="0" cellpadding="0" width="100%" style="max-width: 600px; margin: 0 auto; background-color: #1a1a1a; border-radius: 12px; overflow: hidden;">
+          <tr>
+            <td style="padding: 32px 32px 24px; text-align: center; border-bottom: 1px solid #2a2a2a;">
+              <h1 style="margin: 0; color: #f5c518; font-size: 24px; font-weight: 700;">${appName}</h1>
+              <p style="margin: 8px 0 0; color: #a0a0a0; font-size: 14px;">Report Analisi AI - ${date}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 24px 32px;">
+              <div style="display: flex; gap: 16px; margin-bottom: 24px;">
+                <div style="background-color: #252525; border-radius: 8px; padding: 16px; text-align: center; flex: 1;">
+                  <p style="margin: 0; color: #a0a0a0; font-size: 12px;">Raccomandazioni</p>
+                  <p style="margin: 4px 0 0; color: #f5c518; font-size: 28px; font-weight: 700;">${totalRecs}</p>
+                </div>
+              </div>
+              <p style="margin: 0 0 16px; color: #a0a0a0; font-size: 14px;">
+                Account analizzati: <strong style="color: #ffffff;">${results.length}</strong> |
+                Successo: <strong style="color: #4ade80;">${successCount}</strong> |
+                Errori: <strong style="color: ${failCount > 0 ? '#f87171' : '#4ade80'};">${failCount}</strong>
+              </p>
+              <table role="presentation" cellspacing="0" cellpadding="0" width="100%" style="border-collapse: collapse;">
+                <thead>
+                  <tr>
+                    <th style="padding: 8px 12px; color: #707070; font-size: 12px; text-align: left; border-bottom: 2px solid #333;">Account</th>
+                    <th style="padding: 8px 12px; color: #707070; font-size: 12px; text-align: left; border-bottom: 2px solid #333;">Stato</th>
+                    <th style="padding: 8px 12px; color: #707070; font-size: 12px; text-align: right; border-bottom: 2px solid #333;">Racc.</th>
+                    <th style="padding: 8px 12px; color: #707070; font-size: 12px; text-align: left; border-bottom: 2px solid #333;">Note</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${accountRows}
+                </tbody>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 24px 32px; background-color: #141414; border-top: 1px solid #2a2a2a;">
+              <p style="margin: 0; color: #505050; font-size: 12px; text-align: center;">
+                &copy; ${new Date().getFullYear()} Karalisweb | <a href="https://gads.karalisdemo.it" style="color: #f5c518; text-decoration: none;">GADS Audit</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `;
+
+    const text = `GADS Audit - Report Analisi AI (${date})\n\nRaccomandazioni totali: ${totalRecs}\nAccount analizzati: ${results.length}\n\n${results.map(r => `${r.accountName}: ${r.success ? 'OK' : 'Errore'} - ${r.recommendations} raccomandazioni${r.error ? ` (${r.error})` : ''}`).join('\n')}`;
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${appName}" <${from}>`,
+        to: recipients.join(', '),
+        subject: `[GADS Audit] Report AI: ${totalRecs} raccomandazioni - ${date}`,
+        text,
+        html,
+      });
+      this.logger.log(`Analysis digest sent to ${recipients.join(', ')}`);
+    } catch (error) {
+      this.logger.error(`Failed to send analysis digest`, error);
+      throw error;
+    }
+  }
+
   async sendPasswordResetEmail(email: string, code: string): Promise<void> {
     const from = this.configService.get('SMTP_FROM', 'noreply@karalisweb.net');
     const appName = 'GADS Audit';

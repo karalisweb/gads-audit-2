@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AIController } from './ai.controller';
 import { AIService } from './ai.service';
+import { AISchedulerService } from './ai-scheduler.service';
 import {
   Campaign,
   AdGroup,
@@ -39,7 +40,7 @@ import {
     ]),
   ],
   controllers: [AIController],
-  providers: [AIService],
+  providers: [AIService, AISchedulerService],
   exports: [AIService],
 })
 export class AIModule {}
