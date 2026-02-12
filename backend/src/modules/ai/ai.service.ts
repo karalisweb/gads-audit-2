@@ -17,6 +17,10 @@ import {
   GoogleAdsAccount,
   ImportRun,
   ImportStatus,
+  AIAnalysisLog,
+  AnalysisTriggerType,
+  AnalysisStatus,
+  Modification,
 } from '../../entities';
 import {
   AIAnalysisResponse,
@@ -60,6 +64,10 @@ export class AIService {
     private accountRepository: Repository<GoogleAdsAccount>,
     @InjectRepository(ImportRun)
     private importRunRepository: Repository<ImportRun>,
+    @InjectRepository(AIAnalysisLog)
+    private analysisLogRepository: Repository<AIAnalysisLog>,
+    @InjectRepository(Modification)
+    private modificationRepository: Repository<Modification>,
   ) {}
 
   private async getOpenAIClient(): Promise<OpenAI> {
@@ -705,6 +713,104 @@ export class AIService {
   }
 
   // Get supported modules list
+  // =========================================================================
+  // AI ANALYSIS LOG & ANALYZE ALL
+  // =========================================================================
+
+  async analyzeAllModules(
+    accountId: string,
+    userId?: string,
+    triggerType: AnalysisTriggerType = AnalysisTriggerType.MANUAL,
+  ): Promise<AIAnalysisLog> {
+    const startedAt = new Date();
+
+    // Create log entry
+    const log = this.analysisLogRepository.create({
+      accountId,
+      triggeredById: userId || null,
+      triggerType,
+      status: AnalysisStatus.RUNNING,
+      startedAt,
+      modulesAnalyzed: [],
+      totalRecommendations: 0,
+    });
+    await this.analysisLogRepository.save(log);
+
+    const moduleResults: Record<string, { success: boolean; recommendations: number; error?: string }> = {};
+    const analyzedModules: number[] = [];
+    let totalRecs = 0;
+
+    for (const moduleId of SUPPORTED_MODULES) {
+      try {
+        const result = await this.analyzeModule(accountId, moduleId);
+        analyzedModules.push(moduleId);
+        const recCount = result.recommendations?.length || 0;
+        totalRecs += recCount;
+        moduleResults[String(moduleId)] = {
+          success: true,
+          recommendations: recCount,
+        };
+      } catch (error) {
+        this.logger.error(`Module ${moduleId} failed: ${error.message}`);
+        moduleResults[String(moduleId)] = {
+          success: false,
+          recommendations: 0,
+          error: error.message,
+        };
+      }
+    }
+
+    const completedAt = new Date();
+    log.status = AnalysisStatus.COMPLETED;
+    log.completedAt = completedAt;
+    log.durationMs = completedAt.getTime() - startedAt.getTime();
+    log.modulesAnalyzed = analyzedModules;
+    log.totalRecommendations = totalRecs;
+    log.moduleResults = moduleResults;
+
+    return this.analysisLogRepository.save(log);
+  }
+
+  async getAnalysisHistory(accountId: string, limit = 10): Promise<AIAnalysisLog[]> {
+    return this.analysisLogRepository.find({
+      where: { accountId },
+      order: { startedAt: 'DESC' },
+      take: limit,
+      relations: ['triggeredBy'],
+    });
+  }
+
+  async getAcceptanceRate(accountId: string): Promise<{
+    total: number;
+    approved: number;
+    rejected: number;
+    pending: number;
+    applied: number;
+    rate: number;
+  }> {
+    const result = await this.modificationRepository
+      .createQueryBuilder('m')
+      .select('m.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .where('m.account_id = :accountId', { accountId })
+      .groupBy('m.status')
+      .getRawMany();
+
+    const counts: Record<string, number> = {};
+    result.forEach((r) => {
+      counts[r.status] = parseInt(r.count, 10);
+    });
+
+    const total = Object.values(counts).reduce((sum, c) => sum + c, 0);
+    const approved = (counts['approved'] || 0) + (counts['applied'] || 0);
+    const rejected = counts['rejected'] || 0;
+    const pending = counts['pending'] || 0;
+    const applied = counts['applied'] || 0;
+    const rate = total > 0 ? Math.round(((approved) / total) * 100) : 0;
+
+    return { total, approved, rejected, pending, applied, rate };
+  }
+
   getSupportedModules(): { moduleId: number; moduleName: string; moduleNameIt: string }[] {
     return SUPPORTED_MODULES.map(id => {
       const config = MODULE_PROMPTS[id];

@@ -22,3 +22,4 @@ export * from './modification.entity';
 export * from './email-otp.entity';
 export * from './system-setting.entity';
 export * from './run-kpi-snapshot.entity';
+export * from './ai-analysis-log.entity';

@@ -3,9 +3,11 @@ import { useParams, Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getKpis, getIssueSummary, getPerformanceTrend, getHealthScore, type IssueSummary, type KpiSnapshot, type HealthScoreResult } from '@/api/audit';
+import { getAnalysisHistory, getAcceptanceRate, analyzeAllModules, type AIAnalysisLog, type AcceptanceRate } from '@/api/ai';
 import { formatCurrency, formatNumber, formatPercent, formatRoas } from '@/lib/format';
+import { Button } from '@/components/ui/button';
 import type { KpiData } from '@/types/audit';
-import { AlertTriangle, AlertCircle, Info, TrendingDown, Target, Layers, Wallet, BarChart3 } from 'lucide-react';
+import { AlertTriangle, AlertCircle, Info, TrendingDown, Target, Layers, Wallet, BarChart3, Brain, Loader2, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import {
   LineChart,
   Line,
@@ -23,6 +25,9 @@ export function DashboardPage() {
   const [issueSummary, setIssueSummary] = useState<IssueSummary | null>(null);
   const [trend, setTrend] = useState<KpiSnapshot[]>([]);
   const [healthScore, setHealthScore] = useState<HealthScoreResult | null>(null);
+  const [analysisHistory, setAnalysisHistory] = useState<AIAnalysisLog[]>([]);
+  const [acceptanceRate, setAcceptanceRate] = useState<AcceptanceRate | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -34,12 +39,16 @@ export function DashboardPage() {
       getIssueSummary(accountId),
       getPerformanceTrend(accountId, 20),
       getHealthScore(accountId).catch(() => null),
+      getAnalysisHistory(accountId, 5).catch(() => []),
+      getAcceptanceRate(accountId).catch(() => null),
     ])
-      .then(([kpisData, issuesData, trendData, hsData]) => {
+      .then(([kpisData, issuesData, trendData, hsData, historyData, rateData]) => {
         setKpis(kpisData);
         setIssueSummary(issuesData);
         setTrend(trendData);
         setHealthScore(hsData);
+        setAnalysisHistory(historyData);
+        setAcceptanceRate(rateData);
       })
       .catch(console.error)
       .finally(() => setIsLoading(false));
@@ -274,6 +283,113 @@ export function DashboardPage() {
           subtitle="Average + Poor"
           valueColor="text-red-600"
         />
+      </div>
+
+      {/* AI Analysis Section */}
+      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mt-6 flex items-center gap-2">
+        <Brain className="h-4 w-4" />
+        Analisi AI
+      </h3>
+      <div className="grid gap-3 md:grid-cols-3">
+        {/* Acceptance Rate */}
+        <Card className="bg-card border-border">
+          <CardContent className="py-3 px-4">
+            <p className="text-xs font-medium text-muted-foreground mb-1">Acceptance Rate</p>
+            <div className="flex items-baseline gap-2">
+              <p className="text-2xl font-bold text-foreground">
+                {acceptanceRate ? `${acceptanceRate.rate}%` : '-'}
+              </p>
+              {acceptanceRate && (
+                <div className="flex gap-2 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-0.5">
+                    <CheckCircle2 className="h-3 w-3 text-green-500" />
+                    {acceptanceRate.approved}
+                  </span>
+                  <span className="flex items-center gap-0.5">
+                    <XCircle className="h-3 w-3 text-red-500" />
+                    {acceptanceRate.rejected}
+                  </span>
+                  <span className="flex items-center gap-0.5">
+                    <Clock className="h-3 w-3 text-yellow-500" />
+                    {acceptanceRate.pending}
+                  </span>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Last Analysis */}
+        <Card className="bg-card border-border">
+          <CardContent className="py-3 px-4">
+            <p className="text-xs font-medium text-muted-foreground mb-1">Ultima Analisi</p>
+            {analysisHistory.length > 0 ? (
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  {new Date(analysisHistory[0].startedAt).toLocaleDateString('it-IT', {
+                    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+                  })}
+                </p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                    analysisHistory[0].status === 'completed' ? 'bg-green-500/10 text-green-600' :
+                    analysisHistory[0].status === 'failed' ? 'bg-red-500/10 text-red-600' :
+                    'bg-yellow-500/10 text-yellow-600'
+                  }`}>
+                    {analysisHistory[0].status}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {analysisHistory[0].totalRecommendations} raccomandazioni
+                  </span>
+                  {analysisHistory[0].durationMs && (
+                    <span className="text-xs text-muted-foreground">
+                      ({Math.round(analysisHistory[0].durationMs / 1000)}s)
+                    </span>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Nessuna analisi eseguita</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Analyze All Button */}
+        <Card className="bg-card border-border">
+          <CardContent className="py-3 px-4 flex flex-col justify-center">
+            <Button
+              className="w-full"
+              disabled={isAnalyzing}
+              onClick={async () => {
+                if (!accountId) return;
+                setIsAnalyzing(true);
+                try {
+                  const result = await analyzeAllModules(accountId);
+                  setAnalysisHistory((prev) => [result, ...prev.slice(0, 4)]);
+                } catch (err) {
+                  console.error('Analysis failed:', err);
+                } finally {
+                  setIsAnalyzing(false);
+                }
+              }}
+            >
+              {isAnalyzing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Analizzando...
+                </>
+              ) : (
+                <>
+                  <Brain className="h-4 w-4 mr-2" />
+                  Analizza Tutti i Moduli
+                </>
+              )}
+            </Button>
+            <p className="text-[10px] text-muted-foreground text-center mt-1.5">
+              Esegue tutti i moduli AI e genera raccomandazioni
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Performance Trend Charts */}

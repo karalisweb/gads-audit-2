@@ -15,6 +15,8 @@ import {
   DevicePerformance,
   GoogleAdsAccount,
   ImportRun,
+  AIAnalysisLog,
+  Modification,
 } from '../../entities';
 
 @Module({
@@ -32,6 +34,8 @@ import {
       DevicePerformance,
       GoogleAdsAccount,
       ImportRun,
+      AIAnalysisLog,
+      Modification,
     ]),
   ],
   controllers: [AIController],
