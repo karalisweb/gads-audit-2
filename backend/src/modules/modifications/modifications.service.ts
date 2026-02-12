@@ -438,21 +438,30 @@ export class ModificationsService {
 
     // ─── NORMALIZZAZIONE entityId per keyword ───
     // Lo script Google Ads si aspetta il formato "adGroupId~keywordId"
+    // NON normalizzare per azioni negative (usano campaignId, non keywordId)
+    const isNegativeAction = rec.action?.startsWith('add_negative') || rec.action === 'remove_negative';
     if (
       rec.entityType === 'keyword' &&
       rec.entityId &&
       !rec.entityId.includes('~') &&
-      rec.adGroupId
+      rec.adGroupId &&
+      !isNegativeAction
     ) {
       rec.entityId = `${rec.adGroupId}~${rec.entityId}`;
     }
 
     // ─── SEARCH TERMS (module 22) ───
     if (rec.action === 'add_negative_campaign') {
+      let negCampaignId: string = rec.campaignId || rec.entityId || '';
+      // Sanitize: se entityId contiene ~ (formato keyword), non usarlo come campaignId
+      if (negCampaignId.includes('~')) {
+        negCampaignId = rec.campaignId || '';
+      }
+      if (!negCampaignId) return null; // Non possiamo creare negative senza campaignId
       return {
         accountId,
         entityType: ModificationEntityType.NEGATIVE_KEYWORD,
-        entityId: rec.campaignId || rec.entityId,
+        entityId: negCampaignId,
         entityName: rec.entityName,
         modificationType: ModificationType.NEGATIVE_KEYWORD_ADD,
         beforeValue: null,
@@ -460,7 +469,7 @@ export class ModificationsService {
           text: rec.entityName,
           matchType: this.normalizeMatchType(rec.suggestedValue),
           level: 'CAMPAIGN',
-          campaignId: rec.campaignId || rec.entityId,
+          campaignId: negCampaignId,
           source: 'ai_recommendation',
         },
         notes,
@@ -509,10 +518,38 @@ export class ModificationsService {
     if (rec.action === 'add_negative') {
       // Determine level from available data
       const level = rec.adGroupId ? 'AD_GROUP' : rec.campaignId ? 'CAMPAIGN' : 'CAMPAIGN';
+      // Per negative keyword, l'entityId deve essere un campaignId (solo numero, senza ~)
+      // L'AI a volte restituisce entityId nel formato keyword (adGroupId~keywordId) — sanitize
+      let negEntityId = rec.campaignId || rec.entityId;
+      if (negEntityId && negEntityId.includes('~')) {
+        // entityId è nel formato keyword, non usabile per negative.
+        // Se c'è campaignId nei campi extra, usalo; altrimenti skippa
+        if (rec.campaignId) {
+          negEntityId = rec.campaignId;
+        } else {
+          // Non possiamo determinare la campagna, crea suggerimento generico
+          return {
+            accountId,
+            entityType: ModificationEntityType.CAMPAIGN,
+            entityId: negEntityId.split('~')[0], // usa adGroupId come fallback
+            entityName: rec.entityName,
+            modificationType: ModificationType.CAMPAIGN_STATUS,
+            beforeValue: null,
+            afterValue: {
+              action: 'add_negative',
+              text: rec.entityName,
+              matchType: this.normalizeMatchType(rec.suggestedValue),
+              suggestedValue: `Aggiungere keyword negativa: ${rec.entityName}`,
+              source: 'ai_recommendation',
+            },
+            notes: `[Negative senza campaignId] ${notes}`,
+          };
+        }
+      }
       return {
         accountId,
         entityType: ModificationEntityType.NEGATIVE_KEYWORD,
-        entityId: rec.campaignId || rec.entityId,
+        entityId: negEntityId,
         entityName: rec.entityName,
         modificationType: ModificationType.NEGATIVE_KEYWORD_ADD,
         beforeValue: null,
@@ -520,7 +557,7 @@ export class ModificationsService {
           text: rec.entityName,
           matchType: this.normalizeMatchType(rec.suggestedValue),
           level,
-          campaignId: rec.campaignId || undefined,
+          campaignId: rec.campaignId || negEntityId,
           adGroupId: rec.adGroupId || undefined,
           source: 'ai_recommendation',
         },
@@ -826,9 +863,13 @@ export class ModificationsService {
       rec.action === 'create_specific_landing'
     ) {
       const isValidUrl = rec.suggestedValue && rec.suggestedValue.startsWith('http');
+      // Se entityId è un URL (es. dal modulo 24 landing pages), non è un keyword ID valido
+      const isEntityIdUrl = rec.entityId && rec.entityId.startsWith('http');
+      // entityId deve essere nel formato adGroupId~keywordId per modifiche keyword automatiche
+      const isValidKeywordEntityId = rec.entityId && rec.entityId.includes('~') && !isEntityIdUrl;
 
-      if (isValidUrl) {
-        // URL valido: crea modifica automatica keyword.final_url
+      if (isValidUrl && isValidKeywordEntityId) {
+        // URL valido + entityId keyword valido: crea modifica automatica keyword.final_url
         return {
           accountId,
           entityType: ModificationEntityType.KEYWORD,
