@@ -346,34 +346,70 @@ export class AIService {
         };
 
       case 24: // Landing Page Analysis
+        // Fetch campaigns to get bidding strategies
+        const lpCampaigns = await this.campaignRepository.find({
+          where: { ...baseWhere, status: 'ENABLED' },
+        });
+        const campaignStrategyMap = new Map<string, string>();
+        for (const c of lpCampaigns) {
+          campaignStrategyMap.set(c.campaignId, c.biddingStrategyType || 'UNKNOWN');
+        }
+
         const lpKeywords = await this.keywordRepository.find({
           where: { ...activeAdGroupFilter, status: 'ENABLED' },
         });
         // Filter to only keywords with final URLs
         const kwWithUrls = lpKeywords.filter(kw => kw.finalUrl && kw.finalUrl.trim() !== '');
         // Group by URL for summary
-        const urlGroups = new Map<string, { count: number; cost: number; conversions: number; experiences: string[] }>();
+        const urlGroups = new Map<string, {
+          count: number; cost: number; conversions: number; impressions: number;
+          clicks: number; experiences: string[]; strategies: Set<string>;
+          campaignNames: Set<string>;
+        }>();
         for (const kw of kwWithUrls) {
           const url = kw.finalUrl.replace(/\/+$/, '').toLowerCase();
           if (!urlGroups.has(url)) {
-            urlGroups.set(url, { count: 0, cost: 0, conversions: 0, experiences: [] });
+            urlGroups.set(url, {
+              count: 0, cost: 0, conversions: 0, impressions: 0, clicks: 0,
+              experiences: [], strategies: new Set(), campaignNames: new Set(),
+            });
           }
           const g = urlGroups.get(url)!;
           g.count++;
           g.cost += Number(kw.costMicros || 0) / 1_000_000;
           g.conversions += Number(kw.conversions || 0);
+          g.impressions += Number(kw.impressions || 0);
+          g.clicks += Number(kw.clicks || 0);
           if (kw.landingPageExperience) g.experiences.push(kw.landingPageExperience);
+          if (kw.campaignId) {
+            const strategy = campaignStrategyMap.get(kw.campaignId) || 'UNKNOWN';
+            g.strategies.add(strategy);
+            g.campaignNames.add(kw.campaignName || kw.campaignId);
+          }
         }
+
+        // Determine account-level dominant strategy for context
+        const allStrategies = lpCampaigns.map(c => c.biddingStrategyType || 'UNKNOWN');
+        const strategyCounts = allStrategies.reduce((acc, s) => { acc[s] = (acc[s] || 0) + 1; return acc; }, {} as Record<string, number>);
+        const dominantAccountStrategy = Object.entries(strategyCounts)
+          .sort(([, a], [, b]) => b - a)[0]?.[0] || 'UNKNOWN';
+
         const landingPageSummary = Array.from(urlGroups.entries()).map(([url, g]) => ({
           url,
           keywordCount: g.count,
           totalCost: parseFloat(g.cost.toFixed(2)),
           totalConversions: parseFloat(g.conversions.toFixed(2)),
+          totalImpressions: g.impressions,
+          totalClicks: g.clicks,
+          ctr: g.impressions > 0 ? parseFloat(((g.clicks / g.impressions) * 100).toFixed(2)) : 0,
+          cpc: g.clicks > 0 ? parseFloat((g.cost / g.clicks).toFixed(2)) : 0,
           dominantExperience: g.experiences.length > 0
             ? g.experiences.sort((a, b) =>
                 g.experiences.filter(e => e === b).length - g.experiences.filter(e => e === a).length
               )[0]
             : 'UNKNOWN',
+          biddingStrategies: Array.from(g.strategies),
+          campaigns: Array.from(g.campaignNames),
         })).sort((a, b) => b.totalCost - a.totalCost);
 
         return {
@@ -385,6 +421,12 @@ export class AIService {
               totalKeywords: kwWithUrls.length,
               totalCost: landingPageSummary.reduce((s, lp) => s + lp.totalCost, 0).toFixed(2),
               totalConversions: landingPageSummary.reduce((s, lp) => s + lp.totalConversions, 0).toFixed(2),
+              totalImpressions: landingPageSummary.reduce((s, lp) => s + lp.totalImpressions, 0),
+              totalClicks: landingPageSummary.reduce((s, lp) => s + lp.totalClicks, 0),
+              dominantAccountStrategy,
+              aboveAvg: landingPageSummary.filter(lp => lp.dominantExperience === 'ABOVE_AVERAGE').length,
+              avg: landingPageSummary.filter(lp => lp.dominantExperience === 'AVERAGE').length,
+              belowAvg: landingPageSummary.filter(lp => lp.dominantExperience === 'BELOW_AVERAGE').length,
             },
           },
           stats: { totalRecords: kwWithUrls.length, analyzedRecords: kwWithUrls.length },
