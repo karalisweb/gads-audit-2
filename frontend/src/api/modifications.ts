@@ -88,3 +88,14 @@ export async function bulkApproveModifications(
     { ids },
   );
 }
+
+// Bulk reject modifications
+export async function bulkRejectModifications(
+  ids: string[],
+  reason: string,
+): Promise<(Modification | { id: string; error: string })[]> {
+  return apiClient.post<(Modification | { id: string; error: string })[]>(
+    '/modifications/bulk-reject',
+    { ids, reason },
+  );
+}

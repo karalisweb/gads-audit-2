@@ -1,6 +1,7 @@
 import {
   type ColumnDef,
   type Row,
+  type RowSelectionState,
   flexRender,
   getCoreRowModel,
   useReactTable,
@@ -38,6 +39,10 @@ interface DataTableProps<TData, TValue> {
   total?: number;
   // Expandable rows
   renderSubRow?: (row: Row<TData>) => React.ReactNode;
+  // Row selection
+  rowSelection?: RowSelectionState;
+  onRowSelectionChange?: (selection: RowSelectionState) => void;
+  enableRowSelection?: boolean | ((row: Row<TData>) => boolean);
 }
 
 export function DataTable<TData, TValue>({
@@ -54,6 +59,9 @@ export function DataTable<TData, TValue>({
   onSortChange,
   total = 0,
   renderSubRow,
+  rowSelection,
+  onRowSelectionChange,
+  enableRowSelection,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>(
     sortBy ? [{ id: sortBy, desc: sortOrder === 'DESC' }] : [],
@@ -68,13 +76,23 @@ export function DataTable<TData, TValue>({
     manualPagination: true,
     manualSorting: true,
     pageCount,
+    enableRowSelection: enableRowSelection ?? false,
     state: {
       sorting,
       pagination: {
         pageIndex,
         pageSize,
       },
+      ...(rowSelection !== undefined ? { rowSelection } : {}),
     },
+    onRowSelectionChange: onRowSelectionChange
+      ? (updater) => {
+          const newSelection = typeof updater === 'function'
+            ? updater(rowSelection ?? {})
+            : updater;
+          onRowSelectionChange(newSelection);
+        }
+      : undefined,
     onSortingChange: (updater) => {
       const newSorting = typeof updater === 'function' ? updater(sorting) : updater;
       setSorting(newSorting);

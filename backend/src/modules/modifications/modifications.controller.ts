@@ -81,6 +81,15 @@ export class ModificationsController {
     return this.modificationsService.bulkApprove(body.ids, userId);
   }
 
+  @Post('bulk-reject')
+  @HttpCode(HttpStatus.OK)
+  async bulkReject(
+    @Body() body: { ids: string[]; reason: string },
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.modificationsService.bulkReject(body.ids, userId, body.reason);
+  }
+
   @Post('from-ai')
   async createFromAI(
     @Body() dto: CreateFromAIDto,

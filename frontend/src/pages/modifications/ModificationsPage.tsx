@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import type { ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef, RowSelectionState } from '@tanstack/react-table';
 import { DataTable } from '@/components/data-table/DataTable';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Check, X, AlertCircle, Clock, Loader2, Plus, Eye, Code, ExternalLink } from 'lucide-react';
+import { Check, X, AlertCircle, Clock, Loader2, Plus, Eye, Code, ExternalLink, CheckCircle2, XCircle } from 'lucide-react';
 import { CreateModificationModal } from './CreateModificationModal';
 import {
   getModifications,
@@ -29,6 +29,8 @@ import {
   approveModification,
   rejectModification,
   cancelModification,
+  bulkApproveModifications,
+  bulkRejectModifications,
 } from '@/api/modifications';
 import type {
   Modification,
@@ -137,6 +139,10 @@ export function ModificationsPage() {
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [detailModification, setDetailModification] = useState<Modification | null>(null);
   const [scriptModalOpen, setScriptModalOpen] = useState(false);
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkRejectDialogOpen, setBulkRejectDialogOpen] = useState(false);
+  const [bulkRejectReason, setBulkRejectReason] = useState('');
 
   const fetchData = useCallback(async () => {
     if (!accountId) return;
@@ -215,7 +221,73 @@ export function ModificationsPage() {
     setRejectDialogOpen(true);
   };
 
+  // Get selected pending modification IDs
+  const getSelectedPendingIds = (): string[] => {
+    if (!data) return [];
+    return Object.keys(rowSelection)
+      .filter(idx => rowSelection[idx])
+      .map(idx => data.data[parseInt(idx)])
+      .filter(mod => mod && mod.status === 'pending')
+      .map(mod => mod.id);
+  };
+
+  const selectedPendingCount = getSelectedPendingIds().length;
+  const selectedCount = Object.keys(rowSelection).filter(idx => rowSelection[idx]).length;
+
+  const handleBulkApprove = async () => {
+    const ids = getSelectedPendingIds();
+    if (ids.length === 0) return;
+    setBulkLoading(true);
+    try {
+      await bulkApproveModifications(ids);
+      setRowSelection({});
+      fetchData();
+    } catch (err) {
+      console.error('Error bulk approving:', err);
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const handleBulkReject = async () => {
+    const ids = getSelectedPendingIds();
+    if (ids.length === 0 || !bulkRejectReason.trim()) return;
+    setBulkLoading(true);
+    try {
+      await bulkRejectModifications(ids, bulkRejectReason);
+      setRowSelection({});
+      setBulkRejectDialogOpen(false);
+      setBulkRejectReason('');
+      fetchData();
+    } catch (err) {
+      console.error('Error bulk rejecting:', err);
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
   const columns: ColumnDef<Modification>[] = [
+    {
+      id: 'select',
+      header: ({ table }) => (
+        <input
+          type="checkbox"
+          className="h-4 w-4 rounded border-gray-300 accent-primary"
+          checked={table.getIsAllPageRowsSelected()}
+          onChange={table.getToggleAllPageRowsSelectedHandler()}
+        />
+      ),
+      cell: ({ row }) => (
+        <input
+          type="checkbox"
+          className="h-4 w-4 rounded border-gray-300 accent-primary"
+          checked={row.getIsSelected()}
+          disabled={!row.getCanSelect()}
+          onChange={row.getToggleSelectedHandler()}
+        />
+      ),
+      enableSorting: false,
+    },
     {
       accessorKey: 'status',
       header: 'Stato',
@@ -496,6 +568,51 @@ export function ModificationsPage() {
         </Select>
       </div>
 
+      {/* Bulk Actions Bar */}
+      {selectedCount > 0 && (
+        <div className="flex items-center gap-3 p-3 bg-muted/50 border rounded-lg">
+          <span className="text-sm font-medium">
+            {selectedCount} selezionat{selectedCount === 1 ? 'a' : 'e'}
+            {selectedPendingCount < selectedCount && (
+              <span className="text-muted-foreground"> ({selectedPendingCount} in attesa)</span>
+            )}
+          </span>
+          <div className="flex gap-2 ml-auto">
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-green-600 border-green-600 hover:bg-green-50"
+              onClick={handleBulkApprove}
+              disabled={bulkLoading || selectedPendingCount === 0}
+            >
+              {bulkLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-1" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4 mr-1" />
+              )}
+              Approva ({selectedPendingCount})
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-red-600 border-red-600 hover:bg-red-50"
+              onClick={() => setBulkRejectDialogOpen(true)}
+              disabled={bulkLoading || selectedPendingCount === 0}
+            >
+              <XCircle className="h-4 w-4 mr-1" />
+              Rifiuta ({selectedPendingCount})
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setRowSelection({})}
+            >
+              Deseleziona
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Data Table */}
       {data && (
         <DataTable
@@ -506,6 +623,9 @@ export function ModificationsPage() {
           pageIndex={(filters.page || 1) - 1}
           total={data.meta?.total || 0}
           onPageChange={(pageIdx) => setFilters((f) => ({ ...f, page: pageIdx + 1 }))}
+          enableRowSelection={(row) => row.original.status === 'pending'}
+          rowSelection={rowSelection}
+          onRowSelectionChange={setRowSelection}
         />
       )}
 
@@ -543,6 +663,44 @@ export function ModificationsPage() {
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : null}
               Rifiuta
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Reject Dialog */}
+      <Dialog open={bulkRejectDialogOpen} onOpenChange={setBulkRejectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rifiuta {selectedPendingCount} Modifiche</DialogTitle>
+            <DialogDescription>
+              Inserisci il motivo del rifiuto per tutte le modifiche selezionate.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Textarea
+              placeholder="Motivo del rifiuto..."
+              value={bulkRejectReason}
+              onChange={(e) => setBulkRejectReason(e.target.value)}
+              rows={4}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setBulkRejectDialogOpen(false)}
+            >
+              Annulla
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleBulkReject}
+              disabled={!bulkRejectReason.trim() || bulkLoading}
+            >
+              {bulkLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              Rifiuta {selectedPendingCount} modifiche
             </Button>
           </DialogFooter>
         </DialogContent>

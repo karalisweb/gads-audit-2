@@ -222,6 +222,20 @@ export class ModificationsService {
     return results;
   }
 
+  async bulkReject(ids: string[], userId: string, reason: string) {
+    const results = await Promise.all(
+      ids.map(async (id) => {
+        try {
+          return await this.reject(id, userId, reason);
+        } catch (error) {
+          return { id, error: error.message };
+        }
+      }),
+    );
+
+    return results;
+  }
+
   async getPendingForAccount(customerId: string) {
     // Find account by customerId (Google Ads customer ID)
     const account = await this.accountsRepository.findOne({
