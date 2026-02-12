@@ -168,6 +168,11 @@ export const useAuthStore = create<AuthState>()(
         if (state?.accessToken) {
           apiClient.setAccessToken(state.accessToken);
         }
+        // Registra l'auto-refresh per il client API
+        apiClient.setRefreshHandler(async () => {
+          const store = useAuthStore.getState();
+          await store.refreshTokens();
+        });
       },
     }
   )

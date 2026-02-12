@@ -8,6 +8,8 @@ interface RequestOptions extends RequestInit {
 
 class ApiClient {
   private accessToken: string | null = null;
+  private refreshPromise: Promise<void> | null = null;
+  private onTokenRefresh: (() => Promise<void>) | null = null;
 
   setAccessToken(token: string | null) {
     this.accessToken = token;
@@ -15,6 +17,11 @@ class ApiClient {
 
   getAccessToken(): string | null {
     return this.accessToken;
+  }
+
+  /** Registra il callback di refresh (chiamato dall'auth store) */
+  setRefreshHandler(handler: () => Promise<void>) {
+    this.onTokenRefresh = handler;
   }
 
   private buildUrl(endpoint: string, params?: Record<string, string | number | boolean | undefined>): string {
@@ -47,7 +54,7 @@ class ApiClient {
     return response.json();
   }
 
-  async request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+  async request<T>(endpoint: string, options: RequestOptions = {}, _isRetry = false): Promise<T> {
     const { params, ...fetchOptions } = options;
     const url = this.buildUrl(endpoint, params);
 
@@ -65,6 +72,23 @@ class ApiClient {
       headers,
       credentials: 'include',
     });
+
+    // Auto-refresh su 401 (token scaduto)
+    if (response.status === 401 && !_isRetry && this.onTokenRefresh && !endpoint.includes('/auth/')) {
+      try {
+        // Evita refresh multipli paralleli
+        if (!this.refreshPromise) {
+          this.refreshPromise = this.onTokenRefresh().finally(() => {
+            this.refreshPromise = null;
+          });
+        }
+        await this.refreshPromise;
+        // Riprova la richiesta con il nuovo token
+        return this.request<T>(endpoint, options, true);
+      } catch {
+        // Refresh fallito, lascia gestire il 401 normalmente
+      }
+    }
 
     return this.handleResponse<T>(response);
   }
