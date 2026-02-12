@@ -140,7 +140,6 @@ export class AIService {
 
   /**
    * Recupera gli ID delle campagne attive (ENABLED) per un account/run.
-   * Usato per filtrare search terms, geo/device performance, ecc.
    */
   private async getActiveCampaignIds(accountId: string, runId: string): Promise<string[]> {
     const activeCampaigns = await this.campaignRepository.find({
@@ -148,6 +147,19 @@ export class AIService {
       select: ['campaignId'],
     });
     return activeCampaigns.map(c => c.campaignId);
+  }
+
+  /**
+   * Recupera gli ID degli ad group attivi (ENABLED) in campagne attive.
+   * Usato per filtrare keyword, ads e search terms.
+   */
+  private async getActiveAdGroupIds(accountId: string, runId: string, activeCampaignIds: string[]): Promise<string[]> {
+    if (activeCampaignIds.length === 0) return [];
+    const activeAdGroups = await this.adGroupRepository.find({
+      where: { accountId, runId, status: 'ENABLED', campaignId: In(activeCampaignIds) },
+      select: ['adGroupId'],
+    });
+    return activeAdGroups.map(ag => ag.adGroupId);
   }
 
   private async fetchModuleData(
@@ -158,11 +170,16 @@ export class AIService {
   ): Promise<{ data: any; stats: { totalRecords: number; analyzedRecords: number } }> {
     const baseWhere = { accountId, runId };
 
-    // Pre-calcola gli ID delle campagne attive (usato da molti moduli)
+    // Pre-calcola gli ID delle campagne e ad group attivi
     const activeCampaignIds = await this.getActiveCampaignIds(accountId, runId);
     const activeCampaignFilter = activeCampaignIds.length > 0
       ? { ...baseWhere, campaignId: In(activeCampaignIds) }
       : baseWhere;
+
+    const activeAdGroupIds = await this.getActiveAdGroupIds(accountId, runId, activeCampaignIds);
+    const activeAdGroupFilter = activeAdGroupIds.length > 0
+      ? { ...baseWhere, adGroupId: In(activeAdGroupIds) }
+      : activeCampaignFilter;
 
     switch (moduleId) {
       case 1: // Conversion Goals
@@ -222,7 +239,7 @@ export class AIService {
       case 15: // Ad Effectiveness
       case 16: // Ad Conversions
         const ads = await this.adRepository.find({
-          where: { ...activeCampaignFilter, status: 'ENABLED' },
+          where: { ...activeAdGroupFilter, status: 'ENABLED' },
         });
         return {
           data: { ads, aggregates: this.calculateAdAggregates(ads) },
@@ -251,12 +268,12 @@ export class AIService {
       case 20: // Keyword Impression Share
       case 21: // Keyword-Ad-Landing Coherence
         const keywords = await this.keywordRepository.find({
-          where: { ...activeCampaignFilter, status: 'ENABLED' },
+          where: { ...activeAdGroupFilter, status: 'ENABLED' },
         });
         let adsForCoherence: Ad[] = [];
         if (moduleId === 21) {
           adsForCoherence = await this.adRepository.find({
-            where: { ...activeCampaignFilter, status: 'ENABLED' },
+            where: { ...activeAdGroupFilter, status: 'ENABLED' },
           });
         }
         return {
@@ -270,7 +287,7 @@ export class AIService {
 
       case 22: // Search Terms Analysis
         const searchTerms = await this.searchTermRepository.find({
-          where: activeCampaignFilter,
+          where: activeAdGroupFilter,
           order: { costMicros: 'DESC' },
           take: 500, // Limit to top 500 by cost
         });
@@ -281,9 +298,9 @@ export class AIService {
 
       case 23: // Negative Keywords
         const [negatives, searchTermsForNeg] = await Promise.all([
-          this.negativeKeywordRepository.find({ where: activeCampaignFilter }),
+          this.negativeKeywordRepository.find({ where: activeAdGroupFilter }),
           this.searchTermRepository.find({
-            where: activeCampaignFilter,
+            where: activeAdGroupFilter,
             order: { costMicros: 'DESC' },
             take: 200,
           }),
