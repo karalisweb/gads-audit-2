@@ -710,6 +710,11 @@ STATISTICHE:
 - CPA target: {{targetCpa}}
 - CPA medio: {{avgCpa}}
 
+REGOLE PER I VALORI:
+- Per increase_bid/decrease_bid: "suggestedValue" DEVE essere un valore numerico in euro (es. "0.85", "1.20"). Usa il campo cpcBid fornito nei dati per calcolare il nuovo valore.
+- Per improve_landing_page: "suggestedValue" DEVE essere un URL valido (es. "https://example.com/page"). Se non conosci l'URL esatto, usa l'azione "improve_quality" invece.
+- Per set_keyword_url: "suggestedValue" DEVE essere un URL valido (es. "https://example.com/page").
+
 Genera raccomandazioni in formato JSON:
 {
   "summary": "Riepilogo keyword performance",
@@ -720,16 +725,16 @@ Genera raccomandazioni in formato JSON:
       "entityType": "keyword",
       "entityId": "adGroupId~id (es. '123456789~987654321', OBBLIGATORIO: usa i veri valori adGroupId e id dai dati forniti)",
       "entityName": "keyword text [match type]",
-      "action": "pause|change_match_type|increase_bid|decrease_bid|improve_landing_page|improve_ad_relevance",
+      "action": "pause|change_match_type|increase_bid|decrease_bid|improve_landing_page|improve_quality",
       "currentValue": "QS/CPA/CTR attuale",
-      "suggestedValue": "azione specifica",
+      "suggestedValue": "valore specifico (numero per bid, URL per landing page, descrizione per improve_quality)",
       "rationale": "Spiegazione dettagliata con metriche",
       "expectedImpact": "Risparmio/miglioramento stimato"
     }
   ]
 }`,
     requiredData: ['keywords'],
-    actionTypes: ['pause', 'change_match_type', 'increase_bid', 'decrease_bid', 'improve_landing_page', 'improve_ad_relevance'],
+    actionTypes: ['pause', 'change_match_type', 'increase_bid', 'decrease_bid', 'improve_landing_page', 'improve_quality'],
   },
 
   // MODULO 20 - Quote perse per keyword
@@ -751,6 +756,10 @@ Rispondi SOLO in formato JSON.`,
 DATI KEYWORD:
 {{data}}
 
+REGOLE PER I VALORI:
+- Per increase_bid: "suggestedValue" DEVE essere un valore numerico in euro (es. "0.85", "1.50"). Usa il campo cpcBid fornito nei dati per calcolare il nuovo bid.
+- Per increase_campaign_budget: "suggestedValue" DEVE essere un valore numerico in euro (es. "15.00", "25.00").
+
 Genera raccomandazioni in formato JSON:
 {
   "summary": "Riepilogo impression share keyword",
@@ -763,7 +772,7 @@ Genera raccomandazioni in formato JSON:
       "entityName": "keyword text",
       "action": "increase_bid|increase_campaign_budget|improve_quality_score",
       "currentValue": "IS attuale e quote perse",
-      "suggestedValue": "bid/budget suggerito",
+      "suggestedValue": "valore numerico in euro (es. '0.85' per bid, '25.00' per budget)",
       "rationale": "Spiegazione con calcolo impressioni recuperabili",
       "expectedImpact": "Impressioni/click aggiuntivi stimati"
     }
@@ -797,6 +806,11 @@ Rispondi SOLO in formato JSON.`,
 DATI KEYWORD CON ANNUNCI:
 {{data}}
 
+REGOLE PER I VALORI:
+- Per set_keyword_url: "suggestedValue" DEVE essere un URL valido completo (es. "https://example.com/pagina-specifica"). Se non conosci l'URL esatto del sito, usa "create_specific_landing" invece.
+- Per create_specific_landing: "suggestedValue" deve descrivere la landing page da creare (questo e un suggerimento manuale, NON viene applicato automaticamente).
+- Per add_keyword_to_headline: "suggestedValue" deve contenere il testo headline suggerito.
+
 Genera raccomandazioni in formato JSON:
 {
   "summary": "Riepilogo coerenza",
@@ -809,7 +823,7 @@ Genera raccomandazioni in formato JSON:
       "entityName": "keyword text",
       "action": "set_keyword_url|create_specific_landing|add_keyword_to_headline|restructure_ad_group",
       "currentValue": "situazione attuale",
-      "suggestedValue": "URL/headline suggerito",
+      "suggestedValue": "URL per set_keyword_url, descrizione per create_specific_landing, testo per headline",
       "rationale": "Spiegazione",
       "expectedImpact": "Miglioramento QS atteso"
     }

@@ -693,6 +693,27 @@ export class ModificationsService {
 
     // ─── KEYWORD BID ACTIONS ───
     if (rec.action === 'increase_bid' || rec.action === 'decrease_bid') {
+      const bidMicros = this.parseToMicros(rec.suggestedValue);
+      // Se il valore non è numerico, crea suggerimento manuale invece di modifica automatica
+      if (!bidMicros) {
+        const entityType = this.inferEntityType(rec.entityType);
+        const modificationType = this.inferStatusModificationType(entityType);
+        if (!modificationType) return null;
+        return {
+          accountId,
+          entityType,
+          entityId: rec.entityId,
+          entityName: rec.entityName,
+          modificationType,
+          beforeValue,
+          afterValue: {
+            action: rec.action,
+            suggestedValue: rec.suggestedValue,
+            source: 'ai_recommendation',
+          },
+          notes: `[Bid non numerico] ${notes}`,
+        };
+      }
       const entityType = this.inferEntityType(rec.entityType);
       if (entityType === ModificationEntityType.KEYWORD) {
         return {
@@ -704,7 +725,7 @@ export class ModificationsService {
           beforeValue,
           afterValue: {
             cpcBid: rec.suggestedValue,
-            cpcBidMicros: this.parseToMicros(rec.suggestedValue),
+            cpcBidMicros: bidMicros,
             action: rec.action,
             source: 'ai_recommendation',
           },
@@ -721,7 +742,7 @@ export class ModificationsService {
           beforeValue,
           afterValue: {
             cpcBid: rec.suggestedValue,
-            cpcBidMicros: this.parseToMicros(rec.suggestedValue),
+            cpcBidMicros: bidMicros,
             action: rec.action,
             source: 'ai_recommendation',
           },
@@ -804,30 +825,57 @@ export class ModificationsService {
       rec.action === 'set_keyword_url' ||
       rec.action === 'create_specific_landing'
     ) {
-      return {
-        accountId,
-        entityType: ModificationEntityType.KEYWORD,
-        entityId: rec.entityId,
-        entityName: rec.entityName,
-        modificationType: ModificationType.KEYWORD_FINAL_URL,
-        beforeValue,
-        afterValue: {
-          finalUrl: rec.suggestedValue,
-          action: rec.action,
-          source: 'ai_recommendation',
-        },
-        notes,
-      };
+      const isValidUrl = rec.suggestedValue && rec.suggestedValue.startsWith('http');
+
+      if (isValidUrl) {
+        // URL valido: crea modifica automatica keyword.final_url
+        return {
+          accountId,
+          entityType: ModificationEntityType.KEYWORD,
+          entityId: rec.entityId,
+          entityName: rec.entityName,
+          modificationType: ModificationType.KEYWORD_FINAL_URL,
+          beforeValue,
+          afterValue: {
+            finalUrl: rec.suggestedValue,
+            action: rec.action,
+            source: 'ai_recommendation',
+          },
+          notes,
+        };
+      } else {
+        // Testo descrittivo: crea suggerimento manuale (non automatizzabile)
+        const entityType = this.inferEntityType(rec.entityType);
+        const modificationType = this.inferStatusModificationType(entityType);
+        if (!modificationType) return null;
+        return {
+          accountId,
+          entityType,
+          entityId: rec.entityId,
+          entityName: rec.entityName,
+          modificationType,
+          beforeValue,
+          afterValue: {
+            action: rec.action,
+            suggestedValue: rec.suggestedValue,
+            source: 'ai_recommendation',
+          },
+          notes,
+        };
+      }
     }
 
-    // ─── AD FINAL URL ───
+    // ─── AD RELEVANCE (suggerimento manuale, non automatizzabile) ───
     if (rec.action === 'improve_ad_relevance') {
+      const entityType = this.inferEntityType(rec.entityType);
+      const modificationType = this.inferStatusModificationType(entityType);
+      if (!modificationType) return null;
       return {
         accountId,
-        entityType: ModificationEntityType.AD,
+        entityType,
         entityId: rec.entityId,
         entityName: rec.entityName,
-        modificationType: ModificationType.AD_FINAL_URL,
+        modificationType,
         beforeValue,
         afterValue: {
           action: 'improve_relevance',
@@ -876,7 +924,9 @@ export class ModificationsService {
       rec.action === 'improve_quality' ||
       rec.action === 'improve_quality_score' ||
       rec.action === 'add_keyword_to_headline' ||
-      rec.action === 'restructure_ad_group'
+      rec.action === 'restructure_ad_group' ||
+      rec.action === 'optimize_landing_page' ||
+      rec.action === 'consolidate_urls'
     ) {
       const entityType = this.inferEntityType(rec.entityType);
       const modificationType = this.inferStatusModificationType(entityType);
@@ -1068,6 +1118,7 @@ export class ModificationsService {
       conversion_action: ModificationEntityType.CONVERSION_ACTION,
       conversion: ModificationEntityType.CONVERSION_ACTION,
       extension: ModificationEntityType.CAMPAIGN,
+      landing_page: ModificationEntityType.CAMPAIGN,
     };
 
     return mapping[aiEntityType.toLowerCase()] || ModificationEntityType.CAMPAIGN;

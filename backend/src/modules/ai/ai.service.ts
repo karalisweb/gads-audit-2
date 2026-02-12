@@ -691,6 +691,8 @@ Usa questo contesto per interpretare correttamente i dati che seguono. Le metric
         creativeRelevance: k.creativeRelevance,
         landingPageExp: k.landingPageExperience,
         expectedCtr: k.expectedCtr,
+        cpcBid: k.cpcBidMicros ? (Number(k.cpcBidMicros) / 1_000_000).toFixed(2) : null,
+        finalUrl: k.finalUrl || null,
         cost: (Number(k.costMicros || 0) / 1_000_000).toFixed(2),
         conversions: k.conversions,
         ctr: k.ctr,
