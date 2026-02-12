@@ -248,7 +248,9 @@ function extractAdGroups() {
     'metrics.conversions, ' +
     'metrics.conversions_value, ' +
     'metrics.ctr, ' +
-    'metrics.average_cpc ' +
+    'metrics.average_cpc, ' +
+    'metrics.search_impression_share, ' +
+    'metrics.search_rank_lost_impression_share ' +
     'FROM ad_group ' +
     'WHERE segments.date BETWEEN "' + CONFIG.DATE_RANGE.START + '" AND "' + CONFIG.DATE_RANGE.END + '" ' +
     (CONFIG.EXCLUDE_PMAX ? 'AND campaign.advertising_channel_type != "PERFORMANCE_MAX" ' : '') +
@@ -275,8 +277,8 @@ function extractAdGroups() {
       conversions_value: parseFloat(row['metrics.conversions_value']) || 0,
       ctr: parseFloat(row['metrics.ctr']) || 0,
       average_cpc_micros: parseInt(row['metrics.average_cpc']) || 0,
-      search_impression_share: null,
-      search_impression_share_lost_rank: null,
+      search_impression_share: parseFloat(row['metrics.search_impression_share']) || null,
+      search_impression_share_lost_rank: parseFloat(row['metrics.search_rank_lost_impression_share']) || null,
       search_impression_share_lost_budget: null,
       phone_calls: 0,
       message_chats: 0
@@ -435,7 +437,9 @@ function extractKeywords() {
     'metrics.conversions, ' +
     'metrics.conversions_value, ' +
     'metrics.ctr, ' +
-    'metrics.average_cpc ' +
+    'metrics.average_cpc, ' +
+    'metrics.search_impression_share, ' +
+    'metrics.search_rank_lost_impression_share ' +
     'FROM keyword_view ' +
     'WHERE segments.date BETWEEN "' + CONFIG.DATE_RANGE.START + '" AND "' + CONFIG.DATE_RANGE.END + '" ' +
     (CONFIG.EXCLUDE_PMAX ? 'AND campaign.advertising_channel_type != "PERFORMANCE_MAX" ' : '') +
@@ -488,8 +492,8 @@ function extractKeywords() {
       conversions_value: parseFloat(row['metrics.conversions_value']) || 0,
       ctr: parseFloat(row['metrics.ctr']) || 0,
       average_cpc_micros: parseInt(row['metrics.average_cpc']) || 0,
-      search_impression_share: null,
-      search_impression_share_lost_rank: null,
+      search_impression_share: parseFloat(row['metrics.search_impression_share']) || null,
+      search_impression_share_lost_rank: parseFloat(row['metrics.search_rank_lost_impression_share']) || null,
       search_impression_share_lost_budget: null,
       phone_calls: 0
     });

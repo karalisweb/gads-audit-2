@@ -139,7 +139,7 @@ function extractCampaigns() {
 
 function extractAdGroups() {
   var adGroups = [];
-  var query = 'SELECT ad_group.id, ad_group.name, ad_group.status, ad_group.type, ad_group.cpc_bid_micros, ad_group.target_cpa_micros, campaign.id, campaign.name, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.conversions_value, metrics.ctr, metrics.average_cpc FROM ad_group WHERE segments.date BETWEEN "' + CONFIG.DATE_RANGE.START + '" AND "' + CONFIG.DATE_RANGE.END + '" ' + (CONFIG.EXCLUDE_PMAX ? 'AND campaign.advertising_channel_type != "PERFORMANCE_MAX" ' : '') + 'AND ad_group.status != "REMOVED"';
+  var query = 'SELECT ad_group.id, ad_group.name, ad_group.status, ad_group.type, ad_group.cpc_bid_micros, ad_group.target_cpa_micros, campaign.id, campaign.name, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.conversions_value, metrics.ctr, metrics.average_cpc, metrics.search_impression_share, metrics.search_rank_lost_impression_share FROM ad_group WHERE segments.date BETWEEN "' + CONFIG.DATE_RANGE.START + '" AND "' + CONFIG.DATE_RANGE.END + '" ' + (CONFIG.EXCLUDE_PMAX ? 'AND campaign.advertising_channel_type != "PERFORMANCE_MAX" ' : '') + 'AND ad_group.status != "REMOVED"';
 
   var rows = AdsApp.report(query).rows();
   while (rows.hasNext()) {
@@ -160,8 +160,8 @@ function extractAdGroups() {
       conversions_value: parseFloat(row['metrics.conversions_value']) || 0,
       ctr: parseFloat(row['metrics.ctr']) || 0,
       average_cpc_micros: parseInt(row['metrics.average_cpc']) || 0,
-      search_impression_share: null,
-      search_impression_share_lost_rank: null,
+      search_impression_share: parseFloat(row['metrics.search_impression_share']) || null,
+      search_impression_share_lost_rank: parseFloat(row['metrics.search_rank_lost_impression_share']) || null,
       search_impression_share_lost_budget: null,
       phone_calls: 0,
       message_chats: 0
@@ -241,7 +241,7 @@ function parseAdTextAssets(rawValue) {
 
 function extractKeywords() {
   var keywords = [];
-  var query = 'SELECT ad_group_criterion.criterion_id, ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, ad_group_criterion.status, ad_group_criterion.approval_status, ad_group_criterion.effective_cpc_bid_micros, ad_group_criterion.final_urls, ad_group_criterion.quality_info.quality_score, ad_group_criterion.quality_info.creative_quality_score, ad_group_criterion.quality_info.post_click_quality_score, ad_group_criterion.quality_info.search_predicted_ctr, ad_group.id, ad_group.name, campaign.id, campaign.name, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.conversions_value, metrics.ctr, metrics.average_cpc FROM keyword_view WHERE segments.date BETWEEN "' + CONFIG.DATE_RANGE.START + '" AND "' + CONFIG.DATE_RANGE.END + '" ' + (CONFIG.EXCLUDE_PMAX ? 'AND campaign.advertising_channel_type != "PERFORMANCE_MAX" ' : '') + 'AND ad_group_criterion.status != "REMOVED"';
+  var query = 'SELECT ad_group_criterion.criterion_id, ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, ad_group_criterion.status, ad_group_criterion.approval_status, ad_group_criterion.effective_cpc_bid_micros, ad_group_criterion.final_urls, ad_group_criterion.quality_info.quality_score, ad_group_criterion.quality_info.creative_quality_score, ad_group_criterion.quality_info.post_click_quality_score, ad_group_criterion.quality_info.search_predicted_ctr, ad_group.id, ad_group.name, campaign.id, campaign.name, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.conversions_value, metrics.ctr, metrics.average_cpc, metrics.search_impression_share, metrics.search_rank_lost_impression_share FROM keyword_view WHERE segments.date BETWEEN "' + CONFIG.DATE_RANGE.START + '" AND "' + CONFIG.DATE_RANGE.END + '" ' + (CONFIG.EXCLUDE_PMAX ? 'AND campaign.advertising_channel_type != "PERFORMANCE_MAX" ' : '') + 'AND ad_group_criterion.status != "REMOVED"';
 
   var rows = AdsApp.report(query).rows();
   while (rows.hasNext()) {
@@ -278,8 +278,8 @@ function extractKeywords() {
       conversions_value: parseFloat(row['metrics.conversions_value']) || 0,
       ctr: parseFloat(row['metrics.ctr']) || 0,
       average_cpc_micros: parseInt(row['metrics.average_cpc']) || 0,
-      search_impression_share: null,
-      search_impression_share_lost_rank: null,
+      search_impression_share: parseFloat(row['metrics.search_impression_share']) || null,
+      search_impression_share_lost_rank: parseFloat(row['metrics.search_rank_lost_impression_share']) || null,
       search_impression_share_lost_budget: null,
       phone_calls: 0
     });
