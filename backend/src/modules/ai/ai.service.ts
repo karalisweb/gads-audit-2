@@ -267,9 +267,25 @@ export class AIService {
       case 19: // Keyword Performance
       case 20: // Keyword Impression Share
       case 21: // Keyword-Ad-Landing Coherence
-        const keywords = await this.keywordRepository.find({
-          where: { ...activeAdGroupFilter, status: 'ENABLED' },
-        });
+        const kwQb = this.keywordRepository.createQueryBuilder('kw');
+        kwQb.where('kw.accountId = :accountId', { accountId });
+        kwQb.andWhere('kw.runId = :runId', { runId });
+        kwQb.andWhere('kw.status = :kwStatus', { kwStatus: 'ENABLED' });
+        if (activeAdGroupIds.length > 0) {
+          kwQb.andWhere('kw.adGroupId IN (:...activeAgIds)', { activeAgIds: activeAdGroupIds });
+        }
+        // Escludi keyword che sono anche negative keywords
+        kwQb.andWhere(`NOT EXISTS (
+          SELECT 1 FROM negative_keywords nk
+          WHERE LOWER(nk.keyword_text) = LOWER(kw.keyword_text)
+          AND nk.account_id = kw.account_id
+          AND (
+            nk.ad_group_id = kw.ad_group_id
+            OR (nk.campaign_id = kw.campaign_id AND (nk.ad_group_id IS NULL OR nk.ad_group_id = ''))
+            OR (nk.campaign_id IS NULL OR nk.campaign_id = '')
+          )
+        )`);
+        const keywords = await kwQb.getMany();
         let adsForCoherence: Ad[] = [];
         if (moduleId === 21) {
           adsForCoherence = await this.adRepository.find({
