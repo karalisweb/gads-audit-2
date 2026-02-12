@@ -77,8 +77,7 @@ function formatValue(value: unknown): string {
       return obj.status === 'ENABLED' ? 'Attivo' : obj.status === 'PAUSED' ? 'In pausa' : String(obj.status);
     }
     if ('finalUrl' in obj) {
-      const url = String(obj.finalUrl);
-      return url.length > 30 ? url.substring(0, 30) + '...' : url;
+      return String(obj.finalUrl);
     }
     if ('finalUrls' in obj && Array.isArray(obj.finalUrls)) {
       return `${obj.finalUrls.length} URL`;
@@ -244,8 +243,8 @@ export function ModificationsPage() {
       accessorKey: 'entityName',
       header: 'Entità',
       cell: ({ row }) => (
-        <div className="max-w-[200px]">
-          <p className="font-medium truncate">
+        <div>
+          <p className="font-medium break-words">
             {row.original.entityName || row.original.entityId}
           </p>
           <p className="text-xs text-muted-foreground">
@@ -261,13 +260,13 @@ export function ModificationsPage() {
         const showDetailBtn = hasComplexData(row.original.beforeValue) || hasComplexData(row.original.afterValue);
         return (
           <div className="text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">Da:</span>
-              <span>{formatValue(row.original.beforeValue)}</span>
+            <div className="flex items-start gap-2">
+              <span className="text-muted-foreground shrink-0">Da:</span>
+              <span className="break-words">{formatValue(row.original.beforeValue)}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">A:</span>
-              <span className="font-medium text-primary">
+            <div className="flex items-start gap-2">
+              <span className="text-muted-foreground shrink-0">A:</span>
+              <span className="font-medium text-primary break-words">
                 {formatValue(row.original.afterValue)}
               </span>
               {showDetailBtn && (
@@ -294,7 +293,7 @@ export function ModificationsPage() {
       header: 'Creata da',
       cell: ({ row }) => (
         <div>
-          <p className="text-sm">{row.original.createdBy?.email || '-'}</p>
+          <p className="text-sm break-words">{row.original.createdBy?.email || '-'}</p>
           <p className="text-xs text-muted-foreground">
             {formatDate(row.original.createdAt)}
           </p>
@@ -316,9 +315,9 @@ export function ModificationsPage() {
         }
         if (mod.status === 'failed') {
           return (
-            <div className="text-sm text-red-600" title={mod.resultMessage || ''}>
+            <div className="text-sm text-red-600">
               <AlertCircle className="h-4 w-4 inline mr-1" />
-              {mod.resultMessage?.substring(0, 30) || 'Errore'}
+              <span className="break-words">{mod.resultMessage || 'Errore'}</span>
             </div>
           );
         }
