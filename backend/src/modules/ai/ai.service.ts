@@ -575,7 +575,7 @@ export class AIService {
   }
 
   private prepareSearchTermsForPrompt(searchTerms: SearchTerm[]): any[] {
-    return searchTerms.slice(0, 200).map(st => ({
+    return searchTerms.slice(0, 300).map(st => ({
       term: st.searchTerm,
       keyword: st.keywordText,
       matchType: st.matchTypeTriggered,
@@ -585,6 +585,7 @@ export class AIService {
       adGroupId: st.adGroupId,
       cost: (Number(st.costMicros || 0) / 1_000_000).toFixed(2),
       conversions: st.conversions,
+      impressions: st.impressions,
       ctr: st.ctr,
     }));
   }

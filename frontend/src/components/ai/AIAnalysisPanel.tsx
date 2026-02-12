@@ -104,31 +104,31 @@ export function AIAnalysisPanel({
       {/* Result summary after creating modifications */}
       {result && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+          <div className="bg-background border border-border rounded-lg shadow-xl max-w-md w-full p-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                 <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold">Modifiche create</h3>
+              <h3 className="text-lg font-semibold text-foreground">Modifiche create</h3>
             </div>
 
             <div className="space-y-3 mb-6">
               {result.totalCreated > 0 && (
-                <div className="flex items-center gap-2 text-sm">
+                <div className="flex items-center gap-2 text-sm text-foreground">
                   <span className="w-2 h-2 rounded-full bg-green-500" />
                   <span><strong>{result.totalCreated}</strong> modifiche create (in attesa di approvazione)</span>
                 </div>
               )}
               {result.totalSkipped > 0 && (
-                <div className="flex items-center gap-2 text-sm">
+                <div className="flex items-center gap-2 text-sm text-foreground">
                   <span className="w-2 h-2 rounded-full bg-yellow-500" />
                   <span><strong>{result.totalSkipped}</strong> raccomandazioni saltate (non automatizzabili)</span>
                 </div>
               )}
               {result.totalErrors > 0 && (
-                <div className="flex items-center gap-2 text-sm">
+                <div className="flex items-center gap-2 text-sm text-foreground">
                   <span className="w-2 h-2 rounded-full bg-red-500" />
                   <span><strong>{result.totalErrors}</strong> errori</span>
                 </div>
@@ -138,7 +138,7 @@ export function AIAnalysisPanel({
             <div className="flex gap-3">
               <button
                 onClick={handleClose}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                className="flex-1 px-4 py-2 border border-border rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors"
               >
                 Chiudi
               </button>

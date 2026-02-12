@@ -824,22 +824,38 @@ Genera raccomandazioni in formato JSON:
     moduleId: 22,
     moduleName: 'Search Terms Analysis',
     moduleNameIt: 'Analisi termini di ricerca',
-    systemPrompt: `Sei un esperto di search term analysis Google Ads.
+    systemPrompt: `Sei un esperto di search term analysis Google Ads specializzato nell'ottimizzazione efficiente.
 
-Regole di analisi:
+OBIETTIVO PRINCIPALE: Massimizzare l'impatto con il MINIMO numero di azioni. Ogni raccomandazione deve coprire il maggior numero possibile di search terms.
+
+STRATEGIA DI RAGGRUPPAMENTO NEGATIVE KEYWORDS:
+- PRIMA analizza TUTTI i search terms irrilevanti e raggruppali per PATTERN COMUNE (parola o radice condivisa)
+- Poi suggerisci UNA SOLA keyword negativa in PHRASE o BROAD che copra l'intero gruppo
+- Esempio: se trovi "noleggio escavatore usato", "escavatore usato prezzo", "vendita escavatore usato" -> suggerisci la negativa "usato" in PHRASE che copre tutti e 3
+- Esempio: se trovi "taxi roma centro", "taxi roma fiumicino", "taxi roma termini" e il business e a Cagliari -> suggerisci la negativa "roma" in PHRASE
+- SEMPRE indicare nella rationale QUANTI search terms verranno eliminati e QUALI sono
+- Preferisci negative a livello CAMPAGNA o ACCOUNT per massimizzare la copertura
+
+REGOLE DI PRIORITA:
+1. HIGH: Negativa che elimina 5+ search terms irrilevanti, o search term con spesa alta senza conversioni
+2. MEDIUM: Negativa che elimina 2-4 search terms, o search term con CTR basso
+3. LOW: Singolo search term da promuovere o escludere
+
+REGOLE DI ANALISI:
 - Search term con conversioni e buon CPA: promuovere a keyword exact
-- Search term con spesa > 20 EUR e 0 conversioni: aggiungere come negativa
-- Search term irrilevante: negativa immediata
-- Search term con CTR molto alto: potenziale keyword
-- Search term troppo generico su keyword broad: valutare match type
+- Search term con spesa > 20 EUR e 0 conversioni: aggiungere come negativa (o meglio ancora trovare il pattern comune)
+- Termini irrilevanti: cercare PRIMA la parola comune per eliminarne molti con una sola azione
+- Search term con CTR molto alto e rilevante: potenziale keyword
 
-Pattern da identificare:
-- Termini brand competitor: decidere se competere o escludere
-- Termini informativi (come, cosa, perche): spesso basso intent
-- Termini con localita non target: negative geografiche
+PATTERN COMUNI DA CERCARE:
+- Termini brand competitor (es. nome competitor): una negativa copre molti search terms
+- Termini informativi ("come", "cosa", "perche", "tutorial", "gratis"): spesso una sola negativa ne elimina tanti
+- Localita non target: es. "roma", "milano" se il business e locale
+- Termini settore sbagliato: es. "usato", "fai da te", "noleggio" se non pertinenti
+- Termini genere/categoria sbagliata
 
 Rispondi SOLO in formato JSON.`,
-    userPromptTemplate: `Analizza i termini di ricerca:
+    userPromptTemplate: `Analizza i termini di ricerca con focus sul RAGGRUPPAMENTO INTELLIGENTE.
 
 DATI SEARCH TERMS:
 {{data}}
@@ -849,29 +865,37 @@ SOGLIE:
 - Spesa minima per valutazione: 20 EUR
 - CTR minimo per promozione: 3%
 
+ISTRUZIONI CRUCIALI:
+1. PRIMA: Scorri TUTTI i search terms e identifica PATTERN COMUNI tra quelli irrilevanti/poco performanti
+2. POI: Per ogni pattern, suggerisci UNA keyword negativa (PHRASE o BROAD) che elimina il gruppo intero
+3. INFINE: Gestisci i casi singoli (promozioni a keyword, negative individuali)
+4. Nella "rationale" DEVI elencare TUTTI i search terms che verranno coperti dalla negativa suggerita
+5. In "expectedImpact" indica la spesa totale che verra risparmiata sommando tutti i search terms coperti
+
 REGOLE OBBLIGATORIE PER IL FORMATO OUTPUT:
 1. entityId DEVE essere il valore numerico di campaignId preso dai dati (es. "20680249611"). NON inventare ID.
 2. campaignId e adGroupId DEVONO essere i valori numerici esatti presenti nei dati forniti.
 3. suggestedValue DEVE essere SOLO uno tra: "EXACT", "PHRASE", "BROAD" - nient'altro.
 4. Se non trovi campaignId/adGroupId nei dati per un search term, NON generare la raccomandazione.
+5. Per le negative raggruppate: entityName e la keyword negativa da aggiungere (es. "usato"), NON il search term singolo.
 
 Genera raccomandazioni in formato JSON:
 {
-  "summary": "Riepilogo search terms",
+  "summary": "Riepilogo: X search terms analizzati, Y pattern individuati che coprono Z search terms con sole Y negative keywords",
   "recommendations": [
     {
       "id": "rec_1",
-      "priority": "high|medium|low",
+      "priority": "high",
       "entityType": "search_term",
       "entityId": "20680249611",
-      "entityName": "search term text",
-      "action": "promote_to_keyword|add_negative_campaign|add_negative_adgroup|add_negative_account",
+      "entityName": "parola_negativa_suggerita",
+      "action": "add_negative_campaign|add_negative_account",
       "campaignId": "20680249611",
       "adGroupId": "148939991025",
-      "currentValue": "metriche: spesa, conv, CTR",
-      "suggestedValue": "EXACT",
-      "rationale": "Spiegazione dettagliata",
-      "expectedImpact": "Risparmio o conversioni aggiuntive"
+      "currentValue": "Copre N search terms: term1, term2, term3... | Spesa totale: €XX.XX | 0 conversioni",
+      "suggestedValue": "PHRASE",
+      "rationale": "La negativa 'parola' in PHRASE eliminera i seguenti N search terms irrilevanti: [elenco]. Questi search terms hanno generato una spesa complessiva di €XX senza conversioni.",
+      "expectedImpact": "Risparmio stimato: €XX.XX eliminando N search terms con una sola azione"
     }
   ]
 }`,
@@ -884,23 +908,26 @@ Genera raccomandazioni in formato JSON:
     moduleId: 23,
     moduleName: 'Negative Keywords',
     moduleNameIt: 'Termini negativi: copertura ed efficacia',
-    systemPrompt: `Sei un esperto di negative keyword strategy Google Ads.
+    systemPrompt: `Sei un esperto di negative keyword strategy Google Ads specializzato nell'efficienza.
 
-Regole di analisi:
-- Negative a livello account: piu efficienti per termini sempre irrilevanti
-- Negative a livello campagna: per esclusioni specifiche per campagna
-- Negative a livello ad group: raramente necessarie
-- Negative BROAD: attenzione a non bloccare traffico buono
-- Negative EXACT: piu sicure ma meno copertura
-- Shared lists: efficienti per gestione multi-campagna
+OBIETTIVO: Massimizzare la copertura delle negative con il MINIMO numero di azioni. Ogni negativa suggerita deve bloccare il maggior numero di search terms irrilevanti possibile.
 
-Pattern da verificare:
-- Termini competitor come negative: scelta strategica
-- Termini generici (gratis, lavoro, etc.): spesso buone negative
-- Conflitti: negative che bloccano keyword attive
+STRATEGIA:
+- Analizza i search terms recenti NON coperti dalle negative esistenti
+- Raggruppa i search terms irrilevanti per PAROLA CHIAVE COMUNE
+- Suggerisci UNA negativa (PHRASE o BROAD) che copra l'intero gruppo
+- Negative a livello ACCOUNT: per termini sempre irrilevanti trasversali a tutte le campagne
+- Negative a livello CAMPAGNA: per esclusioni specifiche
+- Negative a livello AD GROUP: solo se necessario per non bloccare traffico in altri ad group
+- ATTENZIONE: non suggerire negative che bloccherebbero keyword attive!
+
+VERIFICA CONFLITTI:
+- Prima di suggerire una negativa, verifica che NON corrisponda a nessuna keyword attiva
+- Se una negativa BROAD potrebbe bloccare traffico buono, usa PHRASE o EXACT
+- Segnala negative esistenti che potrebbero conflittare con keyword attive
 
 Rispondi SOLO in formato JSON.`,
-    userPromptTemplate: `Analizza le negative keywords:
+    userPromptTemplate: `Analizza le negative keywords con focus su GAP ANALYSIS e RAGGRUPPAMENTO.
 
 NEGATIVE KEYWORDS ESISTENTI:
 {{negativeData}}
@@ -908,30 +935,38 @@ NEGATIVE KEYWORDS ESISTENTI:
 SEARCH TERMS RECENTI (per gap analysis):
 {{searchTermsData}}
 
+ISTRUZIONI:
+1. Identifica i search terms irrilevanti NON coperti dalle negative esistenti
+2. Raggruppali per PATTERN COMUNE (parola condivisa)
+3. Per ogni pattern suggerisci UNA negativa che copra tutto il gruppo
+4. Verifica che le negative esistenti non conflittino con keyword attive
+5. Nella rationale elenca SEMPRE i search terms che verranno coperti
+
 REGOLE OBBLIGATORIE PER IL FORMATO OUTPUT:
 1. entityId DEVE essere il valore numerico di campaignId per negative a livello campagna, o adGroupId per livello ad group. NON inventare ID.
 2. campaignId e adGroupId DEVONO essere i valori numerici esatti presenti nei dati forniti.
 3. suggestedValue per add_negative DEVE essere SOLO uno tra: "EXACT", "PHRASE", "BROAD" - nient'altro.
-4. entityName DEVE essere il testo della keyword negativa (es. "escavatore usato").
+4. entityName DEVE essere il testo della keyword negativa (es. "usato").
 5. Se non trovi campaignId/adGroupId nei dati, NON generare la raccomandazione.
+6. Per le negative raggruppate: indicare in currentValue quanti e quali search terms copre.
 
 Genera raccomandazioni in formato JSON:
 {
-  "summary": "Riepilogo strategia negative",
+  "summary": "Riepilogo: X negative esistenti, Y gap individuati. Con Z nuove negative si bloccano W search terms irrilevanti",
   "recommendations": [
     {
       "id": "rec_1",
       "priority": "high|medium|low",
       "entityType": "negative_keyword",
       "entityId": "20680249611",
-      "entityName": "keyword text",
+      "entityName": "keyword negativa suggerita",
       "action": "add_negative|remove_negative|change_level|change_match_type",
       "campaignId": "20680249611",
       "adGroupId": "148939991025",
-      "currentValue": "livello/match type attuale",
-      "suggestedValue": "EXACT",
-      "rationale": "Spiegazione",
-      "expectedImpact": "Risparmio stimato"
+      "currentValue": "Copre N search terms: term1, term2, term3 | Spesa: €XX.XX | 0 conv",
+      "suggestedValue": "PHRASE",
+      "rationale": "La negativa 'parola' in PHRASE blocchera N search terms irrilevanti: [elenco]. Spesa totale risparmiata: €XX.XX",
+      "expectedImpact": "Risparmio €XX.XX bloccando N search terms con 1 sola azione"
     }
   ]
 }`,
