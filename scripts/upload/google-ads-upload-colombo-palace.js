@@ -1,7 +1,8 @@
 /**
- * GADS Audit 2.0 - Google Ads Modifier Script
+ * GADS Audit 2.0 - Google Ads Upload Script
  *
- * ACCOUNT: MASSIMO BORIO (8164965072)
+ * ACCOUNT: COLOMBO PALACE
+ * ULTIMA MODIFICA: 2026-02-12
  *
  * Questo script legge le modifiche approvate dal backend GADS Audit
  * e le applica all'account Google Ads corrente.
@@ -12,11 +13,11 @@
  */
 
 // ============================================================================
-// CONFIGURAZIONE - MASSIMO BORIO
+// CONFIGURAZIONE - COLOMBO PALACE
 // ============================================================================
 var CONFIG = {
   API_URL: 'https://gads.karalisdemo.it/api/integrations/google-ads',
-  SHARED_SECRET: '04f26ea4f532443265d158da929effc6e5646b0f0b3abbafcd26974fe626f0a4',
+  SHARED_SECRET: '08d11a860f005a3dcac7dfc880b82980fc701182ce426593e010284d7c48ebe4',
   DRY_RUN: false
 };
 // ============================================================================
@@ -850,7 +851,7 @@ function applyModification(modification) {
 
 function main() {
   Logger.log('=================================================');
-  Logger.log('GADS Audit 2.0 - Modifier Script');
+  Logger.log('GADS Audit 2.0 - Upload Script');
   Logger.log('Account: ' + AdsApp.currentAccount().getName());
   Logger.log('Customer ID: ' + AdsApp.currentAccount().getCustomerId());
   Logger.log('Data: ' + new Date().toISOString());

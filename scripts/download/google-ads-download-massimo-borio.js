@@ -1,32 +1,27 @@
 /**
- * Google Ads Data Exporter Script
+ * GADS Audit 2.0 - Google Ads Download Script
+ *
+ * ACCOUNT: MASSIMO BORIO (8164965072)
+ * ULTIMA MODIFICA: 2026-02-12
  *
  * Questo script estrae dati dall'account Google Ads e li invia all'app di audit
  * tramite HTTPS POST con autenticazione HMAC-SHA256.
  *
- * CONFIGURAZIONE:
- * 1. Imposta ENDPOINT_URL con l'URL del tuo server
- * 2. Imposta SHARED_SECRET con il secret condiviso (generato dall'app)
- * 3. Imposta DATE_RANGE per il periodo di dati da estrarre
- *
- * INSTALLAZIONE:
- * 1. Vai su Google Ads > Strumenti > Script
- * 2. Crea un nuovo script e incolla questo codice
- * 3. Configura le variabili nella sezione CONFIGURAZIONE
- * 4. Autorizza lo script
- * 5. Esegui manualmente o schedula
+ * ISTRUZIONI:
+ * 1. Copia questo script in Google Ads > Strumenti e impostazioni > Script
+ * 2. Esegui lo script manualmente o schedulalo
  */
 
 // =============================================================================
-// CONFIGURAZIONE
+// CONFIGURAZIONE - MASSIMO BORIO
 // =============================================================================
 
 var CONFIG = {
-  // URL dell'endpoint di ingestion (modifica con il tuo dominio)
-  ENDPOINT_URL: 'https://gads.karalisweb.it/api/integrations/google-ads/ingest',
+  // URL dell'endpoint di ingestion
+  ENDPOINT_URL: 'https://gads.karalisdemo.it/api/integrations/google-ads/ingest',
 
   // Secret condiviso per l'autenticazione HMAC (ottenuto dall'app)
-  SHARED_SECRET: 'YOUR_SHARED_SECRET_HERE',
+  SHARED_SECRET: '04f26ea4f532443265d158da929effc6e5646b0f0b3abbafcd26974fe626f0a4',
 
   // Periodo di dati da estrarre (formato: YYYYMMDD)
   DATE_RANGE: {
@@ -36,7 +31,7 @@ var CONFIG = {
   },
 
   // Dimensione massima chunk (righe per richiesta)
-  CHUNK_SIZE: 100,
+  CHUNK_SIZE: 50,
 
   // Timeout per le richieste HTTP (millisecondi)
   HTTP_TIMEOUT: 60000,
@@ -56,7 +51,10 @@ var CONFIG = {
   ],
 
   // Escludi campagne Performance Max
-  EXCLUDE_PMAX: true
+  EXCLUDE_PMAX: true,
+
+  // Abilita applicazione modifiche pendenti
+  APPLY_MODIFICATIONS: true
 };
 
 // =============================================================================
@@ -69,7 +67,7 @@ function main() {
   var runId = generateRunId();
 
   Logger.log('========================================');
-  Logger.log('Google Ads Data Exporter');
+  Logger.log('GADS Audit 2.0 - Download Script');
   Logger.log('========================================');
   Logger.log('Account: ' + accountName + ' (' + accountId + ')');
   Logger.log('Run ID: ' + runId);
@@ -94,6 +92,11 @@ function main() {
   Logger.log('\n========================================');
   Logger.log('Export completed');
   Logger.log('========================================');
+
+  // Fase 2: Applica modifiche pendenti (se abilitato)
+  if (CONFIG.APPLY_MODIFICATIONS) {
+    applyPendingModifications();
+  }
 }
 
 function exportDataset(accountId, runId, datasetName, totalDatasets) {
@@ -224,7 +227,7 @@ function extractCampaigns() {
       absolute_top_impression_percentage: parseFloat(row['metrics.absolute_top_impression_percentage']) || null,
       phone_calls: parseInt(row['metrics.phone_calls']) || 0,
       phone_impressions: parseInt(row['metrics.phone_impressions']) || 0,
-      message_chats: 0, // Not available in GAQL
+      message_chats: 0,
       message_impressions: 0
     });
   }
@@ -234,6 +237,7 @@ function extractCampaigns() {
 
 function extractAdGroups() {
   var adGroups = [];
+  // Note: search_budget_lost_impression_share and phone metrics are only available at campaign level
   var query = 'SELECT ' +
     'ad_group.id, ' +
     'ad_group.name, ' +
@@ -251,9 +255,7 @@ function extractAdGroups() {
     'metrics.ctr, ' +
     'metrics.average_cpc, ' +
     'metrics.search_impression_share, ' +
-    'metrics.search_rank_lost_impression_share, ' +
-    'metrics.search_budget_lost_impression_share, ' +
-    'metrics.phone_calls ' +
+    'metrics.search_rank_lost_impression_share ' +
     'FROM ad_group ' +
     'WHERE segments.date BETWEEN "' + CONFIG.DATE_RANGE.START + '" AND "' + CONFIG.DATE_RANGE.END + '" ' +
     (CONFIG.EXCLUDE_PMAX ? 'AND campaign.advertising_channel_type != "PERFORMANCE_MAX" ' : '') +
@@ -282,8 +284,8 @@ function extractAdGroups() {
       average_cpc_micros: parseInt(row['metrics.average_cpc']) || 0,
       search_impression_share: parseFloat(row['metrics.search_impression_share']) || null,
       search_impression_share_lost_rank: parseFloat(row['metrics.search_rank_lost_impression_share']) || null,
-      search_impression_share_lost_budget: parseFloat(row['metrics.search_budget_lost_impression_share']) || null,
-      phone_calls: parseInt(row['metrics.phone_calls']) || 0,
+      search_impression_share_lost_budget: null,
+      phone_calls: 0,
       message_chats: 0
     });
   }
@@ -293,6 +295,7 @@ function extractAdGroups() {
 
 function extractAds() {
   var ads = [];
+  // Note: phone_calls metric is not available at ad level
   var query = 'SELECT ' +
     'ad_group_ad.ad.id, ' +
     'ad_group_ad.ad.type, ' +
@@ -314,8 +317,7 @@ function extractAds() {
     'metrics.conversions, ' +
     'metrics.conversions_value, ' +
     'metrics.ctr, ' +
-    'metrics.average_cpc, ' +
-    'metrics.phone_calls ' +
+    'metrics.average_cpc ' +
     'FROM ad_group_ad ' +
     'WHERE segments.date BETWEEN "' + CONFIG.DATE_RANGE.START + '" AND "' + CONFIG.DATE_RANGE.END + '" ' +
     (CONFIG.EXCLUDE_PMAX ? 'AND campaign.advertising_channel_type != "PERFORMANCE_MAX" ' : '') +
@@ -331,7 +333,6 @@ function extractAds() {
     var headlines = parseAdTextAssets(row['ad_group_ad.ad.responsive_search_ad.headlines']);
     var descriptions = parseAdTextAssets(row['ad_group_ad.ad.responsive_search_ad.descriptions']);
 
-    // Parse final URLs
     var finalUrls = [];
     try {
       var finalUrlsRaw = row['ad_group_ad.ad.final_urls'];
@@ -369,7 +370,7 @@ function extractAds() {
       conversions_value: parseFloat(row['metrics.conversions_value']) || 0,
       ctr: parseFloat(row['metrics.ctr']) || 0,
       average_cpc_micros: parseInt(row['metrics.average_cpc']) || 0,
-      phone_calls: parseInt(row['metrics.phone_calls']) || 0,
+      phone_calls: 0,
       message_chats: 0
     });
   }
@@ -437,6 +438,7 @@ function parseAdTextAssets(rawValue) {
 
 function extractKeywords() {
   var keywords = [];
+  // Note: search_budget_lost_impression_share is only available at campaign level, not keyword level
   var query = 'SELECT ' +
     'ad_group_criterion.criterion_id, ' +
     'ad_group_criterion.keyword.text, ' +
@@ -461,9 +463,7 @@ function extractKeywords() {
     'metrics.ctr, ' +
     'metrics.average_cpc, ' +
     'metrics.search_impression_share, ' +
-    'metrics.search_rank_lost_impression_share, ' +
-    'metrics.search_budget_lost_impression_share, ' +
-    'metrics.phone_calls ' +
+    'metrics.search_rank_lost_impression_share ' +
     'FROM keyword_view ' +
     'WHERE segments.date BETWEEN "' + CONFIG.DATE_RANGE.START + '" AND "' + CONFIG.DATE_RANGE.END + '" ' +
     (CONFIG.EXCLUDE_PMAX ? 'AND campaign.advertising_channel_type != "PERFORMANCE_MAX" ' : '') +
@@ -475,7 +475,6 @@ function extractKeywords() {
   while (rows.hasNext()) {
     var row = rows.next();
 
-    // Parse final URL
     var finalUrl = '';
     try {
       var finalUrlsRaw = row['ad_group_criterion.final_urls'];
@@ -520,8 +519,8 @@ function extractKeywords() {
       average_cpc_micros: parseInt(row['metrics.average_cpc']) || 0,
       search_impression_share: parseFloat(row['metrics.search_impression_share']) || null,
       search_impression_share_lost_rank: parseFloat(row['metrics.search_rank_lost_impression_share']) || null,
-      search_impression_share_lost_budget: parseFloat(row['metrics.search_budget_lost_impression_share']) || null,
-      phone_calls: parseInt(row['metrics.phone_calls']) || 0
+      search_impression_share_lost_budget: null,
+      phone_calls: 0
     });
   }
 
@@ -530,10 +529,9 @@ function extractKeywords() {
 
 function extractSearchTerms() {
   var searchTerms = [];
+  // Note: Cannot use ad_group_criterion fields with search_term_view - they are incompatible resources
   var query = 'SELECT ' +
     'search_term_view.search_term, ' +
-    'ad_group_criterion.criterion_id, ' +
-    'ad_group_criterion.keyword.text, ' +
     'search_term_view.status, ' +
     'ad_group.id, ' +
     'ad_group.name, ' +
@@ -557,8 +555,8 @@ function extractSearchTerms() {
     var row = rows.next();
     searchTerms.push({
       search_term: row['search_term_view.search_term'],
-      keyword_id: row['ad_group_criterion.criterion_id'] || null,
-      keyword_text: row['ad_group_criterion.keyword.text'] || null,
+      keyword_id: null,
+      keyword_text: null,
       match_type_triggered: row['search_term_view.status'] || '',
       ad_group_id: row['ad_group.id'],
       ad_group_name: row['ad_group.name'],
@@ -580,7 +578,6 @@ function extractSearchTerms() {
 function extractNegativeKeywords() {
   var negatives = [];
 
-  // Campaign-level negatives
   var campaignQuery = 'SELECT ' +
     'campaign_criterion.criterion_id, ' +
     'campaign_criterion.keyword.text, ' +
@@ -611,7 +608,6 @@ function extractNegativeKeywords() {
     });
   }
 
-  // Ad group-level negatives
   var adGroupQuery = 'SELECT ' +
     'ad_group_criterion.criterion_id, ' +
     'ad_group_criterion.keyword.text, ' +
@@ -644,7 +640,6 @@ function extractNegativeKeywords() {
     });
   }
 
-  // Shared set negatives
   var sharedQuery = 'SELECT ' +
     'shared_criterion.criterion_id, ' +
     'shared_criterion.keyword.text, ' +
@@ -692,9 +687,8 @@ function extractAssets() {
     'asset.final_urls, ' +
     'asset.call_asset.phone_number, ' +
     'campaign_asset.status, ' +
-    'campaign_asset.performance_label, ' +
-    'campaign_asset.source, ' +
     'campaign.id, ' +
+    'campaign.advertising_channel_type, ' +
     'metrics.impressions, ' +
     'metrics.clicks, ' +
     'metrics.cost_micros, ' +
@@ -711,7 +705,6 @@ function extractAssets() {
     while (rows.hasNext()) {
       var row = rows.next();
 
-      // Parse final URL
       var finalUrl = '';
       try {
         var finalUrls = row['asset.final_urls'];
@@ -734,8 +727,8 @@ function extractAssets() {
         final_url: finalUrl,
         phone_number: row['asset.call_asset.phone_number'] || '',
         status: row['campaign_asset.status'],
-        performance_label: row['campaign_asset.performance_label'] || '',
-        source: row['campaign_asset.source'] || '',
+        performance_label: '',
+        source: '',
         linked_level: 'CAMPAIGN',
         campaign_id: row['campaign.id'],
         ad_group_id: null,
@@ -785,7 +778,7 @@ function extractConversionActions() {
       default_value: parseFloat(row['conversion_action.value_settings.default_value']) || null,
       always_use_default_value: row['conversion_action.value_settings.always_use_default_value'] === 'true',
       primary_for_goal: row['conversion_action.primary_for_goal'] === 'true',
-      campaigns_using_count: 0 // Would need separate query to calculate
+      campaigns_using_count: 0
     });
   }
 
@@ -797,6 +790,7 @@ function extractGeoPerformance() {
   var query = 'SELECT ' +
     'campaign.id, ' +
     'campaign.name, ' +
+    'campaign.advertising_channel_type, ' +
     'geographic_view.location_type, ' +
     'geographic_view.country_criterion_id, ' +
     'metrics.impressions, ' +
@@ -817,9 +811,9 @@ function extractGeoPerformance() {
         campaign_id: row['campaign.id'],
         campaign_name: row['campaign.name'],
         location_id: row['geographic_view.country_criterion_id'] || '',
-        location_name: '', // Would need geo_target_constant lookup
+        location_name: '',
         location_type: row['geographic_view.location_type'],
-        is_targeted: true, // Would need campaign criterion check
+        is_targeted: true,
         bid_modifier: null,
         impressions: parseInt(row['metrics.impressions']) || 0,
         clicks: parseInt(row['metrics.clicks']) || 0,
@@ -858,7 +852,7 @@ function extractDevicePerformance() {
       campaign_id: row['campaign.id'],
       campaign_name: row['campaign.name'],
       device: row['segments.device'],
-      bid_modifier: null, // Would need separate query
+      bid_modifier: null,
       impressions: parseInt(row['metrics.impressions']) || 0,
       clicks: parseInt(row['metrics.clicks']) || 0,
       cost_micros: parseInt(row['metrics.cost_micros']) || 0,
@@ -899,7 +893,7 @@ function sendChunk(accountId, runId, datasetName, data, chunkIndex, chunkTotal, 
     headers: {
       'X-Timestamp': timestamp,
       'X-Signature': signature,
-      'X-Account-Id': accountId.replace(/-/g, '') // Remove dashes
+      'X-Account-Id': accountId.replace(/-/g, '')
     },
     payload: bodyString,
     muteHttpExceptions: true,
@@ -919,7 +913,7 @@ function sendChunk(accountId, runId, datasetName, data, chunkIndex, chunkTotal, 
 
 function computeHmacSignature(timestamp, body) {
   var payload = timestamp + body;
-  var signature = Utilities.computeHmacSha256Signature(payload, CONFIG.SHARED_SECRET);
+  var signature = Utilities.computeHmacSha256Signature(payload, CONFIG.SHARED_SECRET, Utilities.Charset.UTF_8);
   return signature.map(function(byte) {
     return ('0' + (byte & 0xFF).toString(16)).slice(-2);
   }).join('');
@@ -947,4 +941,544 @@ function chunkArray(array, size) {
     chunks.push(array.slice(i, i + size));
   }
   return chunks;
+}
+
+// =============================================================================
+// MODIFICATIONS HANDLER
+// =============================================================================
+
+/**
+ * Fase APPLY: Scarica e applica le modifiche pendenti dal backend
+ */
+function applyPendingModifications() {
+  var accountId = AdsApp.currentAccount().getCustomerId().replace(/-/g, '');
+
+  Logger.log('\n========================================');
+  Logger.log('Applying Pending Modifications');
+  Logger.log('========================================');
+
+  var modifications = fetchPendingModifications(accountId);
+
+  if (!modifications || modifications.length === 0) {
+    Logger.log('No pending modifications found');
+    return;
+  }
+
+  Logger.log('Found ' + modifications.length + ' pending modifications');
+
+  for (var i = 0; i < modifications.length; i++) {
+    var mod = modifications[i];
+    Logger.log('\n[' + (i + 1) + '/' + modifications.length + '] Applying: ' + mod.modificationType);
+    Logger.log('  Entity: ' + mod.entityType + ' (' + mod.entityId + ')');
+
+    try {
+      reportModificationStart(mod.id);
+      var result = applyModification(mod);
+      reportModificationResult(mod.id, result);
+
+      if (result.success) {
+        Logger.log('  > SUCCESS: ' + result.message);
+      } else {
+        Logger.log('  > FAILED: ' + result.message);
+      }
+    } catch (e) {
+      Logger.log('  > ERROR: ' + e.message);
+      reportModificationResult(mod.id, {
+        success: false,
+        message: e.message,
+        details: { error: e.toString() }
+      });
+    }
+  }
+
+  Logger.log('\n========================================');
+  Logger.log('Modifications completed');
+  Logger.log('========================================');
+}
+
+function fetchPendingModifications(accountId) {
+  var timestamp = new Date().toISOString();
+  var url = CONFIG.ENDPOINT_URL.replace('/ingest', '/modifications/pending');
+  var signature = computeHmacSignature(timestamp, '');
+
+  var options = {
+    method: 'get',
+    headers: {
+      'X-Timestamp': timestamp,
+      'X-Signature': signature,
+      'X-Account-Id': accountId
+    },
+    muteHttpExceptions: true,
+    timeout: CONFIG.HTTP_TIMEOUT
+  };
+
+  try {
+    var response = UrlFetchApp.fetch(url, options);
+    var responseCode = response.getResponseCode();
+
+    if (responseCode < 200 || responseCode >= 300) {
+      Logger.log('Error fetching modifications: HTTP ' + responseCode);
+      return [];
+    }
+
+    var data = JSON.parse(response.getContentText());
+    return data.modifications || [];
+  } catch (e) {
+    Logger.log('Error fetching modifications: ' + e.message);
+    return [];
+  }
+}
+
+function reportModificationStart(modificationId) {
+  var accountId = AdsApp.currentAccount().getCustomerId().replace(/-/g, '');
+  var timestamp = new Date().toISOString();
+  var url = CONFIG.ENDPOINT_URL.replace('/ingest', '/modifications/' + modificationId + '/start');
+  var signature = computeHmacSignature(timestamp, '');
+
+  var options = {
+    method: 'post',
+    contentType: 'application/json',
+    headers: {
+      'X-Timestamp': timestamp,
+      'X-Signature': signature,
+      'X-Account-Id': accountId
+    },
+    payload: '',
+    muteHttpExceptions: true,
+    timeout: CONFIG.HTTP_TIMEOUT
+  };
+
+  try {
+    UrlFetchApp.fetch(url, options);
+  } catch (e) {
+    Logger.log('Warning: Could not report modification start: ' + e.message);
+  }
+}
+
+function reportModificationResult(modificationId, result) {
+  var accountId = AdsApp.currentAccount().getCustomerId().replace(/-/g, '');
+  var timestamp = new Date().toISOString();
+  var url = CONFIG.ENDPOINT_URL.replace('/ingest', '/modifications/' + modificationId + '/result');
+  var payload = JSON.stringify(result);
+  var signature = computeHmacSignature(timestamp, payload);
+
+  var options = {
+    method: 'post',
+    contentType: 'application/json',
+    headers: {
+      'X-Timestamp': timestamp,
+      'X-Signature': signature,
+      'X-Account-Id': accountId
+    },
+    payload: payload,
+    muteHttpExceptions: true,
+    timeout: CONFIG.HTTP_TIMEOUT
+  };
+
+  try {
+    UrlFetchApp.fetch(url, options);
+  } catch (e) {
+    Logger.log('Warning: Could not report modification result: ' + e.message);
+  }
+}
+
+function applyModification(mod) {
+  var type = mod.modificationType;
+
+  switch (type) {
+    case 'campaign.budget':
+      return applyCampaignBudget(mod);
+    case 'campaign.status':
+      return applyCampaignStatus(mod);
+    case 'campaign.target_cpa':
+      return applyCampaignTargetCpa(mod);
+    case 'campaign.target_roas':
+      return applyCampaignTargetRoas(mod);
+    case 'ad_group.status':
+      return applyAdGroupStatus(mod);
+    case 'ad_group.cpc_bid':
+      return applyAdGroupCpcBid(mod);
+    case 'keyword.status':
+      return applyKeywordStatus(mod);
+    case 'keyword.cpc_bid':
+      return applyKeywordCpcBid(mod);
+    case 'keyword.final_url':
+      return applyKeywordFinalUrl(mod);
+    case 'negative_keyword.add':
+      return addNegativeKeyword(mod);
+    case 'negative_keyword.remove':
+      return removeNegativeKeyword(mod);
+    case 'ad.status':
+      return applyAdStatus(mod);
+    case 'ad.headlines':
+      return applyAdHeadlines(mod);
+    case 'ad.descriptions':
+      return applyAdDescriptions(mod);
+    case 'ad.final_url':
+      return applyAdFinalUrl(mod);
+    case 'conversion.primary':
+      return applyConversionPrimary(mod);
+    case 'conversion.default_value':
+      return applyConversionDefaultValue(mod);
+    default:
+      return { success: false, message: 'Unknown modification type: ' + type };
+  }
+}
+
+// Campaign modifications
+function applyCampaignBudget(mod) {
+  var campaignIterator = AdsApp.campaigns()
+    .withCondition('CampaignId = ' + mod.entityId)
+    .get();
+
+  if (!campaignIterator.hasNext()) {
+    return { success: false, message: 'Campaign not found: ' + mod.entityId };
+  }
+
+  var campaign = campaignIterator.next();
+  var budget = campaign.getBudget();
+  var newBudget = mod.afterValue.budget / 1000000;
+  var oldBudget = budget.getAmount();
+
+  budget.setAmount(newBudget);
+
+  return {
+    success: true,
+    message: 'Budget updated from €' + oldBudget + ' to €' + newBudget,
+    details: { oldBudget: oldBudget, newBudget: newBudget }
+  };
+}
+
+function applyCampaignStatus(mod) {
+  var campaignIterator = AdsApp.campaigns()
+    .withCondition('CampaignId = ' + mod.entityId)
+    .get();
+
+  if (!campaignIterator.hasNext()) {
+    return { success: false, message: 'Campaign not found: ' + mod.entityId };
+  }
+
+  var campaign = campaignIterator.next();
+  var oldStatus = campaign.isEnabled() ? 'ENABLED' : 'PAUSED';
+  var newStatus = mod.afterValue.status;
+
+  if (newStatus === 'ENABLED') {
+    campaign.enable();
+  } else if (newStatus === 'PAUSED') {
+    campaign.pause();
+  } else {
+    return { success: false, message: 'Invalid status: ' + newStatus };
+  }
+
+  return {
+    success: true,
+    message: 'Status changed from ' + oldStatus + ' to ' + newStatus,
+    details: { oldStatus: oldStatus, newStatus: newStatus }
+  };
+}
+
+function applyCampaignTargetCpa(mod) {
+  return {
+    success: false,
+    message: 'Target CPA modification requires Google Ads API (not available in Scripts)'
+  };
+}
+
+function applyCampaignTargetRoas(mod) {
+  return {
+    success: false,
+    message: 'Target ROAS modification requires Google Ads API (not available in Scripts)'
+  };
+}
+
+// Ad Group modifications
+function applyAdGroupStatus(mod) {
+  var adGroupIterator = AdsApp.adGroups()
+    .withCondition('AdGroupId = ' + mod.entityId)
+    .get();
+
+  if (!adGroupIterator.hasNext()) {
+    return { success: false, message: 'Ad Group not found: ' + mod.entityId };
+  }
+
+  var adGroup = adGroupIterator.next();
+  var oldStatus = adGroup.isEnabled() ? 'ENABLED' : 'PAUSED';
+  var newStatus = mod.afterValue.status;
+
+  if (newStatus === 'ENABLED') {
+    adGroup.enable();
+  } else if (newStatus === 'PAUSED') {
+    adGroup.pause();
+  } else {
+    return { success: false, message: 'Invalid status: ' + newStatus };
+  }
+
+  return {
+    success: true,
+    message: 'Status changed from ' + oldStatus + ' to ' + newStatus,
+    details: { oldStatus: oldStatus, newStatus: newStatus }
+  };
+}
+
+function applyAdGroupCpcBid(mod) {
+  var adGroupIterator = AdsApp.adGroups()
+    .withCondition('AdGroupId = ' + mod.entityId)
+    .get();
+
+  if (!adGroupIterator.hasNext()) {
+    return { success: false, message: 'Ad Group not found: ' + mod.entityId };
+  }
+
+  var adGroup = adGroupIterator.next();
+  var newBid = mod.afterValue.cpcBid / 1000000;
+
+  try {
+    adGroup.bidding().setCpc(newBid);
+    return {
+      success: true,
+      message: 'CPC bid updated to €' + newBid,
+      details: { newBid: newBid }
+    };
+  } catch (e) {
+    return { success: false, message: 'Could not set CPC bid: ' + e.message };
+  }
+}
+
+// Keyword modifications
+function applyKeywordStatus(mod) {
+  var keywordIterator = AdsApp.keywords()
+    .withCondition('Id = ' + mod.entityId)
+    .get();
+
+  if (!keywordIterator.hasNext()) {
+    return { success: false, message: 'Keyword not found: ' + mod.entityId };
+  }
+
+  var keyword = keywordIterator.next();
+  var oldStatus = keyword.isEnabled() ? 'ENABLED' : 'PAUSED';
+  var newStatus = mod.afterValue.status;
+
+  if (newStatus === 'ENABLED') {
+    keyword.enable();
+  } else if (newStatus === 'PAUSED') {
+    keyword.pause();
+  } else {
+    return { success: false, message: 'Invalid status: ' + newStatus };
+  }
+
+  return {
+    success: true,
+    message: 'Status changed from ' + oldStatus + ' to ' + newStatus,
+    details: { oldStatus: oldStatus, newStatus: newStatus }
+  };
+}
+
+function applyKeywordCpcBid(mod) {
+  var keywordIterator = AdsApp.keywords()
+    .withCondition('Id = ' + mod.entityId)
+    .get();
+
+  if (!keywordIterator.hasNext()) {
+    return { success: false, message: 'Keyword not found: ' + mod.entityId };
+  }
+
+  var keyword = keywordIterator.next();
+  var newBid = mod.afterValue.cpcBid / 1000000;
+
+  try {
+    keyword.bidding().setCpc(newBid);
+    return {
+      success: true,
+      message: 'CPC bid updated to €' + newBid,
+      details: { newBid: newBid }
+    };
+  } catch (e) {
+    return { success: false, message: 'Could not set CPC bid: ' + e.message };
+  }
+}
+
+// Negative keyword modifications
+function addNegativeKeyword(mod) {
+  var text = mod.afterValue.text;
+  var matchType = mod.afterValue.matchType || 'BROAD';
+  var level = mod.afterValue.level || 'CAMPAIGN';
+
+  try {
+    if (level === 'CAMPAIGN') {
+      var campaignIterator = AdsApp.campaigns()
+        .withCondition('CampaignId = ' + mod.afterValue.campaignId)
+        .get();
+
+      if (!campaignIterator.hasNext()) {
+        return { success: false, message: 'Campaign not found' };
+      }
+
+      var campaign = campaignIterator.next();
+      var formattedKeyword = formatNegativeKeyword(text, matchType);
+      campaign.createNegativeKeyword(formattedKeyword);
+
+      return {
+        success: true,
+        message: 'Negative keyword added: ' + formattedKeyword,
+        details: { keyword: text, matchType: matchType, level: level }
+      };
+
+    } else if (level === 'AD_GROUP') {
+      var adGroupIterator = AdsApp.adGroups()
+        .withCondition('AdGroupId = ' + mod.afterValue.adGroupId)
+        .get();
+
+      if (!adGroupIterator.hasNext()) {
+        return { success: false, message: 'Ad Group not found' };
+      }
+
+      var adGroup = adGroupIterator.next();
+      var formattedKeyword = formatNegativeKeyword(text, matchType);
+      adGroup.createNegativeKeyword(formattedKeyword);
+
+      return {
+        success: true,
+        message: 'Negative keyword added: ' + formattedKeyword,
+        details: { keyword: text, matchType: matchType, level: level }
+      };
+    }
+
+    return { success: false, message: 'Invalid level: ' + level };
+
+  } catch (e) {
+    return { success: false, message: 'Could not add negative keyword: ' + e.message };
+  }
+}
+
+function removeNegativeKeyword(mod) {
+  return {
+    success: false,
+    message: 'Removing negative keywords requires Google Ads API (not available in Scripts)'
+  };
+}
+
+function formatNegativeKeyword(text, matchType) {
+  switch (matchType) {
+    case 'EXACT':
+      return '[' + text + ']';
+    case 'PHRASE':
+      return '"' + text + '"';
+    case 'BROAD':
+    default:
+      return text;
+  }
+}
+
+// Keyword Final URL modification
+function applyKeywordFinalUrl(mod) {
+  var keywordIterator = AdsApp.keywords()
+    .withCondition('Id = ' + mod.entityId)
+    .get();
+
+  if (!keywordIterator.hasNext()) {
+    return { success: false, message: 'Keyword not found: ' + mod.entityId };
+  }
+
+  var keyword = keywordIterator.next();
+  var newUrl = mod.afterValue.finalUrl;
+
+  try {
+    keyword.urls().setFinalUrl(newUrl);
+    return {
+      success: true,
+      message: 'Final URL updated to: ' + newUrl,
+      details: { newUrl: newUrl }
+    };
+  } catch (e) {
+    return { success: false, message: 'Could not set final URL: ' + e.message };
+  }
+}
+
+// Ad modifications
+function applyAdStatus(mod) {
+  // Note: Google Ads Scripts uses ad IDs from AdGroupAd
+  // We need to search by ad ID across all ad groups
+  var adIterator = AdsApp.ads()
+    .withCondition('Id = ' + mod.entityId)
+    .get();
+
+  if (!adIterator.hasNext()) {
+    return { success: false, message: 'Ad not found: ' + mod.entityId };
+  }
+
+  var ad = adIterator.next();
+  var oldStatus = ad.isEnabled() ? 'ENABLED' : 'PAUSED';
+  var newStatus = mod.afterValue.status;
+
+  if (newStatus === 'ENABLED') {
+    ad.enable();
+  } else if (newStatus === 'PAUSED') {
+    ad.pause();
+  } else {
+    return { success: false, message: 'Invalid status: ' + newStatus };
+  }
+
+  return {
+    success: true,
+    message: 'Status changed from ' + oldStatus + ' to ' + newStatus,
+    details: { oldStatus: oldStatus, newStatus: newStatus }
+  };
+}
+
+function applyAdHeadlines(mod) {
+  // Modifying ad headlines requires creating a new ad and pausing the old one
+  // Google Ads Scripts doesn't support in-place editing of RSAs
+  return {
+    success: false,
+    message: 'Modifying ad headlines requires Google Ads API (not available in Scripts). Consider creating a new ad with updated headlines.'
+  };
+}
+
+function applyAdDescriptions(mod) {
+  // Same limitation as headlines
+  return {
+    success: false,
+    message: 'Modifying ad descriptions requires Google Ads API (not available in Scripts). Consider creating a new ad with updated descriptions.'
+  };
+}
+
+function applyAdFinalUrl(mod) {
+  var adIterator = AdsApp.ads()
+    .withCondition('Id = ' + mod.entityId)
+    .get();
+
+  if (!adIterator.hasNext()) {
+    return { success: false, message: 'Ad not found: ' + mod.entityId };
+  }
+
+  var ad = adIterator.next();
+  var newUrl = mod.afterValue.finalUrl;
+
+  try {
+    ad.urls().setFinalUrl(newUrl);
+    return {
+      success: true,
+      message: 'Final URL updated to: ' + newUrl,
+      details: { newUrl: newUrl }
+    };
+  } catch (e) {
+    return { success: false, message: 'Could not set final URL: ' + e.message };
+  }
+}
+
+// Conversion Action modifications
+function applyConversionPrimary(mod) {
+  // Conversion action settings require Google Ads API
+  return {
+    success: false,
+    message: 'Modifying conversion action primary status requires Google Ads API (not available in Scripts)'
+  };
+}
+
+function applyConversionDefaultValue(mod) {
+  // Conversion action settings require Google Ads API
+  return {
+    success: false,
+    message: 'Modifying conversion default value requires Google Ads API (not available in Scripts)'
+  };
 }

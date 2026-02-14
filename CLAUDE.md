@@ -1,7 +1,7 @@
 # CLAUDE.md - GADS Audit 2
 
 ## Progetto
-Piattaforma SaaS per audit e ottimizzazione di account Google Ads. Gestisce 7 account clienti, analisi AI, e applicazione automatica delle modifiche via Google Ads Scripts.
+Piattaforma SaaS per audit e ottimizzazione di account Google Ads. Gestisce 6 account clienti, analisi AI, e applicazione automatica delle modifiche via Google Ads Scripts.
 
 ## Stack tecnico
 - **Backend**: NestJS v11, TypeScript, TypeORM, PostgreSQL 16, Redis 7, JWT auth
@@ -19,14 +19,19 @@ backend/src/
   common/           # Guards, decorators, utilities
 
 frontend/src/
-  pages/            # audit, accounts, modifications, dashboard, auth, settings, admin
-  components/       # Layout, ai, modifications, ui (Radix), data-table
+  pages/            # audit, accounts, modifications, dashboard, auth, settings, profile, admin
+  components/       # Layout, ai, modifications, ui (Radix), data-table, period
   api/              # Client API
   hooks/            # Custom hooks
   stores/           # Zustand stores
   types/            # Tipi TypeScript
 
-scripts/            # Google Ads Scripts (exporter + modifier per ogni account)
+scripts/
+  google-ads-download.js    # Template base download
+  google-ads-upload.js      # Template base upload
+  download/                 # Script download per account (6 file)
+  upload/                   # Script upload/modifier per account (6 file)
+
 docs/               # Documentazione tecnica
 ```
 
@@ -88,31 +93,40 @@ ssh root@vmi2996361.contaboserver.net "PGPASSWORD=Karalisweb2025 psql -h localho
 ssh root@vmi2996361.contaboserver.net "PGPASSWORD=Karalisweb2025 psql -h localhost -U gadsaudit -d gadsaudit -c \"UPDATE modifications SET status = 'approved', result_message = NULL, result_details = NULL, applied_at = NULL FROM google_ads_accounts a WHERE modifications.account_id = a.id AND a.customer_id = '7050747943' AND modifications.status = 'failed';\""
 ```
 
-## Account Google Ads gestiti
-| Account | Customer ID | Script modifier |
-|---------|-------------|-----------------|
-| Arredi 2000 | 5448290625 | `google-ads-modifier-arredi-2000.js` |
-| Casa Bulldog | - | `google-ads-modifier-casa-bulldog.js` |
-| Colombo Palace | - | `google-ads-modifier-colombo-palace.js` |
-| Massimo Borio | 8164965072 | `google-ads-modifier-massimo-borio.js` |
-| Officina 3MT | 7050747943 | `google-ads-modifier-officina-3mt.js` |
-| Sardegna Trasferimenti | 1094402562 | `google-ads-modifier-sardegna-trasferimenti.js` |
-| Sfrido | 2409021335 | `google-ads-modifier-sfrido.js` |
+## Account Google Ads gestiti (6 attivi)
+| Account | Customer ID | Script download | Script upload |
+|---------|-------------|-----------------|---------------|
+| Arredi 2000 | 5448290625 | `download/google-ads-download-arredi-2000.js` | `upload/google-ads-upload-arredi-2000.js` |
+| Casa Bulldog | - | `download/google-ads-download-casa-bulldog.js` | `upload/google-ads-upload-casa-bulldog.js` |
+| Colombo Palace | - | `download/google-ads-download-colombo-palace.js` | `upload/google-ads-upload-colombo-palace.js` |
+| Massimo Borio | 8164965072 | `download/google-ads-download-massimo-borio.js` | `upload/google-ads-upload-massimo-borio.js` |
+| Officina 3MT | 7050747943 | `download/google-ads-download-officina-3mt.js` | `upload/google-ads-upload-officina-3mt.js` |
+| Sardegna Trasferimenti | 1094402562 | `download/google-ads-download-sardegna-trasferimenti.js` | `upload/google-ads-upload-sardegna-trasferimenti.js` |
 
 ## Autenticazione API
 - **Endpoint normali**: JWT Bearer token (login via `POST /auth/login`)
 - **Endpoint integrazione Google Ads**: HMAC-SHA256 (header X-Signature, X-Timestamp, X-Account-Id) con shared secret per account
 - **Guard globale JWT**: tutte le rotte protette tranne quelle con `@Public()`
+- **2FA**: OTP via email (6 digit), rate limited (3 richieste/15 min), scadenza 10 min
+- **Account lockout**: 5 tentativi falliti = blocco 15 minuti
 
 ## Flow modifiche
 1. L'AI analizza l'account e genera raccomandazioni (`POST /ai/analyze`)
 2. Le raccomandazioni vengono convertite in modifiche (`POST /modifications/from-ai`) con status `pending`
 3. L'admin approva le modifiche (`POST /modifications/:id/approve`) -> status `approved`
-4. Lo script Google Ads Modifier (in ogni account) chiama `GET /integrations/google-ads/modifications/pending`
+4. Lo script Google Ads Upload (in ogni account) chiama `GET /integrations/google-ads/modifications/pending`
 5. Lo script applica le modifiche e invia il risultato via `POST /integrations/google-ads/modifications/:id/result`
 6. Status finale: `applied` (successo) o `failed` (errore)
+
+## API User Management (admin only)
+- `POST /auth/invite` - Invita utente (solo dominio @karalisweb.net)
+- `GET /users` - Lista utenti
+- `PATCH /users/:id/role` - Cambia ruolo (admin/user)
+- `PATCH /users/:id/deactivate` - Disattiva utente
+- `PATCH /users/:id/activate` - Attiva utente
+- `DELETE /users/:id` - Elimina utente
 
 ## Convenzioni
 - Commit message in inglese, prefisso: feat/fix/refactor/docs
 - Codice backend in inglese, commenti e log in italiano dove utile
-- Ogni account ha il suo script modifier dedicato nella cartella `scripts/`
+- Script download in `scripts/download/`, script upload in `scripts/upload/`

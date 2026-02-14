@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as bodyParser from 'body-parser';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -9,6 +10,9 @@ async function bootstrap() {
     bodyParser: false, // Disable built-in body parser to use custom one
   });
   const configService = app.get(ConfigService);
+
+  // Security headers
+  app.use(helmet());
 
   // Custom body parser that preserves rawBody for HMAC verification
   app.use(

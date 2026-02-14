@@ -1,10 +1,23 @@
 /**
- * Google Ads Data Exporter Script - Colombo Palace
+ * GADS Audit 2.0 - Google Ads Download Script
+ *
+ * ACCOUNT: ARREDI 2000 (5448290625)
+ * ULTIMA MODIFICA: 2026-02-12
+ *
+ * Questo script estrae dati dall'account Google Ads e li invia all'app di audit
+ * tramite HTTPS POST con autenticazione HMAC-SHA256.
+ *
+ * ISTRUZIONI:
+ * 1. Copia questo script in Google Ads > Strumenti e impostazioni > Script
+ * 2. Esegui lo script manualmente o schedulalo
  */
 
+// =============================================================================
+// CONFIGURAZIONE - ARREDI 2000
+// =============================================================================
 var CONFIG = {
   ENDPOINT_URL: 'https://gads.karalisdemo.it/api/integrations/google-ads/ingest',
-  SHARED_SECRET: '08d11a860f005a3dcac7dfc880b82980fc701182ce426593e010284d7c48ebe4',
+  SHARED_SECRET: 'f869ca5645a16caa222980be34e64661083b738cdfcd60e141cdbb215eceaaaa',
   DATE_RANGE: {
     START: getDateNDaysAgo(30),
     END: getDateNDaysAgo(1)
@@ -33,7 +46,7 @@ function main() {
   var runId = generateRunId();
 
   Logger.log('========================================');
-  Logger.log('Google Ads Data Exporter');
+  Logger.log('GADS Audit 2.0 - Download Script');
   Logger.log('========================================');
   Logger.log('Account: ' + accountName + ' (' + accountId + ')');
   Logger.log('Run ID: ' + runId);

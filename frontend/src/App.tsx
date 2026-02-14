@@ -21,6 +21,7 @@ import {
   LandingPagesPage,
 } from '@/pages/audit';
 import { ModificationsPage } from '@/pages/modifications';
+import { AdminUsersPage } from '@/pages/admin/AdminUsersPage';
 
 function App() {
   return (
@@ -40,6 +41,7 @@ function App() {
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/accounts" element={<AccountsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/admin/users" element={<AdminUsersPage />} />
           </Route>
 
           {/* Audit routes - fuori da MainLayout per evitare header duplicato */}

@@ -1,24 +1,25 @@
 /**
- * GADS Audit 2.0 - Google Ads Modifier Script
+ * GADS Audit 2.0 - Google Ads Upload Script
+ *
+ * ACCOUNT: SARDEGNA TRASFERIMENTI (1094402562)
+ * ULTIMA MODIFICA: 2026-02-12
  *
  * Questo script legge le modifiche approvate dal backend GADS Audit
  * e le applica all'account Google Ads corrente.
  *
  * ISTRUZIONI:
  * 1. Copia questo script in Google Ads > Strumenti e impostazioni > Script
- * 2. Sostituisci API_URL e SHARED_SECRET con i valori corretti
- * 3. Esegui lo script manualmente o schedulalo
+ * 2. Esegui lo script manualmente o schedulalo
  */
 
 // ============================================================================
-// CONFIGURAZIONE - MODIFICA QUESTI VALORI
+// CONFIGURAZIONE - SARDEGNA TRASFERIMENTI
 // ============================================================================
 var CONFIG = {
   API_URL: 'https://gads.karalisdemo.it/api/integrations/google-ads',
-  SHARED_SECRET: '04f26ea4f532443265d158da929effc6e5646b0f0b3abbafcd26974fe626f0a4', // Copialo dalle impostazioni account
-  DRY_RUN: false // Imposta true per testare senza applicare modifiche
+  SHARED_SECRET: '5288817679ae8480ea0d43fc23bfd36f5720656188a6fb9841ba75a64e74ddde',
+  DRY_RUN: false
 };
-
 // ============================================================================
 // FUNZIONI HELPER
 // ============================================================================
@@ -177,14 +178,12 @@ function applyCampaignStatus(entityId, afterValue) {
     while (adGroupIterator.hasNext()) {
       var adGroup = adGroupIterator.next();
 
-      // Pausa keyword attive del gruppo
       var kwIterator = adGroup.keywords().withCondition('ad_group_criterion.status = "ENABLED"').get();
       while (kwIterator.hasNext()) {
         kwIterator.next().pause();
         pausedKeywords++;
       }
 
-      // Pausa annunci attivi del gruppo
       var adIterator = adGroup.ads().withCondition('ad_group_ad.status = "ENABLED"').get();
       while (adIterator.hasNext()) {
         adIterator.next().pause();
@@ -852,7 +851,7 @@ function applyModification(modification) {
 
 function main() {
   Logger.log('=================================================');
-  Logger.log('GADS Audit 2.0 - Modifier Script');
+  Logger.log('GADS Audit 2.0 - Upload Script');
   Logger.log('Account: ' + AdsApp.currentAccount().getName());
   Logger.log('Customer ID: ' + AdsApp.currentAccount().getCustomerId());
   Logger.log('Data: ' + new Date().toISOString());

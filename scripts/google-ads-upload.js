@@ -1,24 +1,27 @@
 /**
- * GADS Audit 2.0 - Google Ads Modifier Script
+ * GADS Audit 2.0 - Google Ads Upload Script (TEMPLATE)
  *
- * ACCOUNT: OFFICINA 3MT (7050747943)
+ * ACCOUNT: [NOME ACCOUNT] ([CUSTOMER_ID])
+ * ULTIMA MODIFICA: 2026-02-13
  *
  * Questo script legge le modifiche approvate dal backend GADS Audit
  * e le applica all'account Google Ads corrente.
  *
  * ISTRUZIONI:
  * 1. Copia questo script in Google Ads > Strumenti e impostazioni > Script
- * 2. Esegui lo script manualmente o schedulalo
+ * 2. Sostituisci SHARED_SECRET con il valore corretto per l'account
+ * 3. Esegui lo script manualmente o schedulalo
  */
 
 // ============================================================================
-// CONFIGURAZIONE - OFFICINA 3MT
+// CONFIGURAZIONE - MODIFICA QUESTI VALORI PER OGNI ACCOUNT
 // ============================================================================
 var CONFIG = {
   API_URL: 'https://gads.karalisdemo.it/api/integrations/google-ads',
-  SHARED_SECRET: 'a8ae36e7635ef7962679f1bd73301c289885e9ff220b28a6af3a7f19444ebbf6',
+  SHARED_SECRET: 'INSERISCI_QUI_IL_SHARED_SECRET_DELL_ACCOUNT',
   DRY_RUN: false
 };
+
 // ============================================================================
 // FUNZIONI HELPER
 // ============================================================================
@@ -177,12 +180,14 @@ function applyCampaignStatus(entityId, afterValue) {
     while (adGroupIterator.hasNext()) {
       var adGroup = adGroupIterator.next();
 
+      // Pausa keyword attive del gruppo
       var kwIterator = adGroup.keywords().withCondition('ad_group_criterion.status = "ENABLED"').get();
       while (kwIterator.hasNext()) {
         kwIterator.next().pause();
         pausedKeywords++;
       }
 
+      // Pausa annunci attivi del gruppo
       var adIterator = adGroup.ads().withCondition('ad_group_ad.status = "ENABLED"').get();
       while (adIterator.hasNext()) {
         adIterator.next().pause();
@@ -850,7 +855,7 @@ function applyModification(modification) {
 
 function main() {
   Logger.log('=================================================');
-  Logger.log('GADS Audit 2.0 - Modifier Script');
+  Logger.log('GADS Audit 2.0 - Upload Script');
   Logger.log('Account: ' + AdsApp.currentAccount().getName());
   Logger.log('Customer ID: ' + AdsApp.currentAccount().getCustomerId());
   Logger.log('Data: ' + new Date().toISOString());

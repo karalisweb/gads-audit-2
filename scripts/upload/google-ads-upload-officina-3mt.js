@@ -1,7 +1,8 @@
 /**
- * GADS Audit 2.0 - Google Ads Modifier Script
+ * GADS Audit 2.0 - Google Ads Upload Script
  *
- * ACCOUNT: SARDEGNA TRASFERIMENTI (1094402562)
+ * ACCOUNT: OFFICINA 3MT (7050747943)
+ * ULTIMA MODIFICA: 2026-02-12
  *
  * Questo script legge le modifiche approvate dal backend GADS Audit
  * e le applica all'account Google Ads corrente.
@@ -12,11 +13,11 @@
  */
 
 // ============================================================================
-// CONFIGURAZIONE - SARDEGNA TRASFERIMENTI
+// CONFIGURAZIONE - OFFICINA 3MT
 // ============================================================================
 var CONFIG = {
   API_URL: 'https://gads.karalisdemo.it/api/integrations/google-ads',
-  SHARED_SECRET: '5288817679ae8480ea0d43fc23bfd36f5720656188a6fb9841ba75a64e74ddde',
+  SHARED_SECRET: 'a8ae36e7635ef7962679f1bd73301c289885e9ff220b28a6af3a7f19444ebbf6',
   DRY_RUN: false
 };
 // ============================================================================
@@ -850,7 +851,7 @@ function applyModification(modification) {
 
 function main() {
   Logger.log('=================================================');
-  Logger.log('GADS Audit 2.0 - Modifier Script');
+  Logger.log('GADS Audit 2.0 - Upload Script');
   Logger.log('Account: ' + AdsApp.currentAccount().getName());
   Logger.log('Customer ID: ' + AdsApp.currentAccount().getCustomerId());
   Logger.log('Data: ' + new Date().toISOString());

@@ -1,7 +1,8 @@
 /**
- * GADS Audit 2.0 - Google Ads Modifier Script
+ * GADS Audit 2.0 - Google Ads Upload Script
  *
- * ACCOUNT: ARREDI 2000 (5448290625)
+ * ACCOUNT: MASSIMO BORIO (8164965072)
+ * ULTIMA MODIFICA: 2026-02-12
  *
  * Questo script legge le modifiche approvate dal backend GADS Audit
  * e le applica all'account Google Ads corrente.
@@ -12,11 +13,11 @@
  */
 
 // ============================================================================
-// CONFIGURAZIONE - ARREDI 2000
+// CONFIGURAZIONE - MASSIMO BORIO
 // ============================================================================
 var CONFIG = {
   API_URL: 'https://gads.karalisdemo.it/api/integrations/google-ads',
-  SHARED_SECRET: 'f869ca5645a16caa222980be34e64661083b738cdfcd60e141cdbb215eceaaaa',
+  SHARED_SECRET: '04f26ea4f532443265d158da929effc6e5646b0f0b3abbafcd26974fe626f0a4',
   DRY_RUN: false
 };
 // ============================================================================
@@ -177,14 +178,12 @@ function applyCampaignStatus(entityId, afterValue) {
     while (adGroupIterator.hasNext()) {
       var adGroup = adGroupIterator.next();
 
-      // Pausa keyword attive del gruppo
       var kwIterator = adGroup.keywords().withCondition('ad_group_criterion.status = "ENABLED"').get();
       while (kwIterator.hasNext()) {
         kwIterator.next().pause();
         pausedKeywords++;
       }
 
-      // Pausa annunci attivi del gruppo
       var adIterator = adGroup.ads().withCondition('ad_group_ad.status = "ENABLED"').get();
       while (adIterator.hasNext()) {
         adIterator.next().pause();
@@ -852,7 +851,7 @@ function applyModification(modification) {
 
 function main() {
   Logger.log('=================================================');
-  Logger.log('GADS Audit 2.0 - Modifier Script');
+  Logger.log('GADS Audit 2.0 - Upload Script');
   Logger.log('Account: ' + AdsApp.currentAccount().getName());
   Logger.log('Customer ID: ' + AdsApp.currentAccount().getCustomerId());
   Logger.log('Data: ' + new Date().toISOString());

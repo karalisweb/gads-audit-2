@@ -1,24 +1,19 @@
 /**
- * Google Ads Data Exporter Script
+ * GADS Audit 2.0 - Google Ads Download Script
+ *
+ * ACCOUNT: OFFICINA 3MT (7050747943)
+ * ULTIMA MODIFICA: 2026-02-12
  *
  * Questo script estrae dati dall'account Google Ads e li invia all'app di audit
  * tramite HTTPS POST con autenticazione HMAC-SHA256.
  *
- * CONFIGURAZIONE:
- * 1. Imposta ENDPOINT_URL con l'URL del tuo server
- * 2. Imposta SHARED_SECRET con il secret condiviso (generato dall'app)
- * 3. Imposta DATE_RANGE per il periodo di dati da estrarre
- *
- * INSTALLAZIONE:
- * 1. Vai su Google Ads > Strumenti > Script
- * 2. Crea un nuovo script e incolla questo codice
- * 3. Configura le variabili nella sezione CONFIGURAZIONE
- * 4. Autorizza lo script
- * 5. Esegui manualmente o schedula
+ * ISTRUZIONI:
+ * 1. Copia questo script in Google Ads > Strumenti e impostazioni > Script
+ * 2. Esegui lo script manualmente o schedulalo
  */
 
 // =============================================================================
-// CONFIGURAZIONE
+// CONFIGURAZIONE - OFFICINA 3MT
 // =============================================================================
 
 var CONFIG = {
@@ -26,7 +21,7 @@ var CONFIG = {
   ENDPOINT_URL: 'https://gads.karalisdemo.it/api/integrations/google-ads/ingest',
 
   // Secret condiviso per l'autenticazione HMAC (ottenuto dall'app)
-  SHARED_SECRET: '04f26ea4f532443265d158da929effc6e5646b0f0b3abbafcd26974fe626f0a4',
+  SHARED_SECRET: 'a8ae36e7635ef7962679f1bd73301c289885e9ff220b28a6af3a7f19444ebbf6',
 
   // Periodo di dati da estrarre (formato: YYYYMMDD)
   DATE_RANGE: {
@@ -72,7 +67,7 @@ function main() {
   var runId = generateRunId();
 
   Logger.log('========================================');
-  Logger.log('Google Ads Data Exporter');
+  Logger.log('GADS Audit 2.0 - Download Script');
   Logger.log('========================================');
   Logger.log('Account: ' + accountName + ' (' + accountId + ')');
   Logger.log('Run ID: ' + runId);
@@ -98,7 +93,7 @@ function main() {
   Logger.log('Export completed');
   Logger.log('========================================');
 
-  // Fase 2: Applica modifiche pendenti (se abilitato)
+  // Phase 2: Apply pending modifications
   if (CONFIG.APPLY_MODIFICATIONS) {
     applyPendingModifications();
   }
@@ -949,12 +944,9 @@ function chunkArray(array, size) {
 }
 
 // =============================================================================
-// MODIFICATIONS HANDLER
+// MODIFICATIONS PHASE - Apply pending modifications from backend
 // =============================================================================
 
-/**
- * Fase APPLY: Scarica e applica le modifiche pendenti dal backend
- */
 function applyPendingModifications() {
   var accountId = AdsApp.currentAccount().getCustomerId().replace(/-/g, '');
 
@@ -1302,6 +1294,30 @@ function applyKeywordCpcBid(mod) {
   }
 }
 
+function applyKeywordFinalUrl(mod) {
+  var keywordIterator = AdsApp.keywords()
+    .withCondition('Id = ' + mod.entityId)
+    .get();
+
+  if (!keywordIterator.hasNext()) {
+    return { success: false, message: 'Keyword not found: ' + mod.entityId };
+  }
+
+  var keyword = keywordIterator.next();
+  var newUrl = mod.afterValue.finalUrl;
+
+  try {
+    keyword.urls().setFinalUrl(newUrl);
+    return {
+      success: true,
+      message: 'Final URL updated to: ' + newUrl,
+      details: { newUrl: newUrl }
+    };
+  } catch (e) {
+    return { success: false, message: 'Could not set final URL: ' + e.message };
+  }
+}
+
 // Negative keyword modifications
 function addNegativeKeyword(mod) {
   var text = mod.afterValue.text;
@@ -1374,35 +1390,8 @@ function formatNegativeKeyword(text, matchType) {
   }
 }
 
-// Keyword Final URL modification
-function applyKeywordFinalUrl(mod) {
-  var keywordIterator = AdsApp.keywords()
-    .withCondition('Id = ' + mod.entityId)
-    .get();
-
-  if (!keywordIterator.hasNext()) {
-    return { success: false, message: 'Keyword not found: ' + mod.entityId };
-  }
-
-  var keyword = keywordIterator.next();
-  var newUrl = mod.afterValue.finalUrl;
-
-  try {
-    keyword.urls().setFinalUrl(newUrl);
-    return {
-      success: true,
-      message: 'Final URL updated to: ' + newUrl,
-      details: { newUrl: newUrl }
-    };
-  } catch (e) {
-    return { success: false, message: 'Could not set final URL: ' + e.message };
-  }
-}
-
 // Ad modifications
 function applyAdStatus(mod) {
-  // Note: Google Ads Scripts uses ad IDs from AdGroupAd
-  // We need to search by ad ID across all ad groups
   var adIterator = AdsApp.ads()
     .withCondition('Id = ' + mod.entityId)
     .get();
@@ -1431,8 +1420,6 @@ function applyAdStatus(mod) {
 }
 
 function applyAdHeadlines(mod) {
-  // Modifying ad headlines requires creating a new ad and pausing the old one
-  // Google Ads Scripts doesn't support in-place editing of RSAs
   return {
     success: false,
     message: 'Modifying ad headlines requires Google Ads API (not available in Scripts). Consider creating a new ad with updated headlines.'
@@ -1440,7 +1427,6 @@ function applyAdHeadlines(mod) {
 }
 
 function applyAdDescriptions(mod) {
-  // Same limitation as headlines
   return {
     success: false,
     message: 'Modifying ad descriptions requires Google Ads API (not available in Scripts). Consider creating a new ad with updated descriptions.'
@@ -1473,7 +1459,6 @@ function applyAdFinalUrl(mod) {
 
 // Conversion Action modifications
 function applyConversionPrimary(mod) {
-  // Conversion action settings require Google Ads API
   return {
     success: false,
     message: 'Modifying conversion action primary status requires Google Ads API (not available in Scripts)'
@@ -1481,7 +1466,6 @@ function applyConversionPrimary(mod) {
 }
 
 function applyConversionDefaultValue(mod) {
-  // Conversion action settings require Google Ads API
   return {
     success: false,
     message: 'Modifying conversion default value requires Google Ads API (not available in Scripts)'

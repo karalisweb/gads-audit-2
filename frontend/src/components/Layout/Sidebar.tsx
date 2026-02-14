@@ -7,6 +7,7 @@ import {
   Building2,
   LogOut,
   User,
+  Users,
   Settings,
   BookOpen,
   X,
@@ -15,8 +16,8 @@ import { GadsIcon } from '@/components/icons/GadsIcon';
 
 const APP_VERSION = '2.6.0';
 
-// Zona 2 - Navigazione Principale
-const mainNavItems = [
+// Zona 2 - Navigazione Principale (base)
+const baseNavItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/accounts', label: 'Account', icon: Building2 },
 ];
@@ -35,6 +36,11 @@ export function Sidebar({ mode = 'overlay' }: SidebarProps) {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
+
+  const mainNavItems = [
+    ...baseNavItems,
+    ...(user?.role === 'admin' ? [{ path: '/admin/users', label: 'Utenti', icon: Users }] : []),
+  ];
 
   const isFixed = mode === 'fixed';
 

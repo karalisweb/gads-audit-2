@@ -1,18 +1,19 @@
 /**
- * Google Ads Data Exporter Script - Sfrido Store
+ * GADS Audit 2.0 - Google Ads Download Script
+ *
+ * ACCOUNT: SARDEGNA TRASFERIMENTI (1094402562)
+ * ULTIMA MODIFICA: 2026-02-12
  *
  * Questo script estrae dati dall'account Google Ads e li invia all'app di audit
  * tramite HTTPS POST con autenticazione HMAC-SHA256.
  *
- * INSTALLAZIONE:
- * 1. Vai su Google Ads > Strumenti > Script
- * 2. Crea un nuovo script e incolla questo codice
- * 3. Autorizza lo script
- * 4. Esegui manualmente o schedula
+ * ISTRUZIONI:
+ * 1. Copia questo script in Google Ads > Strumenti e impostazioni > Script
+ * 2. Esegui lo script manualmente o schedulalo
  */
 
 // =============================================================================
-// CONFIGURAZIONE
+// CONFIGURAZIONE - SARDEGNA TRASFERIMENTI
 // =============================================================================
 
 var CONFIG = {
@@ -20,7 +21,7 @@ var CONFIG = {
   ENDPOINT_URL: 'https://gads.karalisdemo.it/api/integrations/google-ads/ingest',
 
   // Secret condiviso per l'autenticazione HMAC (ottenuto dall'app)
-  SHARED_SECRET: 'bee87d6442818f9181013929b4649e8dfde82ee7afd4d183598ffb4e89f294f8',
+  SHARED_SECRET: '5288817679ae8480ea0d43fc23bfd36f5720656188a6fb9841ba75a64e74ddde',
 
   // Periodo di dati da estrarre (formato: YYYYMMDD)
   DATE_RANGE: {
@@ -66,7 +67,7 @@ function main() {
   var runId = generateRunId();
 
   Logger.log('========================================');
-  Logger.log('Google Ads Data Exporter');
+  Logger.log('GADS Audit 2.0 - Download Script');
   Logger.log('========================================');
   Logger.log('Account: ' + accountName + ' (' + accountId + ')');
   Logger.log('Run ID: ' + runId);
@@ -140,12 +141,10 @@ function exportDataset(accountId, runId, datasetName, totalDatasets) {
   Logger.log('  > Extracted ' + data.length + ' rows');
 
   if (data.length === 0) {
-    // Send empty chunk to signal dataset complete
     sendChunk(accountId, runId, datasetName, [], 0, 1, totalDatasets);
     return;
   }
 
-  // Split into chunks and send
   var chunks = chunkArray(data, CONFIG.CHUNK_SIZE);
   Logger.log('  > Sending ' + chunks.length + ' chunks');
 
@@ -153,7 +152,6 @@ function exportDataset(accountId, runId, datasetName, totalDatasets) {
     sendChunk(accountId, runId, datasetName, chunks[i], i, chunks.length, totalDatasets);
     Logger.log('    - Chunk ' + (i + 1) + '/' + chunks.length + ' sent');
 
-    // Small delay between chunks to avoid rate limiting
     if (i < chunks.length - 1) {
       Utilities.sleep(500);
     }

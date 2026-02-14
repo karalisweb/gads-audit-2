@@ -1,7 +1,20 @@
 /**
- * Google Ads Data Exporter Script - Casa BullDog
+ * GADS Audit 2.0 - Google Ads Download Script
+ *
+ * ACCOUNT: CASA BULLDOG
+ * ULTIMA MODIFICA: 2026-02-12
+ *
+ * Questo script estrae dati dall'account Google Ads e li invia all'app di audit
+ * tramite HTTPS POST con autenticazione HMAC-SHA256.
+ *
+ * ISTRUZIONI:
+ * 1. Copia questo script in Google Ads > Strumenti e impostazioni > Script
+ * 2. Esegui lo script manualmente o schedulalo
  */
 
+// =============================================================================
+// CONFIGURAZIONE - CASA BULLDOG
+// =============================================================================
 var CONFIG = {
   ENDPOINT_URL: 'https://gads.karalisdemo.it/api/integrations/google-ads/ingest',
   SHARED_SECRET: '07d58eab9931bf88638be45e876fa353dd99228e40af9370660afd143f1d7402',
@@ -33,7 +46,7 @@ function main() {
   var runId = generateRunId();
 
   Logger.log('========================================');
-  Logger.log('Google Ads Data Exporter');
+  Logger.log('GADS Audit 2.0 - Download Script');
   Logger.log('========================================');
   Logger.log('Account: ' + accountName + ' (' + accountId + ')');
   Logger.log('Run ID: ' + runId);
