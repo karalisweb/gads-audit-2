@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { GadsIcon } from '@/components/icons/GadsIcon';
 
-const APP_VERSION = '2.6.0';
+const APP_VERSION = '2.7.0';
 
 // Zona 2 - Navigazione Principale (base)
 const baseNavItems = [
@@ -37,8 +37,10 @@ export function Sidebar({ mode = 'overlay' }: SidebarProps) {
   const { user, logout } = useAuthStore();
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
 
-  const mainNavItems = [
-    ...baseNavItems,
+  const mainNavItems = baseNavItems;
+
+  const dynamicFooterItems = [
+    ...footerNavItems,
     ...(user?.role === 'admin' ? [{ path: '/admin/users', label: 'Utenti', icon: Users }] : []),
   ];
 
@@ -145,7 +147,7 @@ export function Sidebar({ mode = 'overlay' }: SidebarProps) {
 
         {/* ═══ ZONA 3: Navigazione Fissa (Footer) ═══ */}
         <div className="border-t border-sidebar-border py-2 px-2">
-          {footerNavItems.map((item) => {
+          {dynamicFooterItems.map((item) => {
             const Icon = item.icon;
             return (
               <NavLink

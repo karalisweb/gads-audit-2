@@ -10,6 +10,39 @@ import type { ApiError } from '@/types';
 
 type TabType = 'profile' | 'password' | 'security' | 'ai' | 'schedule';
 
+function describeCron(cron: string): string {
+  const parts = cron.trim().split(/\s+/);
+  if (parts.length !== 5) return cron;
+
+  const [minute, hour, , , dayOfWeek] = parts;
+
+  const dayNames: Record<string, string> = {
+    '0': 'Domenica', '1': 'Lunedi', '2': 'Martedi', '3': 'Mercoledi',
+    '4': 'Giovedi', '5': 'Venerdi', '6': 'Sabato', '7': 'Domenica',
+  };
+
+  const time = `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
+
+  if (dayOfWeek === '*') {
+    return `Ogni giorno alle ${time}`;
+  }
+
+  if (dayOfWeek === '1-5') {
+    return `Dal Lunedi al Venerdi alle ${time}`;
+  }
+
+  // Handle comma-separated days
+  const days = dayOfWeek.split(',').map(d => dayNames[d.trim()] || d).filter(Boolean);
+  if (days.length === 1) {
+    return `Ogni ${days[0]} alle ${time}`;
+  }
+  if (days.length > 1) {
+    return `${days.join(' e ')} alle ${time}`;
+  }
+
+  return `${cron} (alle ${time})`;
+}
+
 interface AISettings {
   hasApiKey: boolean;
   apiKeyLast4?: string;
@@ -699,32 +732,36 @@ export function SettingsPage() {
 
               {/* Cron Expression */}
               <div className="space-y-2">
-                <Label htmlFor="cronExpression" className="text-foreground">Espressione Cron</Label>
-                <Input
-                  id="cronExpression"
-                  type="text"
-                  value={scheduleCron}
-                  onChange={(e) => setScheduleCron(e.target.value)}
-                  placeholder="0 7 * * 1"
-                  className="bg-input border-border text-foreground font-mono"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Formato: minuto ora giorno-mese mese giorno-settimana (0=Dom, 1=Lun, ..., 6=Sab)
-                </p>
-                <div className="flex flex-wrap gap-2 mt-2">
+                <Label htmlFor="cronExpression" className="text-foreground">Frequenza analisi</Label>
+
+                {/* Descrizione leggibile */}
+                <Card className="bg-card/50 border-border">
+                  <CardContent className="p-3">
+                    <p className="text-sm text-foreground">
+                      <span className="font-medium">Programmazione attuale:</span>{' '}
+                      <span className="text-primary font-medium">{describeCron(scheduleCron)}</span>
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Preset buttons */}
+                <p className="text-xs text-muted-foreground font-medium mt-3">Scegli una frequenza:</p>
+                <div className="flex flex-wrap gap-2">
                   {[
-                    { label: 'Ogni giorno alle 7', value: '0 7 * * *' },
-                    { label: 'Lun-Ven alle 7', value: '0 7 * * 1,2,3,4,5' },
-                    { label: 'Ogni lunedì alle 7', value: '0 7 * * 1' },
-                    { label: 'Lun e Gio alle 7', value: '0 7 * * 1,4' },
+                    { label: 'Ogni giorno alle 7:00', value: '0 7 * * *' },
+                    { label: 'Lun-Ven alle 7:00', value: '0 7 * * 1-5' },
+                    { label: 'Ogni lunedi alle 7:00', value: '0 7 * * 1' },
+                    { label: 'Lun e Gio alle 7:00', value: '0 7 * * 1,4' },
+                    { label: 'Ogni lunedi alle 9:00', value: '0 9 * * 1' },
+                    { label: 'Lun-Ven alle 9:00', value: '0 9 * * 1-5' },
                   ].map((preset) => (
                     <button
                       key={preset.value}
                       type="button"
                       onClick={() => setScheduleCron(preset.value)}
-                      className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                      className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
                         scheduleCron === preset.value
-                          ? 'bg-primary/20 border-primary text-primary'
+                          ? 'bg-primary/20 border-primary text-primary font-medium'
                           : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
                       }`}
                     >
@@ -732,6 +769,29 @@ export function SettingsPage() {
                     </button>
                   ))}
                 </div>
+
+                {/* Campo cron avanzato (collapsabile) */}
+                <details className="mt-3">
+                  <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+                    Configurazione avanzata (espressione cron)
+                  </summary>
+                  <div className="mt-2 space-y-1">
+                    <Input
+                      id="cronExpression"
+                      type="text"
+                      value={scheduleCron}
+                      onChange={(e) => setScheduleCron(e.target.value)}
+                      placeholder="0 7 * * 1"
+                      className="bg-input border-border text-foreground font-mono text-sm"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Formato: <code className="bg-muted px-1 rounded">minuto ora giorno-mese mese giorno-settimana</code>
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Giorni: 0=Dom, 1=Lun, 2=Mar, 3=Mer, 4=Gio, 5=Ven, 6=Sab
+                    </p>
+                  </div>
+                </details>
               </div>
 
               {/* Email Recipients */}
