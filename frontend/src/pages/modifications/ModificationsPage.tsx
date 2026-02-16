@@ -59,15 +59,77 @@ function formatDate(dateStr: string): string {
   });
 }
 
+// Parsa una stringa di metriche tecnica e la rende leggibile
+function formatMetricString(str: string): string {
+  if (!str || typeof str !== 'string') return str;
+
+  return str
+    // Stato attuale campagna/strategia
+    .replace(/Stato attuale: strategia=\[([^\]]+)\]/g, 'Strategia: $1')
+    // Impression Share
+    .replace(/ImpressionShare\s*[=:]?\s*([\d.]+)/gi, (_m, v) => `IS ${(parseFloat(v) * 100).toFixed(0)}%`)
+    .replace(/IS[=:]\s*([\d.]+%)/gi, 'IS $1')
+    .replace(/IS[=:]\s*([\d.]+)(?!%)/gi, (_m, v) => {
+      const n = parseFloat(v);
+      return n < 1 ? `IS ${(n * 100).toFixed(0)}%` : `IS ${n}%`;
+    })
+    // Lost IS
+    .replace(/Lost IS \(rank\)\s*([\d.]+)/gi, (_m, v) => `Perso rank ${(parseFloat(v) * 100).toFixed(0)}%`)
+    .replace(/Lost to rank[=:]\s*([\d.]+%)/gi, 'Perso rank $1')
+    .replace(/Lost to rank[=:]\s*([\d.]+)(?!%)/gi, (_m, v) => {
+      const n = parseFloat(v);
+      return n < 1 ? `Perso rank ${(n * 100).toFixed(0)}%` : `Perso rank ${n}%`;
+    })
+    .replace(/Lost to budget[=:]\s*n\/a/gi, '')
+    .replace(/Lost to budget[=:]\s*([\d.]+)/gi, (_m, v) => `Perso budget ${(parseFloat(v) * 100).toFixed(0)}%`)
+    // CTR
+    .replace(/CTR\s*([\d.]+)\s*\(~?([\d.]+)%?\)/gi, 'CTR $2%')
+    .replace(/CTR[=:]\s*([\d.]+%)/gi, 'CTR $1')
+    .replace(/CTR[=:]\s*([\d.]+)(?!%)/gi, (_m, v) => {
+      const n = parseFloat(v);
+      return n < 1 ? `CTR ${(n * 100).toFixed(1)}%` : `CTR ${n}%`;
+    })
+    // QS
+    .replace(/QS[=:]\s*n\/a/gi, 'QS n/d')
+    .replace(/QS[=:]\s*([\d]+)/gi, 'QS $1')
+    .replace(/qualityScore[=:]\s*0;\s*campi vuoti/gi, 'QS: nessun dato')
+    // Cost / CPA / Conv
+    .replace(/Cost[=:]\s*/gi, 'Costo ')
+    .replace(/Conversions?\s*([\d.]+)/gi, 'Conv $1')
+    .replace(/CPA[=:]\s*/gi, 'CPA ')
+    .replace(/CPC bid[=:]\s*/gi, 'CPC ')
+    .replace(/Strength[=:]\s*/gi, 'Qualità ')
+    // Separatori
+    .replace(/\s*[;,|]\s*/g, ' · ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    // Pulisci punti finali vuoti
+    .replace(/·\s*$/g, '')
+    .replace(/^\s*·/g, '');
+}
+
 function formatValue(value: unknown): string {
   if (value === null || value === undefined) return '-';
   if (typeof value === 'object') {
     const obj = value as Record<string, unknown>;
-    if ('budget' in obj) {
+
+    // Budget (in micros)
+    if ('budget' in obj && typeof obj.budget === 'number') {
       return `€${(Number(obj.budget) / 1000000).toFixed(2)}`;
     }
+    // CPC Bid - solo se è numerico
     if ('cpcBid' in obj) {
-      return `€${(Number(obj.cpcBid) / 1000000).toFixed(2)}`;
+      const bid = Number(obj.cpcBid);
+      if (!isNaN(bid) && bid > 0) {
+        // Se è in micros (>100) o valore diretto
+        return bid > 100 ? `€${(bid / 1000000).toFixed(2)}` : `€${bid.toFixed(2)}`;
+      }
+      // cpcBid testuale → è un suggerimento, mostrare troncato
+      const text = String(obj.cpcBid);
+      return text.length > 60 ? text.slice(0, 60) + '…' : text;
+    }
+    if ('cpcBidMicros' in obj && !('cpcBid' in obj)) {
+      return `€${(Number(obj.cpcBidMicros) / 1000000).toFixed(2)}`;
     }
     if ('targetCpa' in obj) {
       return `CPA €${(Number(obj.targetCpa) / 1000000).toFixed(2)}`;
@@ -75,36 +137,47 @@ function formatValue(value: unknown): string {
     if ('targetRoas' in obj) {
       return `ROAS ${Number(obj.targetRoas).toFixed(2)}`;
     }
+    // Status
     if ('status' in obj) {
       return obj.status === 'ENABLED' ? 'Attivo' : obj.status === 'PAUSED' ? 'In pausa' : String(obj.status);
     }
-    if ('finalUrl' in obj) {
-      return String(obj.finalUrl);
+    // Negative keywords
+    if ('text' in obj && 'matchType' in obj) {
+      const level = obj.level === 'CAMPAIGN' ? 'Campagna' : obj.level === 'AD_GROUP' ? 'Gruppo' : obj.level === 'ACCOUNT' ? 'Account' : '';
+      return `${obj.text} (${String(obj.matchType).toLowerCase()}${level ? ', ' + level : ''})`;
     }
-    if ('finalUrls' in obj && Array.isArray(obj.finalUrls)) {
-      return `${obj.finalUrls.length} URL`;
+    if ('text' in obj && 'removed' in obj) {
+      return `${obj.text} (rimuovi)`;
     }
-    if ('headlines' in obj && Array.isArray(obj.headlines)) {
-      return `${obj.headlines.length} titoli`;
+    // Keyword add
+    if ('text' in obj && !('matchType' in obj) && !('removed' in obj)) {
+      return String(obj.text);
     }
-    if ('descriptions' in obj && Array.isArray(obj.descriptions)) {
-      return `${obj.descriptions.length} descrizioni`;
+    // URLs
+    if ('finalUrl' in obj) return String(obj.finalUrl);
+    if ('finalUrls' in obj && Array.isArray(obj.finalUrls)) return `${obj.finalUrls.length} URL`;
+    // Ads
+    if ('headlines' in obj && Array.isArray(obj.headlines)) return `${obj.headlines.length} titoli`;
+    if ('descriptions' in obj && Array.isArray(obj.descriptions)) return `${obj.descriptions.length} descrizioni`;
+    // Keyword
+    if ('keyword' in obj) return String(obj.keyword);
+    // Conversion
+    if ('isPrimary' in obj) return obj.isPrimary ? 'Primaria' : 'Secondaria';
+    if ('defaultValue' in obj) return `€${Number(obj.defaultValue).toFixed(2)}`;
+    // Suggerimento testuale (optimize, restructure, scale, improve_quality_score)
+    if ('suggestedValue' in obj) {
+      const text = String(obj.suggestedValue);
+      return text.length > 80 ? text.slice(0, 80) + '…' : text;
     }
-    if ('keyword' in obj) {
-      return String(obj.keyword);
+    // beforeValue con campo "value" (metriche tecniche)
+    if ('value' in obj && typeof obj.value === 'string') {
+      return formatMetricString(obj.value);
     }
-    if ('isPrimary' in obj) {
-      return obj.isPrimary ? 'Primaria' : 'Secondaria';
-    }
-    if ('defaultValue' in obj) {
-      return `€${Number(obj.defaultValue).toFixed(2)}`;
-    }
-    // Fallback: show key count
-    const keys = Object.keys(obj);
-    if (keys.length <= 2) {
-      return keys.map(k => `${k}: ${String(obj[k])}`).join(', ');
-    }
-    return `${keys.length} valori`;
+    // Fallback generico
+    const keys = Object.keys(obj).filter(k => k !== 'source' && k !== 'action');
+    if (keys.length === 0) return '-';
+    if (keys.length === 1) return String(obj[keys[0]]);
+    return keys.map(k => String(obj[k])).join(' · ');
   }
   return String(value);
 }
@@ -114,8 +187,35 @@ function hasComplexData(value: unknown): boolean {
   if (value === null || value === undefined) return false;
   if (typeof value !== 'object') return false;
   const obj = value as Record<string, unknown>;
-  return 'headlines' in obj || 'descriptions' in obj || 'finalUrls' in obj;
+  // Standard complex types
+  if ('headlines' in obj || 'descriptions' in obj || 'finalUrls' in obj) return true;
+  // Long suggestedValue text
+  if ('suggestedValue' in obj && String(obj.suggestedValue).length > 80) return true;
+  // Long cpcBid text (non-numeric)
+  if ('cpcBid' in obj && isNaN(Number(obj.cpcBid)) && String(obj.cpcBid).length > 60) return true;
+  return false;
 }
+
+// Parse AI notes into structured parts
+function parseNotes(notes: string | null | undefined): { priority: string; rationale: string; impact: string } | null {
+  if (!notes) return null;
+  const priorityMatch = notes.match(/\[AI - Priorita:\s*(high|medium|low)\]/i);
+  const parts = notes.split(' | ');
+  const priority = priorityMatch ? priorityMatch[1] : '';
+  const rationale = parts.length > 1 ? parts[1] : '';
+  const impactPart = parts.find(p => p.startsWith('Impatto atteso:'));
+  const impact = impactPart ? impactPart.replace('Impatto atteso: ', '') : '';
+  return { priority, rationale, impact };
+}
+
+const REJECT_REASONS = [
+  'Non sono d\'accordo',
+  'Non porta benefici',
+  'Budget insufficiente',
+  'Rischio troppo alto',
+  'Da valutare più avanti',
+  'Già gestito manualmente',
+];
 
 export function ModificationsPage() {
   const { accountId } = useParams<{ accountId: string }>();
@@ -329,35 +429,58 @@ export function ModificationsPage() {
     {
       id: 'change',
       header: 'Modifica',
-      size: 320,
+      size: 350,
       cell: ({ row }) => {
-        const showDetailBtn = hasComplexData(row.original.beforeValue) || hasComplexData(row.original.afterValue);
+        const mod = row.original;
+        const showDetailBtn = hasComplexData(mod.beforeValue) || hasComplexData(mod.afterValue);
+        const aiNotes = parseNotes(mod.notes);
+        const beforeStr = formatValue(mod.beforeValue);
+        const afterStr = formatValue(mod.afterValue);
+
         return (
-          <div className="text-sm max-w-[320px]">
-            <div className="flex items-start gap-2">
-              <span className="text-muted-foreground shrink-0">Da:</span>
-              <span className="break-words whitespace-normal">{formatValue(row.original.beforeValue)}</span>
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="text-muted-foreground shrink-0">A:</span>
-              <span className="font-medium text-primary break-words whitespace-normal">
-                {formatValue(row.original.afterValue)}
-              </span>
-              {showDetailBtn && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 px-2 text-xs"
-                  onClick={() => {
-                    setDetailModification(row.original);
-                    setDetailModalOpen(true);
-                  }}
-                >
-                  <Eye className="h-3 w-3 mr-1" />
-                  Dettagli
-                </Button>
-              )}
-            </div>
+          <div className="text-sm max-w-[350px] space-y-1">
+            {/* Before → After compatto */}
+            {beforeStr !== '-' ? (
+              <div className="flex items-start gap-1.5 flex-wrap">
+                <span className="text-muted-foreground break-words whitespace-normal">{beforeStr}</span>
+                <span className="text-muted-foreground shrink-0">→</span>
+                <span className="font-medium text-primary break-words whitespace-normal">{afterStr}</span>
+              </div>
+            ) : (
+              <div>
+                <span className="font-medium text-primary break-words whitespace-normal">{afterStr}</span>
+              </div>
+            )}
+
+            {/* Motivazione AI sintetica */}
+            {aiNotes && aiNotes.rationale && (
+              <p className="text-xs text-muted-foreground line-clamp-2 whitespace-normal">
+                {aiNotes.rationale}
+              </p>
+            )}
+
+            {/* Impatto atteso */}
+            {aiNotes && aiNotes.impact && (
+              <p className="text-xs text-green-600 whitespace-normal">
+                📈 {aiNotes.impact.length > 80 ? aiNotes.impact.slice(0, 80) + '…' : aiNotes.impact}
+              </p>
+            )}
+
+            {/* Dettagli button */}
+            {(showDetailBtn || (aiNotes && aiNotes.rationale && aiNotes.rationale.length > 120)) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs"
+                onClick={() => {
+                  setDetailModification(mod);
+                  setDetailModalOpen(true);
+                }}
+              >
+                <Eye className="h-3 w-3 mr-1" />
+                Dettagli
+              </Button>
+            )}
           </div>
         );
       },
@@ -638,16 +761,31 @@ export function ModificationsPage() {
           <DialogHeader>
             <DialogTitle>Rifiuta Modifica</DialogTitle>
             <DialogDescription>
-              Inserisci il motivo del rifiuto. Questa informazione sarà visibile
-              all'utente che ha creato la modifica.
+              Seleziona un motivo o scrivi una nota personalizzata.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
+          <div className="py-4 space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {REJECT_REASONS.map((reason) => (
+                <button
+                  key={reason}
+                  type="button"
+                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                    rejectReason === reason
+                      ? 'bg-red-600 text-white border-red-600'
+                      : 'bg-transparent text-muted-foreground border-border hover:border-red-400 hover:text-red-400'
+                  }`}
+                  onClick={() => setRejectReason(reason)}
+                >
+                  {reason}
+                </button>
+              ))}
+            </div>
             <Textarea
-              placeholder="Motivo del rifiuto..."
-              value={rejectReason}
+              placeholder="Note aggiuntive (opzionale)..."
+              value={REJECT_REASONS.includes(rejectReason) ? '' : rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
-              rows={4}
+              rows={2}
             />
           </div>
           <DialogFooter>
@@ -677,15 +815,31 @@ export function ModificationsPage() {
           <DialogHeader>
             <DialogTitle>Rifiuta {selectedPendingCount} Modifiche</DialogTitle>
             <DialogDescription>
-              Inserisci il motivo del rifiuto per tutte le modifiche selezionate.
+              Seleziona un motivo o scrivi una nota personalizzata.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
+          <div className="py-4 space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {REJECT_REASONS.map((reason) => (
+                <button
+                  key={reason}
+                  type="button"
+                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                    bulkRejectReason === reason
+                      ? 'bg-red-600 text-white border-red-600'
+                      : 'bg-transparent text-muted-foreground border-border hover:border-red-400 hover:text-red-400'
+                  }`}
+                  onClick={() => setBulkRejectReason(reason)}
+                >
+                  {reason}
+                </button>
+              ))}
+            </div>
             <Textarea
-              placeholder="Motivo del rifiuto..."
-              value={bulkRejectReason}
+              placeholder="Note aggiuntive (opzionale)..."
+              value={REJECT_REASONS.includes(bulkRejectReason) ? '' : bulkRejectReason}
               onChange={(e) => setBulkRejectReason(e.target.value)}
-              rows={4}
+              rows={2}
             />
           </div>
           <DialogFooter>
@@ -734,15 +888,44 @@ export function ModificationsPage() {
                 {/* Before Value */}
                 {detailModification.beforeValue && (
                   <div className="space-y-2">
-                    <h4 className="font-medium text-sm text-muted-foreground">Valore Precedente</h4>
+                    <h4 className="font-medium text-sm text-muted-foreground">Situazione attuale</h4>
                     <ModificationValueDisplay value={detailModification.beforeValue} />
                   </div>
                 )}
                 {/* After Value */}
                 <div className="space-y-2">
-                  <h4 className="font-medium text-sm text-primary">Nuovo Valore</h4>
+                  <h4 className="font-medium text-sm text-primary">Modifica proposta</h4>
                   <ModificationValueDisplay value={detailModification.afterValue} />
                 </div>
+                {/* AI Notes */}
+                {detailModification.notes && (() => {
+                  const aiNotes = parseNotes(detailModification.notes);
+                  if (!aiNotes || !aiNotes.rationale) return null;
+                  return (
+                    <div className="space-y-3 border-t pt-4">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-medium text-sm">Motivazione AI</h4>
+                        {aiNotes.priority && (
+                          <Badge className={
+                            aiNotes.priority === 'high' ? 'bg-red-600' :
+                            aiNotes.priority === 'medium' ? 'bg-yellow-600' :
+                            'bg-blue-600'
+                          }>
+                            {aiNotes.priority === 'high' ? 'Alta' : aiNotes.priority === 'medium' ? 'Media' : 'Bassa'}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground whitespace-normal">{aiNotes.rationale}</p>
+                      {aiNotes.impact && (
+                        <div className="rounded-md bg-green-950/20 border border-green-800/30 p-3">
+                          <p className="text-sm text-green-500">
+                            <span className="font-medium">Impatto atteso:</span> {aiNotes.impact}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </>
             )}
           </div>
