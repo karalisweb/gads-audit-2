@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { AIService } from './ai.service';
 import { EmailService } from '../email/email.service';
 import { SettingsService } from '../settings/settings.service';
+import { ModificationsService } from '../modifications/modifications.service';
 import { GoogleAdsAccount, AnalysisTriggerType } from '../../entities';
 
 @Injectable()
@@ -15,6 +16,7 @@ export class AISchedulerService {
     private readonly aiService: AIService,
     private readonly emailService: EmailService,
     private readonly settingsService: SettingsService,
+    private readonly modificationsService: ModificationsService,
     @InjectRepository(GoogleAdsAccount)
     private readonly accountRepository: Repository<GoogleAdsAccount>,
   ) {}
@@ -41,26 +43,65 @@ export class AISchedulerService {
       where: { isActive: true },
     });
 
-    const results: { accountName: string; success: boolean; recommendations: number; error?: string }[] = [];
+    const results: { accountName: string; success: boolean; recommendations: number; modificationsCreated: number; modificationsSkipped: number; error?: string }[] = [];
 
     for (const account of accounts) {
       try {
-        const log = await this.aiService.analyzeAllModules(
+        const { log, moduleRecommendations } = await this.aiService.analyzeAllModules(
           account.id,
           undefined, // No user for scheduled
           AnalysisTriggerType.SCHEDULED,
         );
+
+        // Auto-create modifications from recommendations
+        let totalCreated = 0;
+        let totalSkipped = 0;
+        for (const { moduleId, recommendations } of moduleRecommendations) {
+          if (recommendations.length === 0) continue;
+          try {
+            const createResult = await this.modificationsService.createFromAI(
+              {
+                accountId: account.id,
+                moduleId,
+                recommendations: recommendations.map(r => ({
+                  id: r.id,
+                  priority: r.priority,
+                  entityType: r.entityType,
+                  entityId: r.entityId,
+                  entityName: r.entityName,
+                  action: r.action,
+                  currentValue: r.currentValue,
+                  suggestedValue: r.suggestedValue,
+                  rationale: r.rationale,
+                  expectedImpact: r.expectedImpact,
+                  campaignId: r.campaignId,
+                  adGroupId: r.adGroupId,
+                })),
+              },
+              null,
+            );
+            totalCreated += createResult.totalCreated;
+            totalSkipped += createResult.totalSkipped;
+          } catch (error) {
+            this.logger.error(`Failed to create modifications for module ${moduleId} of ${account.customerName}: ${error.message}`);
+          }
+        }
+
         results.push({
           accountName: account.customerName || account.customerId,
           success: true,
           recommendations: log.totalRecommendations,
+          modificationsCreated: totalCreated,
+          modificationsSkipped: totalSkipped,
         });
-        this.logger.log(`Scheduled analysis completed for ${account.customerName}: ${log.totalRecommendations} recommendations`);
+        this.logger.log(`Scheduled analysis completed for ${account.customerName}: ${log.totalRecommendations} recommendations, ${totalCreated} modifications created`);
       } catch (error) {
         results.push({
           accountName: account.customerName || account.customerId,
           success: false,
           recommendations: 0,
+          modificationsCreated: 0,
+          modificationsSkipped: 0,
           error: error.message,
         });
         this.logger.error(`Scheduled analysis failed for ${account.customerName}: ${error.message}`);

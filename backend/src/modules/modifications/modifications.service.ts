@@ -339,7 +339,7 @@ export class ModificationsService {
 
   async createFromAI(
     dto: CreateFromAIDto,
-    userId: string,
+    userId: string | null,
   ): Promise<CreateFromAIResponse> {
     const account = await this.accountsRepository.findOne({
       where: { id: dto.accountId },
@@ -372,6 +372,27 @@ export class ModificationsService {
           continue;
         }
 
+        // Deduplicazione: skip se esiste già una modifica pending identica
+        const existing = await this.modificationsRepository.findOne({
+          where: {
+            accountId: mapped.accountId,
+            entityType: mapped.entityType,
+            entityId: mapped.entityId,
+            modificationType: mapped.modificationType,
+            status: ModificationStatus.PENDING,
+          },
+        });
+
+        if (existing) {
+          results.push({
+            recommendationId: rec.id,
+            status: 'skipped',
+            error: 'Modifica pendente già esistente',
+          });
+          totalSkipped++;
+          continue;
+        }
+
         const modification = this.modificationsRepository.create({
           accountId: mapped.accountId,
           entityType: mapped.entityType,
@@ -382,7 +403,7 @@ export class ModificationsService {
           afterValue: mapped.afterValue,
           notes: mapped.notes,
           status: ModificationStatus.PENDING,
-          createdById: userId,
+          createdById: userId ?? undefined,
         });
 
         const saved = await this.modificationsRepository.save(modification);

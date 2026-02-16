@@ -365,7 +365,7 @@ export function ModificationsPage() {
       header: 'Creata da',
       cell: ({ row }) => (
         <div>
-          <p className="text-sm break-words">{row.original.createdBy?.email || '-'}</p>
+          <p className="text-sm break-words">{row.original.createdBy?.email || 'Analisi automatica'}</p>
           <p className="text-xs text-muted-foreground">
             {formatDate(row.original.createdAt)}
           </p>

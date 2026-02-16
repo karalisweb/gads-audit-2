@@ -884,7 +884,7 @@ Usa questo contesto per interpretare correttamente i dati che seguono. Le metric
     accountId: string,
     userId?: string,
     triggerType: AnalysisTriggerType = AnalysisTriggerType.MANUAL,
-  ): Promise<AIAnalysisLog> {
+  ): Promise<{ log: AIAnalysisLog; moduleRecommendations: Array<{ moduleId: number; recommendations: AIRecommendation[] }> }> {
     const startedAt = new Date();
 
     // Create log entry
@@ -902,6 +902,7 @@ Usa questo contesto per interpretare correttamente i dati che seguono. Le metric
     const moduleResults: Record<string, { success: boolean; recommendations: number; error?: string }> = {};
     const analyzedModules: number[] = [];
     let totalRecs = 0;
+    const allModuleRecommendations: Array<{ moduleId: number; recommendations: AIRecommendation[] }> = [];
 
     // Skip documentation-only modules (3, 5, 6, 8) — no data to fetch from DB
     const actionableModules = SUPPORTED_MODULES.filter(id => !DOCUMENTATION_ONLY_MODULES.includes(id));
@@ -916,6 +917,12 @@ Usa questo contesto per interpretare correttamente i dati che seguono. Le metric
           success: true,
           recommendations: recCount,
         };
+        if (result.recommendations && result.recommendations.length > 0) {
+          allModuleRecommendations.push({
+            moduleId,
+            recommendations: result.recommendations,
+          });
+        }
       } catch (error) {
         this.logger.error(`Module ${moduleId} failed: ${error.message}`);
         moduleResults[String(moduleId)] = {
@@ -934,7 +941,8 @@ Usa questo contesto per interpretare correttamente i dati che seguono. Le metric
     log.totalRecommendations = totalRecs;
     log.moduleResults = moduleResults;
 
-    return this.analysisLogRepository.save(log);
+    const savedLog = await this.analysisLogRepository.save(log);
+    return { log: savedLog, moduleRecommendations: allModuleRecommendations };
   }
 
   async getAnalysisHistory(accountId: string, limit = 10): Promise<AIAnalysisLog[]> {

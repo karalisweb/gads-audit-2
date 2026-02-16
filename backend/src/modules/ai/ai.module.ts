@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AIController } from './ai.controller';
 import { AIService } from './ai.service';
 import { AISchedulerService } from './ai-scheduler.service';
+import { ModificationsModule } from '../modifications/modifications.module';
 import {
   Campaign,
   AdGroup,
@@ -38,6 +39,7 @@ import {
       AIAnalysisLog,
       Modification,
     ]),
+    ModificationsModule,
   ],
   controllers: [AIController],
   providers: [AIService, AISchedulerService],

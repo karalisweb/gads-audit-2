@@ -112,13 +112,14 @@ Se non hai richiesto questo codice, ignora questa email.
 
   async sendAnalysisDigest(
     recipients: string[],
-    results: { accountName: string; success: boolean; recommendations: number; error?: string }[],
+    results: { accountName: string; success: boolean; recommendations: number; modificationsCreated?: number; modificationsSkipped?: number; error?: string }[],
   ): Promise<void> {
     const from = this.configService.get('SMTP_FROM', 'noreply@karalisweb.net');
     const appName = 'GADS Audit';
     const date = new Date().toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' });
 
     const totalRecs = results.reduce((sum, r) => sum + r.recommendations, 0);
+    const totalMods = results.reduce((sum, r) => sum + (r.modificationsCreated || 0), 0);
     const successCount = results.filter(r => r.success).length;
     const failCount = results.filter(r => !r.success).length;
 
@@ -127,6 +128,7 @@ Se non hai richiesto questo codice, ignora questa email.
         <td style="padding: 8px 12px; color: #e0e0e0; border-bottom: 1px solid #2a2a2a;">${r.accountName}</td>
         <td style="padding: 8px 12px; color: ${r.success ? '#4ade80' : '#f87171'}; border-bottom: 1px solid #2a2a2a;">${r.success ? 'OK' : 'Errore'}</td>
         <td style="padding: 8px 12px; color: #e0e0e0; text-align: right; border-bottom: 1px solid #2a2a2a;">${r.recommendations}</td>
+        <td style="padding: 8px 12px; color: #60a5fa; text-align: right; border-bottom: 1px solid #2a2a2a;">${r.modificationsCreated || 0}</td>
         <td style="padding: 8px 12px; color: #707070; font-size: 12px; border-bottom: 1px solid #2a2a2a;">${r.error || '-'}</td>
       </tr>
     `).join('');
@@ -157,6 +159,10 @@ Se non hai richiesto questo codice, ignora questa email.
                   <p style="margin: 0; color: #a0a0a0; font-size: 12px;">Raccomandazioni</p>
                   <p style="margin: 4px 0 0; color: #f5c518; font-size: 28px; font-weight: 700;">${totalRecs}</p>
                 </div>
+                <div style="background-color: #252525; border-radius: 8px; padding: 16px; text-align: center; flex: 1;">
+                  <p style="margin: 0; color: #a0a0a0; font-size: 12px;">Modifiche create</p>
+                  <p style="margin: 4px 0 0; color: #60a5fa; font-size: 28px; font-weight: 700;">${totalMods}</p>
+                </div>
               </div>
               <p style="margin: 0 0 16px; color: #a0a0a0; font-size: 14px;">
                 Account analizzati: <strong style="color: #ffffff;">${results.length}</strong> |
@@ -169,6 +175,7 @@ Se non hai richiesto questo codice, ignora questa email.
                     <th style="padding: 8px 12px; color: #707070; font-size: 12px; text-align: left; border-bottom: 2px solid #333;">Account</th>
                     <th style="padding: 8px 12px; color: #707070; font-size: 12px; text-align: left; border-bottom: 2px solid #333;">Stato</th>
                     <th style="padding: 8px 12px; color: #707070; font-size: 12px; text-align: right; border-bottom: 2px solid #333;">Racc.</th>
+                    <th style="padding: 8px 12px; color: #707070; font-size: 12px; text-align: right; border-bottom: 2px solid #333;">Modifiche</th>
                     <th style="padding: 8px 12px; color: #707070; font-size: 12px; text-align: left; border-bottom: 2px solid #333;">Note</th>
                   </tr>
                 </thead>
@@ -176,6 +183,9 @@ Se non hai richiesto questo codice, ignora questa email.
                   ${accountRows}
                 </tbody>
               </table>
+              <div style="margin-top: 24px; text-align: center;">
+                <a href="https://gads.karalisdemo.it/dashboard" style="display: inline-block; background-color: #f5c518; color: #000000; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">Vai alle Modifiche</a>
+              </div>
             </td>
           </tr>
           <tr>
@@ -193,13 +203,13 @@ Se non hai richiesto questo codice, ignora questa email.
 </html>
     `;
 
-    const text = `GADS Audit - Report Analisi AI (${date})\n\nRaccomandazioni totali: ${totalRecs}\nAccount analizzati: ${results.length}\n\n${results.map(r => `${r.accountName}: ${r.success ? 'OK' : 'Errore'} - ${r.recommendations} raccomandazioni${r.error ? ` (${r.error})` : ''}`).join('\n')}`;
+    const text = `GADS Audit - Report Analisi AI (${date})\n\nRaccomandazioni totali: ${totalRecs}\nModifiche create: ${totalMods}\nAccount analizzati: ${results.length}\n\n${results.map(r => `${r.accountName}: ${r.success ? 'OK' : 'Errore'} - ${r.recommendations} raccomandazioni, ${r.modificationsCreated || 0} modifiche${r.error ? ` (${r.error})` : ''}`).join('\n')}\n\nVai alla piattaforma: https://gads.karalisdemo.it/dashboard`;
 
     try {
       await this.transporter.sendMail({
         from: `"${appName}" <${from}>`,
         to: recipients.join(', '),
-        subject: `[GADS Audit] Report AI: ${totalRecs} raccomandazioni - ${date}`,
+        subject: `[GADS Audit] Report AI: ${totalRecs} raccomandazioni, ${totalMods} modifiche - ${date}`,
         text,
         html,
       });

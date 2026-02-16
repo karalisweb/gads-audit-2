@@ -40,7 +40,8 @@ export class AIController {
     @Param('accountId', ParseUUIDPipe) accountId: string,
     @CurrentUser('id') userId: string,
   ) {
-    return this.aiService.analyzeAllModules(accountId, userId);
+    const { log } = await this.aiService.analyzeAllModules(accountId, userId);
+    return log;
   }
 
   /**
