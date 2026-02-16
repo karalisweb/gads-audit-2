@@ -314,12 +314,13 @@ export function ModificationsPage() {
     {
       accessorKey: 'entityName',
       header: 'Entità',
+      size: 200,
       cell: ({ row }) => (
-        <div>
-          <p className="font-medium break-words">
+        <div className="max-w-[200px]">
+          <p className="font-medium break-words whitespace-normal">
             {row.original.entityName || row.original.entityId}
           </p>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground break-all">
             ID: {row.original.entityId}
           </p>
         </div>
@@ -328,17 +329,18 @@ export function ModificationsPage() {
     {
       id: 'change',
       header: 'Modifica',
+      size: 320,
       cell: ({ row }) => {
         const showDetailBtn = hasComplexData(row.original.beforeValue) || hasComplexData(row.original.afterValue);
         return (
-          <div className="text-sm">
+          <div className="text-sm max-w-[320px]">
             <div className="flex items-start gap-2">
               <span className="text-muted-foreground shrink-0">Da:</span>
-              <span className="break-words">{formatValue(row.original.beforeValue)}</span>
+              <span className="break-words whitespace-normal">{formatValue(row.original.beforeValue)}</span>
             </div>
             <div className="flex items-start gap-2">
               <span className="text-muted-foreground shrink-0">A:</span>
-              <span className="font-medium text-primary break-words">
+              <span className="font-medium text-primary break-words whitespace-normal">
                 {formatValue(row.original.afterValue)}
               </span>
               {showDetailBtn && (
@@ -363,9 +365,10 @@ export function ModificationsPage() {
     {
       accessorKey: 'createdBy',
       header: 'Creata da',
+      size: 140,
       cell: ({ row }) => (
-        <div>
-          <p className="text-sm break-words">{row.original.createdBy?.email || 'Analisi automatica'}</p>
+        <div className="max-w-[140px]">
+          <p className="text-sm break-words whitespace-normal">{row.original.createdBy?.email || 'Analisi automatica'}</p>
           <p className="text-xs text-muted-foreground">
             {formatDate(row.original.createdAt)}
           </p>
