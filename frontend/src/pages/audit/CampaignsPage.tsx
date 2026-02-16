@@ -20,9 +20,10 @@ import {
 } from '@/components/ui/collapsible';
 import { AIAnalysisPanel } from '@/components/ai';
 import { ModifyButton } from '@/components/modifications';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Download } from 'lucide-react';
 import { getCampaigns } from '@/api/audit';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { exportToCsv, microsToDecimal, formatPercent } from '@/lib/export-csv';
 import {
   formatCurrency,
   formatNumber,
@@ -438,6 +439,32 @@ export function CampaignsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h2 className="text-xl sm:text-2xl font-bold">Campagne</h2>
         <div className="flex items-center gap-2">
+          {data && data.data.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportToCsv(
+                `campagne-${accountId}`,
+                data.data,
+                [
+                  { header: 'Campagna', accessor: (r) => r.campaignName },
+                  { header: 'Stato', accessor: (r) => r.status },
+                  { header: 'Tipo canale', accessor: (r) => r.advertisingChannelType },
+                  { header: 'Strategia offerta', accessor: (r) => r.biddingStrategyType },
+                  { header: 'Budget', accessor: (r) => microsToDecimal(r.budgetMicros) },
+                  { header: 'Impressioni', accessor: (r) => r.impressions },
+                  { header: 'Click', accessor: (r) => r.clicks },
+                  { header: 'CTR', accessor: (r) => formatPercent(r.ctr) },
+                  { header: 'Costo', accessor: (r) => microsToDecimal(r.costMicros) },
+                  { header: 'Conversioni', accessor: (r) => r.conversions },
+                  { header: 'Valore conversioni', accessor: (r) => r.conversionsValue },
+                ],
+              )}
+              title="Esporta CSV"
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+          )}
           {accountId && (
             <AIAnalysisPanel
               accountId={accountId}

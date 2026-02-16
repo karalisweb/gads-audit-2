@@ -20,7 +20,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronRight, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, X, Download } from 'lucide-react';
 import { getKeywords, getCampaigns, getAdGroups } from '@/api/audit';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import {
@@ -33,6 +33,7 @@ import {
   getQualityScoreColor,
 } from '@/lib/format';
 import type { Keyword, PaginatedResponse, KeywordFilters, Campaign, AdGroup } from '@/types/audit';
+import { exportToCsv, microsToDecimal, formatPercent } from '@/lib/export-csv';
 // AIRecommendation type no longer needed - AIAnalysisPanel handles the full flow
 
 function getColumns(accountId: string, onRefresh: () => void): ColumnDef<Keyword>[] {
@@ -632,6 +633,33 @@ export function KeywordsPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {data && data.data.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportToCsv(
+                `keywords-${accountId}`,
+                data.data,
+                [
+                  { header: 'Keyword', accessor: (r) => r.keywordText },
+                  { header: 'Match Type', accessor: (r) => r.matchType },
+                  { header: 'Campagna', accessor: (r) => r.campaignName },
+                  { header: 'Gruppo', accessor: (r) => r.adGroupName },
+                  { header: 'Stato', accessor: (r) => r.status },
+                  { header: 'Quality Score', accessor: (r) => r.qualityScore },
+                  { header: 'Impression', accessor: (r) => r.impressions },
+                  { header: 'Click', accessor: (r) => r.clicks },
+                  { header: 'CTR', accessor: (r) => formatPercent(r.ctr) },
+                  { header: 'Costo', accessor: (r) => microsToDecimal(r.costMicros) },
+                  { header: 'CPC Medio', accessor: (r) => microsToDecimal(r.averageCpcMicros) },
+                  { header: 'Conversioni', accessor: (r) => r.conversions },
+                ],
+              )}
+              title="Esporta CSV"
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+          )}
           {accountId && (
             <AIAnalysisPanel
               accountId={accountId}
