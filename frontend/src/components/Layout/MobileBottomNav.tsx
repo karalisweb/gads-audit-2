@@ -1,10 +1,12 @@
 import { NavLink, useParams, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/stores/auth.store';
 import {
   LayoutDashboard,
   Building2,
   User,
+  Users,
   Megaphone,
   Layers,
   KeyRound,
@@ -20,12 +22,11 @@ import {
   X,
 } from 'lucide-react';
 
-// Menu principale per la navigazione globale
-const mainNavItems = [
+// Menu principale per la navigazione globale (base)
+const baseMainNavItems = [
   { path: '/dashboard', label: 'Home', icon: LayoutDashboard },
   { path: '/accounts', label: 'Account', icon: Building2 },
   { path: '/settings', label: 'Impostaz.', icon: Settings },
-  { path: '/profile', label: 'Profilo', icon: User },
 ];
 
 // Menu per le pagine audit
@@ -55,6 +56,14 @@ export function MobileBottomNav({ variant = 'main' }: MobileBottomNavProps) {
   const { accountId } = useParams<{ accountId: string }>();
   const location = useLocation();
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const { user } = useAuthStore();
+
+  const mainNavItems = [
+    ...baseMainNavItems,
+    ...(user?.role === 'admin'
+      ? [{ path: '/admin/users', label: 'Utenti', icon: Users }]
+      : [{ path: '/profile', label: 'Profilo', icon: User }]),
+  ];
 
   // Determina automaticamente la variante dalla URL
   const isAuditPage = location.pathname.includes('/audit/');

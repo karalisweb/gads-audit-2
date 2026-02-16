@@ -115,6 +115,22 @@ bump_version() {
     fi
     print_success "DEPLOY.md aggiornato"
 
+    # Aggiorna Sidebar.tsx (APP_VERSION)
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sed -i '' "s/const APP_VERSION = '${current}'/const APP_VERSION = '${new_version}'/" frontend/src/components/Layout/Sidebar.tsx
+    else
+        sed -i "s/const APP_VERSION = '${current}'/const APP_VERSION = '${new_version}'/" frontend/src/components/Layout/Sidebar.tsx
+    fi
+    print_success "Sidebar.tsx aggiornato"
+
+    # Aggiorna LoginPage.tsx (footer versione)
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sed -i '' "s/v${current}/v${new_version}/" frontend/src/pages/auth/LoginPage.tsx
+    else
+        sed -i "s/v${current}/v${new_version}/" frontend/src/pages/auth/LoginPage.tsx
+    fi
+    print_success "LoginPage.tsx aggiornato"
+
     APP_VERSION=$new_version
 }
 
