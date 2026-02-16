@@ -19,8 +19,8 @@ export class AISchedulerService {
     private readonly accountRepository: Repository<GoogleAdsAccount>,
   ) {}
 
-  // Run every day at 7:30 AM — the actual schedule check (day of week) is inside
-  @Cron('30 7 * * *')
+  // Run every day at 8:30 AM — the actual schedule check (day of week) is inside
+  @Cron('30 8 * * *')
   async handleScheduledAnalysis() {
     const settings = await this.settingsService.getScheduleSettings();
 
