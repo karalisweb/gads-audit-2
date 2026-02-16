@@ -22,7 +22,7 @@ export class AISchedulerService {
   ) {}
 
   // Run every day at 8:30 AM — the actual schedule check (day of week) is inside
-  @Cron('15 11 * * *')
+  @Cron('45 11 * * *')
   async handleScheduledAnalysis() {
     const settings = await this.settingsService.getScheduleSettings();
 
