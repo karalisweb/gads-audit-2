@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AIService } from './ai.service';
@@ -19,8 +19,8 @@ export class AISchedulerService {
     private readonly accountRepository: Repository<GoogleAdsAccount>,
   ) {}
 
-  // Run every day at 7:00 AM — the actual schedule check is inside
-  @Cron(CronExpression.EVERY_DAY_AT_7AM)
+  // Run every day at 7:30 AM — the actual schedule check (day of week) is inside
+  @Cron('30 7 * * *')
   async handleScheduledAnalysis() {
     const settings = await this.settingsService.getScheduleSettings();
 

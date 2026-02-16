@@ -30,6 +30,7 @@ import {
   MODULE_PROMPTS,
   getModulePrompt,
   SUPPORTED_MODULES,
+  DOCUMENTATION_ONLY_MODULES,
 } from './prompts/module-prompts';
 import { SettingsService } from '../settings/settings.service';
 
@@ -902,7 +903,10 @@ Usa questo contesto per interpretare correttamente i dati che seguono. Le metric
     const analyzedModules: number[] = [];
     let totalRecs = 0;
 
-    for (const moduleId of SUPPORTED_MODULES) {
+    // Skip documentation-only modules (3, 5, 6, 8) — no data to fetch from DB
+    const actionableModules = SUPPORTED_MODULES.filter(id => !DOCUMENTATION_ONLY_MODULES.includes(id));
+
+    for (const moduleId of actionableModules) {
       try {
         const result = await this.analyzeModule(accountId, moduleId);
         analyzedModules.push(moduleId);
