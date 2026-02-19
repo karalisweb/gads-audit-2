@@ -112,15 +112,21 @@ export class SettingsService {
     enabled: boolean;
     cronExpression: string;
     emailRecipients: string[];
+    time: string;
+    accountsPerRun: number;
   }> {
     const enabled = await this.getSetting('schedule_enabled');
     const cron = await this.getSetting('schedule_cron');
     const recipients = await this.getSetting('schedule_email_recipients');
+    const time = await this.getSetting('schedule_time');
+    const accountsPerRun = await this.getSetting('schedule_accounts_per_run');
 
     return {
       enabled: enabled === 'true',
       cronExpression: cron || '0 7 * * 1', // Default: Monday 7 AM
       emailRecipients: recipients ? recipients.split(',').map(e => e.trim()) : [],
+      time: time || '07:00',
+      accountsPerRun: accountsPerRun ? parseInt(accountsPerRun, 10) : 2,
     };
   }
 
@@ -128,7 +134,9 @@ export class SettingsService {
     enabled?: boolean;
     cronExpression?: string;
     emailRecipients?: string[];
-  }): Promise<{ enabled: boolean; cronExpression: string; emailRecipients: string[] }> {
+    time?: string;
+    accountsPerRun?: number;
+  }): Promise<{ enabled: boolean; cronExpression: string; emailRecipients: string[]; time: string; accountsPerRun: number }> {
     if (settings.enabled !== undefined) {
       await this.setSetting('schedule_enabled', String(settings.enabled));
     }
@@ -138,7 +146,23 @@ export class SettingsService {
     if (settings.emailRecipients !== undefined) {
       await this.setSetting('schedule_email_recipients', settings.emailRecipients.join(','));
     }
+    if (settings.time !== undefined) {
+      await this.setSetting('schedule_time', settings.time);
+    }
+    if (settings.accountsPerRun !== undefined) {
+      await this.setSetting('schedule_accounts_per_run', String(settings.accountsPerRun));
+    }
     this.logger.log('Schedule settings updated');
     return this.getScheduleSettings();
+  }
+
+  // Internal: rotazione account
+  async getLastAccountIndex(): Promise<number> {
+    const val = await this.getSetting('schedule_last_account_index');
+    return val ? parseInt(val, 10) : 0;
+  }
+
+  async setLastAccountIndex(index: number): Promise<void> {
+    await this.setSetting('schedule_last_account_index', String(index));
   }
 }

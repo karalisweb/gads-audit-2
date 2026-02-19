@@ -104,6 +104,12 @@ export class Modification {
   @Column({ type: 'text', nullable: true })
   notes: string;
 
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  priority: string;
+
+  @Column({ name: 'entity_level', type: 'smallint', nullable: true })
+  entityLevel: number;
+
   // Status
   @Column({
     type: 'varchar',

@@ -44,6 +44,8 @@ import {
   getStatusLabel,
   getModificationTypeLabel,
   getEntityTypeLabel,
+  getPriorityLabel,
+  getPriorityColor,
 } from '@/types/modification';
 
 // URL pubblico dello script Google Ads (file statico)
@@ -231,6 +233,7 @@ export function ModificationsPage() {
     sortOrder: 'DESC',
   });
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [selectedModId, setSelectedModId] = useState<string | null>(null);
@@ -255,6 +258,10 @@ export function ModificationsPage() {
           statusFilter !== 'all'
             ? (statusFilter as ModificationStatus)
             : undefined,
+        priority:
+          priorityFilter !== 'all'
+            ? priorityFilter
+            : undefined,
       };
       const [modsResult, summaryResult] = await Promise.all([
         getModifications(accountId, appliedFilters),
@@ -267,7 +274,7 @@ export function ModificationsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [accountId, filters, statusFilter]);
+  }, [accountId, filters, statusFilter, priorityFilter]);
 
   useEffect(() => {
     fetchData();
@@ -396,6 +403,19 @@ export function ModificationsPage() {
           {getStatusLabel(row.original.status)}
         </Badge>
       ),
+    },
+    {
+      accessorKey: 'priority',
+      header: 'Priorita',
+      cell: ({ row }) => {
+        const p = row.original.priority;
+        if (!p) return <span className="text-muted-foreground text-xs">-</span>;
+        return (
+          <Badge className={getPriorityColor(p)}>
+            {getPriorityLabel(p)}
+          </Badge>
+        );
+      },
     },
     {
       accessorKey: 'entityType',
@@ -690,6 +710,17 @@ export function ModificationsPage() {
             <SelectItem value="failed">Fallite</SelectItem>
             <SelectItem value="rejected">Rifiutate</SelectItem>
             <SelectItem value="cancelled">Annullate</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filtra per priorita" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tutte le priorita</SelectItem>
+            <SelectItem value="high">Alta</SelectItem>
+            <SelectItem value="medium">Media</SelectItem>
+            <SelectItem value="low">Bassa</SelectItem>
           </SelectContent>
         </Select>
       </div>

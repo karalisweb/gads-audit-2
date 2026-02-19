@@ -44,6 +44,8 @@ export interface Modification {
   beforeValue: Record<string, unknown> | null;
   afterValue: Record<string, unknown>;
   notes: string | null;
+  priority: string | null;
+  entityLevel: number | null;
   status: ModificationStatus;
   rejectionReason: string | null;
   appliedAt: string | null;
@@ -72,6 +74,29 @@ export interface ModificationFilters {
   entityType?: ModificationEntityType;
   modificationType?: ModificationType;
   status?: ModificationStatus;
+  priority?: string;
+}
+
+export type ModificationPriority = 'high' | 'medium' | 'low';
+
+export function getPriorityLabel(priority: string | null | undefined): string {
+  if (!priority) return '-';
+  const labels: Record<string, string> = {
+    high: 'Alta',
+    medium: 'Media',
+    low: 'Bassa',
+  };
+  return labels[priority] || priority;
+}
+
+export function getPriorityColor(priority: string | null | undefined): string {
+  if (!priority) return 'bg-gray-100 text-gray-600';
+  const colors: Record<string, string> = {
+    high: 'bg-red-100 text-red-800',
+    medium: 'bg-yellow-100 text-yellow-800',
+    low: 'bg-gray-100 text-gray-600',
+  };
+  return colors[priority] || 'bg-gray-100 text-gray-600';
 }
 
 export interface ModificationSummary {

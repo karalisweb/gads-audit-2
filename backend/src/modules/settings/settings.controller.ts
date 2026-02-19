@@ -39,7 +39,7 @@ export class SettingsController {
   @Put('schedule')
   @Roles(UserRole.ADMIN)
   async updateScheduleSettings(
-    @Body() dto: { enabled?: boolean; cronExpression?: string; emailRecipients?: string[] },
+    @Body() dto: { enabled?: boolean; cronExpression?: string; emailRecipients?: string[]; time?: string; accountsPerRun?: number },
   ) {
     return this.settingsService.updateScheduleSettings(dto);
   }

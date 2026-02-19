@@ -73,6 +73,12 @@ export class ModificationsService {
       });
     }
 
+    if (filters.priority) {
+      queryBuilder.andWhere('modification.priority = :priority', {
+        priority: filters.priority,
+      });
+    }
+
     const allowedSortFields = [
       'createdAt',
       'entityType',
@@ -80,6 +86,8 @@ export class ModificationsService {
       'status',
       'entityName',
       'appliedAt',
+      'priority',
+      'entityLevel',
     ];
     const sortField =
       filters.sortBy && allowedSortFields.includes(filters.sortBy)
@@ -402,6 +410,8 @@ export class ModificationsService {
           beforeValue: mapped.beforeValue ?? undefined,
           afterValue: mapped.afterValue,
           notes: mapped.notes,
+          priority: rec.priority || 'medium',
+          entityLevel: ModificationsService.ENTITY_LEVEL_MAP[mapped.entityType] ?? null,
           status: ModificationStatus.PENDING,
           createdById: userId ?? undefined,
         });
@@ -431,6 +441,15 @@ export class ModificationsService {
    * Maps an AI recommendation to a modification DTO.
    * Returns null if the action is not mappable.
    */
+  private static readonly ENTITY_LEVEL_MAP: Record<string, number> = {
+    [ModificationEntityType.CAMPAIGN]: 1,
+    [ModificationEntityType.AD_GROUP]: 2,
+    [ModificationEntityType.AD]: 3,
+    [ModificationEntityType.KEYWORD]: 4,
+    [ModificationEntityType.NEGATIVE_KEYWORD]: 5,
+    [ModificationEntityType.CONVERSION_ACTION]: 6,
+  };
+
   private mapRecommendationToModification(
     rec: AIRecommendationItem,
     accountId: string,

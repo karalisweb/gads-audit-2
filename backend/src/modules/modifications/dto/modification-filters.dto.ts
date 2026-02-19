@@ -36,4 +36,8 @@ export class ModificationFiltersDto {
   @IsOptional()
   @IsEnum(ModificationStatus)
   status?: ModificationStatus;
+
+  @IsOptional()
+  @IsString()
+  priority?: string;
 }

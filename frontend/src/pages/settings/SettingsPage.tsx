@@ -14,33 +14,35 @@ function describeCron(cron: string): string {
   const parts = cron.trim().split(/\s+/);
   if (parts.length !== 5) return cron;
 
-  const [minute, hour, , , dayOfWeek] = parts;
+  const [, , , , dayOfWeek] = parts;
 
   const dayNames: Record<string, string> = {
     '0': 'Domenica', '1': 'Lunedi', '2': 'Martedi', '3': 'Mercoledi',
     '4': 'Giovedi', '5': 'Venerdi', '6': 'Sabato', '7': 'Domenica',
   };
 
-  const time = `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
-
   if (dayOfWeek === '*') {
-    return `Ogni giorno alle ${time}`;
+    return 'Ogni giorno';
   }
 
   if (dayOfWeek === '1-5') {
-    return `Dal Lunedi al Venerdi alle ${time}`;
+    return 'Dal Lunedi al Venerdi';
+  }
+
+  if (dayOfWeek === '1-6') {
+    return 'Dal Lunedi al Sabato';
   }
 
   // Handle comma-separated days
   const days = dayOfWeek.split(',').map(d => dayNames[d.trim()] || d).filter(Boolean);
   if (days.length === 1) {
-    return `Ogni ${days[0]} alle ${time}`;
+    return `Ogni ${days[0]}`;
   }
   if (days.length > 1) {
-    return `${days.join(' e ')} alle ${time}`;
+    return days.join(', ');
   }
 
-  return `${cron} (alle ${time})`;
+  return cron;
 }
 
 interface AISettings {
@@ -85,6 +87,8 @@ export function SettingsPage() {
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [scheduleCron, setScheduleCron] = useState('0 7 * * 1');
   const [scheduleRecipients, setScheduleRecipients] = useState('');
+  const [scheduleTime, setScheduleTime] = useState('07:00');
+  const [scheduleAccountsPerRun, setScheduleAccountsPerRun] = useState(2);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [scheduleSuccess, setScheduleSuccess] = useState('');
   const [scheduleError, setScheduleError] = useState('');
@@ -240,10 +244,14 @@ export function SettingsPage() {
         enabled: boolean;
         cronExpression: string;
         emailRecipients: string[];
+        time: string;
+        accountsPerRun: number;
       }>('/settings/schedule');
       setScheduleEnabled(settings.enabled);
       setScheduleCron(settings.cronExpression);
       setScheduleRecipients(settings.emailRecipients.join(', '));
+      setScheduleTime(settings.time || '07:00');
+      setScheduleAccountsPerRun(settings.accountsPerRun || 2);
     } catch (err) {
       console.error('Failed to load schedule settings:', err);
     }
@@ -258,6 +266,8 @@ export function SettingsPage() {
         enabled: scheduleEnabled,
         cronExpression: scheduleCron,
         emailRecipients: scheduleRecipients.split(',').map(e => e.trim()).filter(Boolean),
+        time: scheduleTime,
+        accountsPerRun: scheduleAccountsPerRun,
       });
       setScheduleSuccess('Impostazioni schedulazione salvate');
       setTimeout(() => setScheduleSuccess(''), 3000);
@@ -672,7 +682,7 @@ export function SettingsPage() {
               <div>
                 <h3 className="text-lg font-semibold text-foreground mb-2">Schedulazione Analisi AI</h3>
                 <p className="text-muted-foreground text-sm mb-4">
-                  Configura l'esecuzione automatica dell'analisi AI per tutti gli account attivi. I risultati verranno inviati via email.
+                  Configura l'esecuzione automatica dell'analisi AI. Gli account vengono analizzati a rotazione per distribuire il carico.
                 </p>
               </div>
 
@@ -730,9 +740,39 @@ export function SettingsPage() {
                 </CardContent>
               </Card>
 
+              {/* Time & Accounts per run */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="scheduleTime" className="text-foreground">Ora di esecuzione</Label>
+                  <Input
+                    id="scheduleTime"
+                    type="time"
+                    value={scheduleTime}
+                    onChange={(e) => setScheduleTime(e.target.value)}
+                    className="bg-input border-border text-foreground"
+                  />
+                  <p className="text-xs text-muted-foreground">L'analisi partira a quest'ora</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="accountsPerRun" className="text-foreground">Account per esecuzione</Label>
+                  <select
+                    id="accountsPerRun"
+                    value={scheduleAccountsPerRun}
+                    onChange={(e) => setScheduleAccountsPerRun(parseInt(e.target.value, 10))}
+                    className="w-full h-10 px-3 rounded-md border border-border bg-input text-foreground"
+                  >
+                    <option value={1}>1 account</option>
+                    <option value={2}>2 account</option>
+                    <option value={3}>3 account</option>
+                    <option value={6}>Tutti (6 account)</option>
+                  </select>
+                  <p className="text-xs text-muted-foreground">Gli account vengono analizzati a rotazione</p>
+                </div>
+              </div>
+
               {/* Cron Expression */}
               <div className="space-y-2">
-                <Label htmlFor="cronExpression" className="text-foreground">Frequenza analisi</Label>
+                <Label htmlFor="cronExpression" className="text-foreground">Giorni di esecuzione</Label>
 
                 {/* Descrizione leggibile */}
                 <Card className="bg-card/50 border-border">
@@ -745,15 +785,15 @@ export function SettingsPage() {
                 </Card>
 
                 {/* Preset buttons */}
-                <p className="text-xs text-muted-foreground font-medium mt-3">Scegli una frequenza:</p>
+                <p className="text-xs text-muted-foreground font-medium mt-3">Scegli i giorni:</p>
                 <div className="flex flex-wrap gap-2">
                   {[
-                    { label: 'Ogni giorno alle 7:00', value: '0 7 * * *' },
-                    { label: 'Lun-Ven alle 7:00', value: '0 7 * * 1-5' },
-                    { label: 'Ogni lunedi alle 7:00', value: '0 7 * * 1' },
-                    { label: 'Lun e Gio alle 7:00', value: '0 7 * * 1,4' },
-                    { label: 'Ogni lunedi alle 9:00', value: '0 9 * * 1' },
-                    { label: 'Lun-Ven alle 9:00', value: '0 9 * * 1-5' },
+                    { label: 'Ogni giorno', value: '0 0 * * *' },
+                    { label: 'Lun-Ven', value: '0 0 * * 1-5' },
+                    { label: 'Lun-Sab', value: '0 0 * * 1-6' },
+                    { label: 'Lun, Mer, Ven', value: '0 0 * * 1,3,5' },
+                    { label: 'Lun e Gio', value: '0 0 * * 1,4' },
+                    { label: 'Solo Lunedi', value: '0 0 * * 1' },
                   ].map((preset) => (
                     <button
                       key={preset.value}
@@ -827,8 +867,10 @@ export function SettingsPage() {
                     <div className="text-sm">
                       <p className="font-medium text-blue-500 mb-1">Come funziona</p>
                       <p className="text-muted-foreground">
-                        Il sistema controlla ogni giorno alle 7:00 se è il giorno giusto secondo l'espressione cron configurata.
-                        Se sì, esegue l'analisi AI su tutti gli account attivi e invia un report via email con il riepilogo delle raccomandazioni trovate.
+                        Il sistema analizza <strong>{scheduleAccountsPerRun} account alla volta</strong> in rotazione automatica.
+                        Nei giorni configurati, all'ora impostata, vengono analizzati i prossimi {scheduleAccountsPerRun} account
+                        e le modifiche proposte dall'AI vengono create automaticamente come "In Attesa" di approvazione.
+                        Un report viene inviato via email ai destinatari configurati.
                       </p>
                     </div>
                   </div>
