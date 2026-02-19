@@ -115,6 +115,9 @@ export class AIService {
     });
     const campaignStrategyContext = this.buildCampaignStrategyContext(activeCampaigns);
 
+    // Fetch decision history context (learning dalle decisioni utente approve/reject)
+    const decisionHistoryContext = await this.buildDecisionHistoryContext(accountId);
+
     // Fetch data based on module requirements
     const { data, stats } = await this.fetchModuleData(
       accountId,
@@ -126,9 +129,18 @@ export class AIService {
     // Build the prompt with actual data
     const userPrompt = this.buildUserPrompt(moduleConfig, data, stats);
 
-    // Prepend strategy context to both system and user prompts
-    const enrichedSystemPrompt = campaignStrategyContext.systemPrefix + '\n\n' + moduleConfig.systemPrompt;
-    const enrichedUserPrompt = campaignStrategyContext.userPrefix + '\n\n' + userPrompt;
+    // Prepend all context layers to prompts
+    const enrichedSystemPrompt = [
+      decisionHistoryContext.systemPrefix,
+      campaignStrategyContext.systemPrefix,
+      moduleConfig.systemPrompt,
+    ].filter(Boolean).join('\n\n');
+
+    const enrichedUserPrompt = [
+      decisionHistoryContext.userPrefix,
+      campaignStrategyContext.userPrefix,
+      userPrompt,
+    ].filter(Boolean).join('\n\n');
 
     // Call OpenAI
     const recommendations = await this.callOpenAI(
@@ -237,6 +249,147 @@ ${campaignLines}
 Usa questo contesto per interpretare correttamente i dati che seguono. Le metriche da valutare dipendono dalla strategia della campagna padre.`;
 
     return { systemPrefix, userPrefix };
+  }
+
+  /**
+   * Costruisce il contesto storico delle decisioni dell'utente (approve/reject).
+   * Aggrega le statistiche per categoria (entityType + modificationType) degli ultimi 6 mesi
+   * e include i motivi di rifiuto più frequenti, così l'AI adatta le raccomandazioni.
+   */
+  private async buildDecisionHistoryContext(
+    accountId: string,
+  ): Promise<{ systemPrefix: string; userPrefix: string }> {
+    try {
+      // Query 1: Statistiche approve/reject per categoria
+      const stats = await this.modificationRepository
+        .createQueryBuilder('m')
+        .select('m.entity_type', 'entityType')
+        .addSelect('m.modification_type', 'modificationType')
+        .addSelect('m.status', 'status')
+        .addSelect('COUNT(*)', 'count')
+        .where('m.account_id = :accountId', { accountId })
+        .andWhere('m.status IN (:...statuses)', {
+          statuses: ['approved', 'applied', 'rejected'],
+        })
+        .andWhere("m.created_at > NOW() - INTERVAL '6 months'")
+        .groupBy('m.entity_type')
+        .addGroupBy('m.modification_type')
+        .addGroupBy('m.status')
+        .getRawMany();
+
+      // Query 2: Motivi di rifiuto più frequenti per categoria
+      const rejectionReasons = await this.modificationRepository
+        .createQueryBuilder('m')
+        .select('m.entity_type', 'entityType')
+        .addSelect('m.modification_type', 'modificationType')
+        .addSelect('m.rejection_reason', 'rejectionReason')
+        .addSelect('COUNT(*)', 'count')
+        .where('m.account_id = :accountId', { accountId })
+        .andWhere('m.status = :status', { status: 'rejected' })
+        .andWhere('m.rejection_reason IS NOT NULL')
+        .andWhere("m.rejection_reason != ''")
+        .andWhere("m.created_at > NOW() - INTERVAL '6 months'")
+        .groupBy('m.entity_type')
+        .addGroupBy('m.modification_type')
+        .addGroupBy('m.rejection_reason')
+        .orderBy('"count"', 'DESC')
+        .getRawMany();
+
+      // Aggrega per categoria
+      const categories = new Map<string, {
+        approved: number;
+        rejected: number;
+        total: number;
+        rate: number;
+        topRejectionReasons: { reason: string; count: number }[];
+      }>();
+
+      for (const row of stats) {
+        const key = `${row.entityType}::${row.modificationType}`;
+        if (!categories.has(key)) {
+          categories.set(key, { approved: 0, rejected: 0, total: 0, rate: 0, topRejectionReasons: [] });
+        }
+        const cat = categories.get(key)!;
+        const count = parseInt(row.count, 10);
+        if (row.status === 'approved' || row.status === 'applied') {
+          cat.approved += count;
+        } else if (row.status === 'rejected') {
+          cat.rejected += count;
+        }
+        cat.total += count;
+      }
+
+      // Calcola tassi di approvazione
+      for (const cat of categories.values()) {
+        cat.rate = cat.total > 0 ? Math.round((cat.approved / cat.total) * 100) : 0;
+      }
+
+      // Associa top 3 motivi di rifiuto per categoria
+      for (const row of rejectionReasons) {
+        const key = `${row.entityType}::${row.modificationType}`;
+        const cat = categories.get(key);
+        if (cat && cat.topRejectionReasons.length < 3) {
+          cat.topRejectionReasons.push({
+            reason: row.rejectionReason,
+            count: parseInt(row.count, 10),
+          });
+        }
+      }
+
+      // Filtra categorie con dati insufficienti (< 3 decisioni)
+      const significantCategories = Array.from(categories.entries())
+        .filter(([, cat]) => cat.total >= 3)
+        .sort((a, b) => a[1].rate - b[1].rate); // Le più rifiutate prima
+
+      if (significantCategories.length === 0) {
+        return { systemPrefix: '', userPrefix: '' };
+      }
+
+      // System prefix: regole di adattamento
+      const systemPrefix = `STORICO DECISIONI UTENTE - REGOLE DI ADATTAMENTO:
+Hai accesso allo storico delle decisioni dell'utente su questo account. Usa queste informazioni per calibrare le tue raccomandazioni:
+
+- Per categorie con tasso di approvazione < 30%: RIDUCI drasticamente la priorita o EVITA di generare questo tipo di raccomandazione, a meno che non sia critica per le performance.
+- Per categorie con tasso di approvazione tra 30% e 70%: genera con cautela, abbassando la priorita se possibile.
+- Per categorie con tasso di approvazione > 70%: genera queste raccomandazioni con fiducia, sono ben accette dall'utente.
+- Leggi attentamente i motivi di rifiuto per capire le preferenze dell'utente e NON ripetere errori passati.
+- Se l'utente ha espresso preferenze specifiche nei motivi di rifiuto, rispettale sempre.`;
+
+      // User prefix: dati reali per categoria
+      const lines: string[] = [];
+
+      for (const [key, cat] of significantCategories) {
+        const modType = key.split('::')[1] || key;
+        let line = `- ${modType}: approvate ${cat.approved}/${cat.total} (${cat.rate}%)`;
+
+        if (cat.rate < 30) {
+          line += " - ATTENZIONE: l'utente raramente accetta questo tipo di modifica";
+        } else if (cat.rate > 70) {
+          line += " - l'utente gradisce questo tipo di modifica";
+        }
+
+        if (cat.topRejectionReasons.length > 0) {
+          const reasons = cat.topRejectionReasons
+            .map(r => `"${r.reason}"`)
+            .join(', ');
+          line += `\n  Motivi rifiuto frequenti: ${reasons}`;
+        }
+
+        lines.push(line);
+      }
+
+      const userPrefix = `STORICO DECISIONI UTENTE PER QUESTO ACCOUNT (ultimi 6 mesi):
+${lines.join('\n')}
+
+Adatta le tue raccomandazioni in base a queste preferenze. Non insistere su categorie che l'utente rifiuta sistematicamente.`;
+
+      this.logger.log(`Decision history context: ${significantCategories.length} categorie con dati sufficienti`);
+
+      return { systemPrefix, userPrefix };
+    } catch (error) {
+      this.logger.warn(`Failed to build decision history context: ${error.message}`);
+      return { systemPrefix: '', userPrefix: '' };
+    }
   }
 
   private async fetchModuleData(
