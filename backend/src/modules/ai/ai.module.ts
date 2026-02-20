@@ -19,6 +19,9 @@ import {
   ImportRun,
   AIAnalysisLog,
   Modification,
+  AuditReport,
+  AuditReportMessage,
+  AuditIssue,
 } from '../../entities';
 
 @Module({
@@ -38,6 +41,9 @@ import {
       ImportRun,
       AIAnalysisLog,
       Modification,
+      AuditReport,
+      AuditReportMessage,
+      AuditIssue,
     ]),
     ModificationsModule,
   ],

@@ -21,6 +21,10 @@ import {
   AnalysisTriggerType,
   AnalysisStatus,
   Modification,
+  AuditReport,
+  ReportStatus,
+  AuditReportMessage,
+  AuditIssue,
 } from '../../entities';
 import {
   AIAnalysisResponse,
@@ -69,6 +73,12 @@ export class AIService {
     private analysisLogRepository: Repository<AIAnalysisLog>,
     @InjectRepository(Modification)
     private modificationRepository: Repository<Modification>,
+    @InjectRepository(AuditReport)
+    private auditReportRepository: Repository<AuditReport>,
+    @InjectRepository(AuditReportMessage)
+    private auditReportMessageRepository: Repository<AuditReportMessage>,
+    @InjectRepository(AuditIssue)
+    private auditIssueRepository: Repository<AuditIssue>,
   ) {}
 
   private async getOpenAIClient(): Promise<OpenAI> {
@@ -1147,5 +1157,305 @@ Adatta le tue raccomandazioni in base a queste preferenze. Non insistere su cate
         moduleNameIt: config.moduleNameIt,
       };
     });
+  }
+
+  // =========================================================================
+  // AUDIT REPORT + CHAT
+  // =========================================================================
+
+  async generateReport(accountId: string): Promise<AuditReport> {
+    const startedAt = Date.now();
+
+    const latestRun = await this.getLatestRun(accountId);
+    if (!latestRun) {
+      throw new BadRequestException('Nessun dato disponibile per questo account');
+    }
+
+    const account = await this.accountRepository.findOne({ where: { id: accountId } });
+    if (!account) {
+      throw new BadRequestException('Account non trovato');
+    }
+
+    // Create report record
+    const report = this.auditReportRepository.create({
+      accountId,
+      status: ReportStatus.GENERATING,
+      generatedAt: new Date(),
+    });
+    await this.auditReportRepository.save(report);
+
+    try {
+      // Fetch all data in parallel
+      const [campaigns, conversionActions, auditIssues, adGroupCount, keywordCount, adCount] =
+        await Promise.all([
+          this.campaignRepository.find({
+            where: { accountId, runId: latestRun.runId },
+          }),
+          this.conversionActionRepository.find({
+            where: { accountId, runId: latestRun.runId },
+          }),
+          this.auditIssueRepository.find({
+            where: { accountId },
+            order: { severity: 'ASC' },
+          }),
+          this.adGroupRepository.count({ where: { accountId, runId: latestRun.runId } }),
+          this.keywordRepository.count({ where: { accountId, runId: latestRun.runId } }),
+          this.adRepository.count({ where: { accountId, runId: latestRun.runId } }),
+        ]);
+
+      // Aggregate KPIs from campaigns
+      const enabledCampaigns = campaigns.filter((c) => c.status === 'ENABLED');
+      const totalCost = enabledCampaigns.reduce((sum, c) => sum + (parseInt(c.costMicros) || 0), 0);
+      const totalImpressions = enabledCampaigns.reduce((sum, c) => sum + (parseInt(c.impressions) || 0), 0);
+      const totalClicks = enabledCampaigns.reduce((sum, c) => sum + (parseInt(c.clicks) || 0), 0);
+      const totalConversions = enabledCampaigns.reduce((sum, c) => sum + (parseFloat(c.conversions) || 0), 0);
+      const totalConversionsValue = enabledCampaigns.reduce((sum, c) => sum + (parseFloat(c.conversionsValue) || 0), 0);
+      const avgCtr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
+      const avgCpa = totalConversions > 0 ? totalCost / 1_000_000 / totalConversions : 0;
+      const roas = totalCost > 0 ? (totalConversionsValue * 1_000_000) / totalCost : 0;
+
+      // Summarize issues
+      const issuesBySeverity: Record<string, number> = {};
+      const issuesByCategory: Record<string, number> = {};
+      for (const issue of auditIssues) {
+        issuesBySeverity[issue.severity] = (issuesBySeverity[issue.severity] || 0) + 1;
+        issuesByCategory[issue.category] = (issuesByCategory[issue.category] || 0) + 1;
+      }
+
+      // Build data context for the prompt
+      const dataContext = `
+ACCOUNT: ${account.customerName} (ID: ${account.customerId})
+
+KPI PRINCIPALI (periodo analizzato):
+- Costo totale: €${(totalCost / 1_000_000).toFixed(2)}
+- Impressioni: ${totalImpressions.toLocaleString('it-IT')}
+- Click: ${totalClicks.toLocaleString('it-IT')}
+- CTR medio: ${avgCtr.toFixed(2)}%
+- Conversioni: ${totalConversions.toFixed(1)}
+- Valore conversioni: €${totalConversionsValue.toFixed(2)}
+- CPA medio: €${avgCpa.toFixed(2)}
+- ROAS: ${roas.toFixed(2)}
+
+STRUTTURA ACCOUNT:
+- Campagne totali: ${campaigns.length} (${enabledCampaigns.length} attive)
+- Ad Group: ${adGroupCount}
+- Keyword: ${keywordCount}
+- Annunci: ${adCount}
+
+CAMPAGNE ATTIVE:
+${enabledCampaigns
+  .slice(0, 20)
+  .map(
+    (c) =>
+      `- ${c.campaignName}: €${(parseInt(c.costMicros) / 1_000_000).toFixed(2)} spesa, ${c.clicks} click, ${parseFloat(c.conversions).toFixed(1)} conv, ${c.advertisingChannelType}, ${c.biddingStrategyType}`,
+  )
+  .join('\n')}
+
+AZIONI DI CONVERSIONE (${conversionActions.length}):
+${conversionActions
+  .map(
+    (ca) =>
+      `- ${ca.name}: status=${ca.status}, tipo=${ca.type}, primaria=${ca.primaryForGoal ? 'SI' : 'NO'}, valore=€${parseFloat(ca.defaultValue || '0').toFixed(2)}`,
+  )
+  .join('\n')}
+
+PROBLEMI RILEVATI (${auditIssues.length} totali):
+Per severità: ${Object.entries(issuesBySeverity).map(([k, v]) => `${k}: ${v}`).join(', ')}
+Per categoria: ${Object.entries(issuesByCategory).map(([k, v]) => `${k}: ${v}`).join(', ')}
+
+TOP PROBLEMI:
+${auditIssues
+  .slice(0, 15)
+  .map((i) => `- [${i.severity.toUpperCase()}] ${i.title}: ${i.description}`)
+  .join('\n')}
+`.trim();
+
+      const systemPrompt = `Sei un esperto Google Ads Specialist senior con oltre 10 anni di esperienza. Genera un REPORT DI AUDIT completo e professionale in italiano per l'account Google Ads analizzato.
+
+Il report deve essere:
+- DISCORSIVO e narrativo, non una semplice lista puntata
+- Coprire sia gli ASPETTI POSITIVI che NEGATIVI dell'account
+- Basato sui DATI CONCRETI forniti
+- Strutturato in sezioni chiare con heading markdown (##)
+- Professionale ma comprensibile anche per chi non è un esperto
+
+STRUTTURA OBBLIGATORIA DEL REPORT:
+
+## Panoramica Account
+Breve overview delle performance generali. Punti di forza e debolezze principali in 2-3 paragrafi.
+
+## Performance e KPI
+Analisi delle metriche principali: impressioni, click, CTR, costo, conversioni, CPA, ROAS. Confronta con i benchmark di settore (CTR medio search ~3-5%, CPA dipende dal settore). Evidenzia cosa va bene e cosa no.
+
+## Configurazione Conversioni
+Stato delle azioni di conversione configurate. Sono correttamente impostate? Ci sono problemi (conversioni nascoste, non primarie, senza valore)? Suggerimenti specifici.
+
+## Problemi Critici
+I problemi più gravi che richiedono attenzione immediata. Per ognuno spiega il PERCHÉ è un problema e COSA fare per risolverlo.
+
+## Aree di Miglioramento
+Suggerimenti concreti per migliorare le performance, organizzati per priorità. Sii specifico e pratico.
+
+## Aspetti Positivi
+Cosa funziona bene nell'account e va mantenuto o potenziato. È importante riconoscere anche i successi.
+
+## Conclusioni e Priorità
+Riepilogo con le 3-5 azioni prioritarie da intraprendere, in ordine di importanza.
+
+REGOLE:
+- Scrivi in italiano professionale
+- Usa dati concreti dai numeri forniti
+- Non inventare dati che non hai
+- Sii onesto: se qualcosa non va, dillo chiaramente
+- Se i dati sono insufficienti per un giudizio, specificalo
+- Usa **grassetto** per enfatizzare i punti importanti`;
+
+      const openai = await this.getOpenAIClient();
+      const content = await this.callOpenAIText(openai, systemPrompt, dataContext);
+
+      const durationMs = Date.now() - startedAt;
+
+      report.content = content;
+      report.status = ReportStatus.COMPLETED;
+      report.durationMs = durationMs;
+      report.metadata = {
+        campaignCount: campaigns.length,
+        issueCount: auditIssues.length,
+        conversionActionCount: conversionActions.length,
+        runId: latestRun.runId,
+      };
+      await this.auditReportRepository.save(report);
+
+      this.logger.log(`Report generated for account ${accountId} in ${durationMs}ms`);
+      return report;
+    } catch (error) {
+      report.status = ReportStatus.FAILED;
+      report.metadata = { error: error.message };
+      await this.auditReportRepository.save(report);
+      throw new BadRequestException(`Generazione report fallita: ${error.message}`);
+    }
+  }
+
+  async getLatestReport(accountId: string): Promise<AuditReport | null> {
+    return this.auditReportRepository.findOne({
+      where: { accountId, status: ReportStatus.COMPLETED },
+      order: { generatedAt: 'DESC' },
+    });
+  }
+
+  async chatWithReport(
+    accountId: string,
+    userMessage: string,
+  ): Promise<AuditReportMessage> {
+    const report = await this.getLatestReport(accountId);
+    if (!report) {
+      throw new BadRequestException('Nessun report disponibile. Genera prima un report.');
+    }
+
+    // Save user message
+    const userMsg = this.auditReportMessageRepository.create({
+      reportId: report.id,
+      role: 'user' as const,
+      content: userMessage,
+    });
+    await this.auditReportMessageRepository.save(userMsg);
+
+    // Get recent messages for context
+    const recentMessages = await this.auditReportMessageRepository.find({
+      where: { reportId: report.id },
+      order: { createdAt: 'ASC' },
+      take: 20,
+    });
+
+    // Build chat messages for OpenAI
+    const systemPrompt = `Sei un esperto Google Ads Specialist senior. Hai generato il seguente report di audit per un account Google Ads. Rispondi alle domande dell'utente basandoti sul report e sulla tua esperienza.
+
+REPORT DI AUDIT:
+${(report.content || '').substring(0, 8000)}
+
+REGOLE:
+- Rispondi in italiano
+- Sii specifico e pratico
+- Se la domanda non è coperta dal report, rispondi comunque basandoti sulla tua esperienza
+- Mantieni un tono professionale ma accessibile`;
+
+    const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+      { role: 'system', content: systemPrompt },
+    ];
+
+    // Add recent message history (exclude the just-saved user message, we add it at the end)
+    for (const msg of recentMessages) {
+      if (msg.id === userMsg.id) continue;
+      messages.push({ role: msg.role as 'user' | 'assistant', content: msg.content });
+    }
+
+    // Add current user message
+    messages.push({ role: 'user', content: userMessage });
+
+    const openai = await this.getOpenAIClient();
+    let model = await this.settingsService.getOpenAIModel();
+    if (!model) {
+      model = this.configService.get<string>('ai.openaiModel') || 'gpt-4o';
+    }
+
+    const isGpt5 = model.startsWith('gpt-5');
+    const response = await openai.chat.completions.create({
+      model,
+      messages,
+      ...(isGpt5 ? { max_completion_tokens: 4096 } : { max_tokens: 4096 }),
+      temperature: 0.4,
+    });
+
+    const assistantContent = response.choices[0]?.message?.content || 'Mi dispiace, non sono riuscito a generare una risposta.';
+
+    // Save assistant message
+    const assistantMsg = this.auditReportMessageRepository.create({
+      reportId: report.id,
+      role: 'assistant' as const,
+      content: assistantContent,
+    });
+    await this.auditReportMessageRepository.save(assistantMsg);
+
+    return assistantMsg;
+  }
+
+  async getReportMessages(accountId: string): Promise<AuditReportMessage[]> {
+    const report = await this.getLatestReport(accountId);
+    if (!report) return [];
+
+    return this.auditReportMessageRepository.find({
+      where: { reportId: report.id },
+      order: { createdAt: 'ASC' },
+    });
+  }
+
+  private async callOpenAIText(
+    openai: OpenAI,
+    systemPrompt: string,
+    userPrompt: string,
+  ): Promise<string> {
+    let model = await this.settingsService.getOpenAIModel();
+    if (!model) {
+      model = this.configService.get<string>('ai.openaiModel') || 'gpt-4o';
+    }
+
+    const isGpt5 = model.startsWith('gpt-5');
+
+    const response = await openai.chat.completions.create({
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      ...(isGpt5 ? { max_completion_tokens: 8192 } : { max_tokens: 8192 }),
+      temperature: 0.3,
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('Empty response from OpenAI');
+    }
+
+    return content;
   }
 }

@@ -75,4 +75,37 @@ export class AIController {
   getSupportedModules(): { moduleId: number; moduleName: string; moduleNameIt: string }[] {
     return this.aiService.getSupportedModules();
   }
+
+  // =========================================================================
+  // AUDIT REPORT + CHAT
+  // =========================================================================
+
+  @Post('report/:accountId')
+  async generateReport(
+    @Param('accountId', ParseUUIDPipe) accountId: string,
+  ) {
+    return this.aiService.generateReport(accountId);
+  }
+
+  @Get('report/:accountId')
+  async getLatestReport(
+    @Param('accountId', ParseUUIDPipe) accountId: string,
+  ) {
+    return this.aiService.getLatestReport(accountId);
+  }
+
+  @Post('report/:accountId/chat')
+  async chatWithReport(
+    @Param('accountId', ParseUUIDPipe) accountId: string,
+    @Body('message') message: string,
+  ) {
+    return this.aiService.chatWithReport(accountId, message);
+  }
+
+  @Get('report/:accountId/messages')
+  async getReportMessages(
+    @Param('accountId', ParseUUIDPipe) accountId: string,
+  ) {
+    return this.aiService.getReportMessages(accountId);
+  }
 }

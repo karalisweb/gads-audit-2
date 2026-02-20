@@ -11,6 +11,7 @@ import {
   Keyword,
   SearchTerm,
   NegativeKeyword,
+  ConversionAction,
 } from '../../entities';
 
 interface RuleContext {
@@ -56,6 +57,8 @@ export class AuditRulesService {
     private readonly searchTermRepository: Repository<SearchTerm>,
     @InjectRepository(NegativeKeyword)
     private readonly negativeKeywordRepository: Repository<NegativeKeyword>,
+    @InjectRepository(ConversionAction)
+    private readonly conversionActionRepository: Repository<ConversionAction>,
   ) {}
 
   /**
@@ -77,6 +80,7 @@ export class AuditRulesService {
     issues.push(...(await this.runAdRules(ctx)));
     issues.push(...(await this.runSearchTermRules(ctx)));
     issues.push(...(await this.runStructureRules(ctx)));
+    issues.push(...(await this.runConversionRules(ctx)));
 
     // Save all issues
     if (issues.length > 0) {
@@ -674,6 +678,138 @@ export class AuditRulesService {
         ],
         metadata: { searchTermCount, negativeKeywordCount: negativeCount },
       });
+    }
+
+    return issues;
+  }
+
+  // ==========================================================================
+  // CONVERSION RULES
+  // ==========================================================================
+
+  private async runConversionRules(ctx: RuleContext): Promise<IssueData[]> {
+    const issues: IssueData[] = [];
+
+    const conversionActions = await this.conversionActionRepository.find({
+      where: { accountId: ctx.accountId, runId: ctx.runId },
+    });
+
+    for (const ca of conversionActions) {
+      // RULE: Conversion action HIDDEN (Google l'ha disattivata per assenza di hit)
+      if (ca.status === 'HIDDEN') {
+        issues.push({
+          ruleId: 'CONV_ACTION_HIDDEN',
+          title: 'Azione di conversione nascosta (HIDDEN)',
+          description: `L'azione di conversione "${ca.name}" ha status HIDDEN. Google l'ha disattivata perché non riceve hit da tempo.`,
+          severity: 'critical',
+          category: 'conversion',
+          entityType: 'conversionAction',
+          entityId: ca.conversionActionId,
+          entityName: ca.name,
+          recommendation: 'Verifica se questa conversione è ancora necessaria. Se sì, controlla il tag di tracciamento.',
+          actionSteps: [
+            'Verifica che il tag di conversione sia installato correttamente',
+            'Controlla con Google Tag Assistant se il tag si attiva',
+            'Se non più necessaria, rimuovila per pulizia',
+          ],
+          metadata: { status: ca.status, type: ca.type, category: ca.category },
+        });
+      }
+
+      // RULE: Conversion action ENABLED ma non primaria
+      if (ca.status === 'ENABLED' && ca.primaryForGoal === false) {
+        issues.push({
+          ruleId: 'CONV_ACTION_NOT_PRIMARY',
+          title: 'Conversione attiva ma non primaria',
+          description: `L'azione "${ca.name}" è attiva ma non è impostata come primaria. Non influenzerà le strategie di offerta automatiche.`,
+          severity: 'medium',
+          category: 'conversion',
+          entityType: 'conversionAction',
+          entityId: ca.conversionActionId,
+          entityName: ca.name,
+          recommendation: 'Valuta se questa conversione dovrebbe essere primaria per le campagne.',
+          actionSteps: [
+            'Se è un obiettivo importante, impostala come primaria',
+            'Se è secondaria intenzionalmente, nessuna azione necessaria',
+          ],
+          metadata: { primaryForGoal: ca.primaryForGoal, category: ca.category },
+        });
+      }
+
+      // RULE: Conversion action con valore 0 o 1
+      const defaultValue = parseFloat(ca.defaultValue || '0') || 0;
+      if (ca.status === 'ENABLED' && (defaultValue === 0 || defaultValue === 1)) {
+        issues.push({
+          ruleId: 'CONV_ACTION_LOW_VALUE',
+          title: 'Conversione senza valore significativo',
+          description: `L'azione "${ca.name}" ha valore predefinito €${defaultValue.toFixed(2)}. Senza un valore realistico, il ROAS non può essere calcolato correttamente.`,
+          severity: 'low',
+          category: 'conversion',
+          entityType: 'conversionAction',
+          entityId: ca.conversionActionId,
+          entityName: ca.name,
+          recommendation: 'Assegna un valore realistico per abilitare il tracciamento ROAS.',
+          actionSteps: [
+            'Calcola il valore medio di questa conversione per il business',
+            'Imposta il valore predefinito in Google Ads',
+          ],
+          metadata: { defaultValue, alwaysUseDefaultValue: ca.alwaysUseDefaultValue },
+        });
+      }
+
+      // RULE: Conversion action ENABLED ma non utilizzata
+      if (ca.status === 'ENABLED' && ca.campaignsUsingCount === 0) {
+        issues.push({
+          ruleId: 'CONV_ACTION_NOT_USED',
+          title: 'Conversione attiva non utilizzata da campagne',
+          description: `L'azione "${ca.name}" è attiva ma non risulta utilizzata in nessuna campagna.`,
+          severity: 'medium',
+          category: 'conversion',
+          entityType: 'conversionAction',
+          entityId: ca.conversionActionId,
+          entityName: ca.name,
+          recommendation: 'Verifica se le campagne stanno usando questa conversione o se è ridondante.',
+          actionSteps: [
+            'Controlla le impostazioni conversione delle campagne',
+            'Se non necessaria, disattivala per evitare confusione',
+          ],
+        });
+      }
+    }
+
+    // RULE: Campagna con spesa ma 0 conversioni (quando l'account ha conversioni configurate)
+    const hasEnabledConvActions = conversionActions.some((ca) => ca.status === 'ENABLED');
+    if (hasEnabledConvActions) {
+      const campaigns = await this.campaignRepository.find({
+        where: { accountId: ctx.accountId, runId: ctx.runId },
+      });
+
+      for (const campaign of campaigns) {
+        const cost = parseInt(campaign.costMicros) || 0;
+        const conversions = parseFloat(campaign.conversions) || 0;
+
+        if (campaign.status === 'ENABLED' && cost > 50_000_000 && conversions === 0) {
+          issues.push({
+            ruleId: 'CAMP_CONV_TRACKING_ISSUE',
+            title: 'Possibile problema tracciamento conversioni',
+            description: `La campagna "${campaign.campaignName}" ha speso €${(cost / 1_000_000).toFixed(2)} con 0 conversioni, ma l'account ha conversioni configurate.`,
+            severity: 'high',
+            category: 'conversion',
+            entityType: 'campaign',
+            entityId: campaign.campaignId,
+            entityName: campaign.campaignName,
+            affectedCost: cost / 1_000_000,
+            potentialSavings: cost / 1_000_000 * 0.5,
+            recommendation: 'Il tracciamento conversioni potrebbe non funzionare per questa campagna.',
+            actionSteps: [
+              'Verifica che il tag conversione si attivi sulle pagine di destinazione',
+              'Controlla le impostazioni conversione della campagna',
+              'Usa Google Tag Assistant per verificare il tracking',
+            ],
+            metadata: { cost: cost / 1_000_000, hasConversionActions: true },
+          });
+        }
+      }
     }
 
     return issues;

@@ -26,9 +26,8 @@ const KeywordsPage = lazy(() => import('@/pages/audit/KeywordsPage').then(m => (
 const SearchTermsPage = lazy(() => import('@/pages/audit/SearchTermsPage').then(m => ({ default: m.SearchTermsPage })));
 const NegativeKeywordsPage = lazy(() => import('@/pages/audit/NegativeKeywordsPage').then(m => ({ default: m.NegativeKeywordsPage })));
 const AssetsPage = lazy(() => import('@/pages/audit/AssetsPage').then(m => ({ default: m.AssetsPage })));
-const IssuesPage = lazy(() => import('@/pages/audit/IssuesPage').then(m => ({ default: m.IssuesPage })));
+const AuditReportPage = lazy(() => import('@/pages/audit/AuditReportPage').then(m => ({ default: m.AuditReportPage })));
 const ConversionsPage = lazy(() => import('@/pages/audit/ConversionsPage').then(m => ({ default: m.ConversionsPage })));
-const ConversionActionsPage = lazy(() => import('@/pages/audit/ConversionActionsPage').then(m => ({ default: m.ConversionActionsPage })));
 const LandingPagesPage = lazy(() => import('@/pages/audit/LandingPagesPage').then(m => ({ default: m.LandingPagesPage })));
 const ModificationsPage = lazy(() => import('@/pages/modifications/ModificationsPage').then(m => ({ default: m.ModificationsPage })));
 
@@ -79,9 +78,8 @@ function App() {
                 <Route path="search-terms" element={<SearchTermsPage />} />
                 <Route path="negative-keywords" element={<NegativeKeywordsPage />} />
                 <Route path="assets" element={<AssetsPage />} />
-                <Route path="issues" element={<IssuesPage />} />
+                <Route path="report" element={<AuditReportPage />} />
                 <Route path="conversions" element={<ConversionsPage />} />
-                <Route path="conversion-actions" element={<ConversionActionsPage />} />
                 <Route path="landing-pages" element={<LandingPagesPage />} />
                 <Route path="modifications" element={<ModificationsPage />} />
                 <Route index element={<Navigate to="dashboard" replace />} />

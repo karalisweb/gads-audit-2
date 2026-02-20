@@ -11,7 +11,7 @@ import { useUIStore } from '@/stores/ui.store';
 import { useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
-  AlertTriangle,
+  BookOpen,
   Megaphone,
   Layers,
   FileText,
@@ -20,7 +20,6 @@ import {
   MinusCircle,
   Image,
   Target,
-  Settings,
   Wrench,
   Globe,
   User,
@@ -32,9 +31,8 @@ import {
 
 const navItems = [
   { path: 'dashboard', label: 'Dashboard', shortLabel: 'Home', icon: LayoutDashboard },
-  { path: 'issues', label: 'Problemi', shortLabel: 'Issues', icon: AlertTriangle },
+  { path: 'report', label: 'Report AI', shortLabel: 'Report', icon: BookOpen },
   { path: 'conversions', label: 'Conversioni', shortLabel: 'Conv.', icon: Target },
-  { path: 'conversion-actions', label: 'Config Conv.', shortLabel: 'Config', icon: Settings },
   { path: 'campaigns', label: 'Campagne', shortLabel: 'Camp.', icon: Megaphone },
   { path: 'ad-groups', label: 'Ad Groups', shortLabel: 'Groups', icon: Layers },
   { path: 'ads', label: 'Annunci', shortLabel: 'Ads', icon: FileText },
@@ -49,9 +47,8 @@ const navItems = [
 // Mappa dei titoli per le pagine
 const pageTitles: Record<string, string> = {
   'dashboard': 'Dashboard',
-  'issues': 'Problemi',
+  'report': 'Report AI',
   'conversions': 'Conversioni',
-  'conversion-actions': 'Config Conv.',
   'campaigns': 'Campagne',
   'ad-groups': 'Ad Groups',
   'ads': 'Annunci',

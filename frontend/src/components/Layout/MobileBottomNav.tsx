@@ -11,7 +11,7 @@ import {
   Layers,
   KeyRound,
   Target,
-  AlertTriangle,
+  BookOpen,
   FileText,
   Search,
   MinusCircle,
@@ -39,12 +39,11 @@ const auditNavItems = [
 
 const auditSecondaryItems = [
   { path: 'dashboard', label: 'Home', icon: LayoutDashboard },
-  { path: 'issues', label: 'Issues', icon: AlertTriangle },
+  { path: 'report', label: 'Report', icon: BookOpen },
   { path: 'ads', label: 'Ads', icon: FileText },
   { path: 'search-terms', label: 'Search', icon: Search },
   { path: 'negative-keywords', label: 'Neg.', icon: MinusCircle },
   { path: 'assets', label: 'Assets', icon: Image },
-  { path: 'conversion-actions', label: 'Config', icon: Settings },
   { path: 'modifications', label: 'Mod.', icon: Wrench },
 ];
 
