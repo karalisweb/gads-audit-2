@@ -14,6 +14,7 @@ import {
 } from '../../entities/modification.entity';
 import { GoogleAdsAccount } from '../../entities/google-ads-account.entity';
 import { User, UserRole } from '../../entities/user.entity';
+import { AIAnalysisLog } from '../../entities/ai-analysis-log.entity';
 import {
   CreateModificationDto,
   CreateFromAIDto,
@@ -33,6 +34,8 @@ export class ModificationsService {
     private accountsRepository: Repository<GoogleAdsAccount>,
     @InjectRepository(User)
     private usersRepository: Repository<User>,
+    @InjectRepository(AIAnalysisLog)
+    private analysisLogRepository: Repository<AIAnalysisLog>,
   ) {}
 
   async findAll(
@@ -1272,5 +1275,144 @@ export class ModificationsService {
         {} as Record<string, number>,
       ),
     };
+  }
+
+  // =========================================================================
+  // DASHBOARD: Pending summary cross-account
+  // =========================================================================
+
+  async getPendingSummaryAllAccounts(): Promise<{
+    totalPending: number;
+    totalHighPriority: number;
+    byAccount: Array<{
+      accountId: string;
+      accountName: string;
+      customerId: string;
+      pendingCount: number;
+      highPriorityCount: number;
+    }>;
+  }> {
+    const result = await this.modificationsRepository
+      .createQueryBuilder('m')
+      .innerJoin('m.account', 'a')
+      .select('a.id', 'accountId')
+      .addSelect('a.customerName', 'accountName')
+      .addSelect('a.customerId', 'customerId')
+      .addSelect('COUNT(*)', 'pendingCount')
+      .addSelect(
+        "SUM(CASE WHEN m.priority = 'high' THEN 1 ELSE 0 END)",
+        'highPriorityCount',
+      )
+      .where('m.status = :status', { status: ModificationStatus.PENDING })
+      .groupBy('a.id')
+      .addGroupBy('a.customerName')
+      .addGroupBy('a.customerId')
+      .orderBy('"pendingCount"', 'DESC')
+      .getRawMany();
+
+    const byAccount = result.map((r) => ({
+      accountId: r.accountId,
+      accountName: r.accountName,
+      customerId: r.customerId,
+      pendingCount: parseInt(r.pendingCount, 10),
+      highPriorityCount: parseInt(r.highPriorityCount, 10),
+    }));
+
+    const totalPending = byAccount.reduce((s, r) => s + r.pendingCount, 0);
+    const totalHighPriority = byAccount.reduce(
+      (s, r) => s + r.highPriorityCount,
+      0,
+    );
+
+    return { totalPending, totalHighPriority, byAccount };
+  }
+
+  // =========================================================================
+  // DASHBOARD: Recent activity (modifiche + analisi AI)
+  // =========================================================================
+
+  async getRecentActivity(
+    limit = 20,
+  ): Promise<
+    Array<{
+      type: string;
+      accountId: string;
+      accountName: string;
+      description: string;
+      timestamp: string;
+    }>
+  > {
+    // Query 1: Modifiche recenti con stato diverso da pending
+    const recentModifications = await this.modificationsRepository
+      .createQueryBuilder('m')
+      .innerJoin('m.account', 'a')
+      .select('m.status', 'status')
+      .addSelect('m.entity_name', 'entityName')
+      .addSelect('m.modification_type', 'modificationType')
+      .addSelect('m.updated_at', 'timestamp')
+      .addSelect('a.id', 'accountId')
+      .addSelect('a.customerName', 'accountName')
+      .where('m.status IN (:...statuses)', {
+        statuses: ['approved', 'rejected', 'applied', 'failed'],
+      })
+      .orderBy('m.updated_at', 'DESC')
+      .limit(limit)
+      .getRawMany();
+
+    // Query 2: Analisi AI recenti
+    const recentAnalyses = await this.analysisLogRepository
+      .createQueryBuilder('log')
+      .innerJoin('log.account', 'a')
+      .select('log.status', 'status')
+      .addSelect('log.totalRecommendations', 'totalRecommendations')
+      .addSelect('log.completedAt', 'timestamp')
+      .addSelect('a.id', 'accountId')
+      .addSelect('a.customerName', 'accountName')
+      .where('log.completedAt IS NOT NULL')
+      .orderBy('log.completedAt', 'DESC')
+      .limit(10)
+      .getRawMany();
+
+    // Mappa modifiche in activity items
+    const modActivities = recentModifications.map((m) => {
+      const typeMap: Record<string, string> = {
+        approved: 'modification_approved',
+        rejected: 'modification_rejected',
+        applied: 'modification_applied',
+        failed: 'modification_failed',
+      };
+      const labelMap: Record<string, string> = {
+        approved: 'Approvata',
+        rejected: 'Rifiutata',
+        applied: 'Applicata',
+        failed: 'Fallita',
+      };
+      return {
+        type: typeMap[m.status] || 'modification_updated',
+        accountId: m.accountId,
+        accountName: m.accountName,
+        description: `${labelMap[m.status] || m.status}: ${m.entityName || m.modificationType}`,
+        timestamp: m.timestamp,
+      };
+    });
+
+    // Mappa analisi in activity items
+    const analysisActivities = recentAnalyses.map((a) => ({
+      type: 'analysis_completed',
+      accountId: a.accountId,
+      accountName: a.accountName,
+      description: `Analisi AI completata: ${a.totalRecommendations || 0} raccomandazioni`,
+      timestamp: a.timestamp,
+    }));
+
+    // Unisci e ordina per timestamp
+    const all = [...modActivities, ...analysisActivities]
+      .sort(
+        (a, b) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+      )
+      .slice(0, limit);
+
+    return all;
   }
 }

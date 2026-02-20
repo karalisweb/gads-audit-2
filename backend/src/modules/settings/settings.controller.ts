@@ -43,4 +43,10 @@ export class SettingsController {
   ) {
     return this.settingsService.updateScheduleSettings(dto);
   }
+
+  @Get('next-analysis')
+  @Roles(UserRole.ADMIN)
+  async getNextAnalysis() {
+    return this.settingsService.getNextAnalysisInfo();
+  }
 }

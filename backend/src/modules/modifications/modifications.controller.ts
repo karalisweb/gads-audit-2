@@ -17,6 +17,16 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 export class ModificationsController {
   constructor(private readonly modificationsService: ModificationsService) {}
 
+  @Get('pending-summary')
+  async getPendingSummary() {
+    return this.modificationsService.getPendingSummaryAllAccounts();
+  }
+
+  @Get('recent-activity')
+  async getRecentActivity(@Query('limit') limit?: number) {
+    return this.modificationsService.getRecentActivity(limit || 20);
+  }
+
   @Get('account/:accountId')
   async findAll(
     @Param('accountId', ParseUUIDPipe) accountId: string,

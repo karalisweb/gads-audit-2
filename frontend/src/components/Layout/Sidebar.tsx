@@ -1,7 +1,9 @@
+import { useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUIStore } from '@/stores/ui.store';
+import { useNotificationsStore } from '@/stores/notifications.store';
 import {
   LayoutDashboard,
   Building2,
@@ -14,7 +16,7 @@ import {
 } from 'lucide-react';
 import { GadsIcon } from '@/components/icons/GadsIcon';
 
-const APP_VERSION = '2.8.0';
+const APP_VERSION = '2.9.0';
 
 // Zona 2 - Navigazione Principale (base)
 const baseNavItems = [
@@ -36,6 +38,14 @@ export function Sidebar({ mode = 'overlay' }: SidebarProps) {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
+  const { pendingCount, fetchPendingCount } = useNotificationsStore();
+
+  // Fetch pending count on mount and every 5 minutes
+  useEffect(() => {
+    fetchPendingCount();
+    const interval = setInterval(fetchPendingCount, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [fetchPendingCount]);
 
   const mainNavItems = baseNavItems;
 
@@ -124,6 +134,7 @@ export function Sidebar({ mode = 'overlay' }: SidebarProps) {
           </p>
           {mainNavItems.map((item) => {
             const Icon = item.icon;
+            const showBadge = item.path === '/dashboard' && pendingCount > 0;
             return (
               <NavLink
                 key={item.path}
@@ -139,7 +150,12 @@ export function Sidebar({ mode = 'overlay' }: SidebarProps) {
                 }
               >
                 <Icon className="h-5 w-5 flex-shrink-0" />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {showBadge && (
+                  <span className="flex-shrink-0 min-w-5 h-5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1.5">
+                    {pendingCount > 99 ? '99+' : pendingCount}
+                  </span>
+                )}
               </NavLink>
             );
           })}

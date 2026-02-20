@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import type { ColumnDef, RowSelectionState } from '@tanstack/react-table';
 import { DataTable } from '@/components/data-table/DataTable';
@@ -20,8 +20,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Textarea } from '@/components/ui/textarea';
-import { Check, X, AlertCircle, Clock, Loader2, Plus, Eye, Code, ExternalLink, CheckCircle2, XCircle } from 'lucide-react';
+import { Check, X, AlertCircle, Clock, Loader2, Plus, Eye, Code, ExternalLink, CheckCircle2, XCircle, ChevronDown, ChevronRight, TableIcon, LayoutList, Zap, Shield } from 'lucide-react';
 import { CreateModificationModal } from './CreateModificationModal';
 import {
   getModifications,
@@ -39,6 +46,7 @@ import type {
   ModificationStatus,
   PaginatedResponse,
 } from '@/types';
+import type { ModificationEntityType } from '@/types/modification';
 import {
   getStatusColor,
   getStatusLabel,
@@ -246,6 +254,7 @@ export function ModificationsPage() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkRejectDialogOpen, setBulkRejectDialogOpen] = useState(false);
   const [bulkRejectReason, setBulkRejectReason] = useState('');
+  const [viewMode, setViewMode] = useState<'table' | 'grouped'>('table');
 
   const fetchData = useCallback(async () => {
     if (!accountId) return;
@@ -327,6 +336,78 @@ export function ModificationsPage() {
     setSelectedModId(id);
     setRejectDialogOpen(true);
   };
+
+  // Quick reject inline (dropdown with preset reasons)
+  const handleQuickReject = async (id: string, reason: string) => {
+    setActionLoading(id);
+    try {
+      await rejectModification(id, reason);
+      fetchData();
+    } catch (err) {
+      console.error('Error quick rejecting:', err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Computed: pending high priority and negative keyword counts for smart bulk actions
+  const pendingGroupCounts = useMemo(() => {
+    if (!data) return { highPriority: 0, negativeKeywords: 0, highPriorityIds: [] as string[], negativeKeywordIds: [] as string[] };
+    const pendingMods = data.data.filter(m => m.status === 'pending');
+    const highPriority = pendingMods.filter(m => m.priority === 'high');
+    const negativeKeywords = pendingMods.filter(m => m.modificationType === 'negative_keyword.add');
+    return {
+      highPriority: highPriority.length,
+      negativeKeywords: negativeKeywords.length,
+      highPriorityIds: highPriority.map(m => m.id),
+      negativeKeywordIds: negativeKeywords.map(m => m.id),
+    };
+  }, [data]);
+
+  // Group data by entityType for grouped view
+  const groupedData = useMemo(() => {
+    if (!data) return [];
+    const groups = new Map<string, { mods: Modification[]; pendingCount: number; highPriorityCount: number }>();
+    data.data.forEach(mod => {
+      const key = mod.entityType;
+      if (!groups.has(key)) {
+        groups.set(key, { mods: [], pendingCount: 0, highPriorityCount: 0 });
+      }
+      const group = groups.get(key)!;
+      group.mods.push(mod);
+      if (mod.status === 'pending') {
+        group.pendingCount++;
+        if (mod.priority === 'high') group.highPriorityCount++;
+      }
+    });
+    return Array.from(groups.entries()).map(([entityType, data]) => ({
+      entityType,
+      ...data,
+    }));
+  }, [data]);
+
+  const handleBulkApproveByGroup = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    setBulkLoading(true);
+    try {
+      await bulkApproveModifications(ids);
+      fetchData();
+    } catch (err) {
+      console.error('Error bulk approving group:', err);
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  // Progress bar computed values
+  const progressStats = useMemo(() => {
+    if (!summary) return null;
+    const processed = (summary.byStatus.applied || 0) + (summary.byStatus.rejected || 0) + (summary.byStatus.failed || 0);
+    const pending = (summary.byStatus.pending || 0) + (summary.byStatus.approved || 0) + (summary.byStatus.processing || 0);
+    const total = processed + pending;
+    const percentage = total > 0 ? Math.round((processed / total) * 100) : 0;
+    return { processed, pending, total, percentage };
+  }, [summary]);
 
   // Get selected pending modification IDs
   const getSelectedPendingIds = (): string[] => {
@@ -570,7 +651,7 @@ export function ModificationsPage() {
 
         if (mod.status === 'pending') {
           return (
-            <div className="flex gap-2">
+            <div className="flex gap-1">
               <Button
                 size="sm"
                 variant="outline"
@@ -584,15 +665,36 @@ export function ModificationsPage() {
                   <Check className="h-4 w-4" />
                 )}
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-red-600 border-red-600 hover:bg-red-50"
-                onClick={() => openRejectDialog(mod.id)}
-                disabled={isLoading}
-              >
-                <X className="h-4 w-4" />
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-red-600 border-red-600 hover:bg-red-50"
+                    disabled={isLoading}
+                  >
+                    <X className="h-4 w-4" />
+                    <ChevronDown className="h-3 w-3 ml-0.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  {REJECT_REASONS.map((reason) => (
+                    <DropdownMenuItem
+                      key={reason}
+                      onClick={() => handleQuickReject(mod.id, reason)}
+                      className="text-sm cursor-pointer"
+                    >
+                      {reason}
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuItem
+                    onClick={() => openRejectDialog(mod.id)}
+                    className="text-sm cursor-pointer text-muted-foreground"
+                  >
+                    Altro motivo...
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           );
         }
@@ -695,8 +797,26 @@ export function ModificationsPage() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex gap-4 items-center">
+      {/* Progress Bar */}
+      {progressStats && progressStats.total > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">
+              Progresso: {progressStats.processed} processate su {progressStats.total}
+            </span>
+            <span className="font-medium text-foreground">{progressStats.percentage}%</span>
+          </div>
+          <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-primary rounded-full transition-all duration-500"
+              style={{ width: `${progressStats.percentage}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Filters + View Toggle */}
+      <div className="flex flex-wrap gap-3 items-center">
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Filtra per stato" />
@@ -723,6 +843,52 @@ export function ModificationsPage() {
             <SelectItem value="low">Bassa</SelectItem>
           </SelectContent>
         </Select>
+
+        <div className="ml-auto flex items-center gap-2">
+          {/* Smart Bulk Approve Buttons */}
+          {pendingGroupCounts.highPriority > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-red-600 border-red-200 hover:bg-red-50"
+              onClick={() => handleBulkApproveByGroup(pendingGroupCounts.highPriorityIds)}
+              disabled={bulkLoading}
+            >
+              <Zap className="h-3.5 w-3.5 mr-1" />
+              Approva {pendingGroupCounts.highPriority} alta priorità
+            </Button>
+          )}
+          {pendingGroupCounts.negativeKeywords > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-blue-600 border-blue-200 hover:bg-blue-50"
+              onClick={() => handleBulkApproveByGroup(pendingGroupCounts.negativeKeywordIds)}
+              disabled={bulkLoading}
+            >
+              <Shield className="h-3.5 w-3.5 mr-1" />
+              Approva {pendingGroupCounts.negativeKeywords} negative
+            </Button>
+          )}
+
+          {/* View Mode Toggle */}
+          <div className="flex border rounded-lg overflow-hidden">
+            <button
+              onClick={() => setViewMode('table')}
+              className={`p-2 transition-colors ${viewMode === 'table' ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted text-muted-foreground'}`}
+              title="Vista tabella"
+            >
+              <TableIcon className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('grouped')}
+              className={`p-2 transition-colors ${viewMode === 'grouped' ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted text-muted-foreground'}`}
+              title="Vista raggruppata"
+            >
+              <LayoutList className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Bulk Actions Bar */}
@@ -770,21 +936,95 @@ export function ModificationsPage() {
         </div>
       )}
 
-      {/* Data Table */}
-      {data && (
-        <DataTable
-          columns={columns}
-          data={data.data}
-          pageCount={data.meta?.totalPages || Math.ceil((data.meta?.total || 0) / filters.limit!)}
-          pageSize={filters.limit!}
-          pageIndex={(filters.page || 1) - 1}
-          total={data.meta?.total || 0}
-          onPageChange={(pageIdx) => setFilters((f) => ({ ...f, page: pageIdx + 1 }))}
-          enableRowSelection={(row) => row.original.status === 'pending'}
-          rowSelection={rowSelection}
-          onRowSelectionChange={setRowSelection}
-        />
-      )}
+      {/* Desktop: Data Table or Grouped View */}
+      <div className="hidden md:block">
+        {viewMode === 'table' && data && (
+          <DataTable
+            columns={columns}
+            data={data.data}
+            pageCount={data.meta?.totalPages || Math.ceil((data.meta?.total || 0) / filters.limit!)}
+            pageSize={filters.limit!}
+            pageIndex={(filters.page || 1) - 1}
+            total={data.meta?.total || 0}
+            onPageChange={(pageIdx) => setFilters((f) => ({ ...f, page: pageIdx + 1 }))}
+            enableRowSelection={(row) => row.original.status === 'pending'}
+            rowSelection={rowSelection}
+            onRowSelectionChange={setRowSelection}
+          />
+        )}
+
+        {/* Grouped View */}
+        {viewMode === 'grouped' && data && (
+          <div className="space-y-3">
+            {groupedData.map((group) => (
+              <GroupedEntitySection
+                key={group.entityType}
+                entityType={group.entityType}
+                modifications={group.mods}
+                pendingCount={group.pendingCount}
+                highPriorityCount={group.highPriorityCount}
+                onApprove={handleApprove}
+                onQuickReject={handleQuickReject}
+                onOpenRejectDialog={openRejectDialog}
+                onViewDetail={(mod) => { setDetailModification(mod); setDetailModalOpen(true); }}
+                actionLoading={actionLoading}
+              />
+            ))}
+            {groupedData.length === 0 && (
+              <div className="text-center py-12 text-muted-foreground">
+                Nessuna modifica trovata con i filtri attuali
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Mobile: Card View */}
+      <div className="md:hidden">
+        {data && data.data.length > 0 ? (
+          <div className="space-y-3">
+            {data.data.map((mod) => (
+              <MobileModificationCard
+                key={mod.id}
+                mod={mod}
+                onApprove={handleApprove}
+                onQuickReject={handleQuickReject}
+                onOpenRejectDialog={openRejectDialog}
+                onViewDetail={(m) => { setDetailModification(m); setDetailModalOpen(true); }}
+                actionLoading={actionLoading}
+              />
+            ))}
+            {/* Mobile Pagination */}
+            {data.meta && data.meta.totalPages > 1 && (
+              <div className="flex items-center justify-between pt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={(filters.page || 1) <= 1}
+                  onClick={() => setFilters(f => ({ ...f, page: (f.page || 1) - 1 }))}
+                >
+                  Precedente
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  {filters.page || 1} / {data.meta.totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={(filters.page || 1) >= data.meta.totalPages}
+                  onClick={() => setFilters(f => ({ ...f, page: (f.page || 1) + 1 }))}
+                >
+                  Successiva
+                </Button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-12 text-muted-foreground">
+            Nessuna modifica trovata
+          </div>
+        )}
+      </div>
 
       {/* Reject Dialog */}
       <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
@@ -1129,5 +1369,344 @@ function SummaryCard({
       </div>
       <p className="text-2xl font-bold mt-1">{value}</p>
     </button>
+  );
+}
+
+// =========================================================================
+// Grouped View Component
+// =========================================================================
+
+function GroupedEntitySection({
+  entityType,
+  modifications,
+  pendingCount,
+  highPriorityCount,
+  onApprove,
+  onQuickReject,
+  onOpenRejectDialog,
+  onViewDetail,
+  actionLoading,
+}: {
+  entityType: string;
+  modifications: Modification[];
+  pendingCount: number;
+  highPriorityCount: number;
+  onApprove: (id: string) => void;
+  onQuickReject: (id: string, reason: string) => void;
+  onOpenRejectDialog: (id: string) => void;
+  onViewDetail: (mod: Modification) => void;
+  actionLoading: string | null;
+}) {
+  const [isOpen, setIsOpen] = useState(pendingCount > 0);
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <CollapsibleTrigger className="w-full">
+        <div className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
+          <div className="flex items-center gap-3">
+            {isOpen ? (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            )}
+            <span className="font-semibold text-foreground">
+              {getEntityTypeLabel(entityType as ModificationEntityType)}
+            </span>
+            <Badge variant="outline" className="text-xs">
+              {modifications.length}
+            </Badge>
+            {pendingCount > 0 && (
+              <Badge className="bg-yellow-100 text-yellow-800 text-xs">
+                {pendingCount} pending
+              </Badge>
+            )}
+            {highPriorityCount > 0 && (
+              <Badge className="bg-red-100 text-red-800 text-xs">
+                {highPriorityCount} urgenti
+              </Badge>
+            )}
+          </div>
+        </div>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="mt-1 space-y-1 pl-4 border-l-2 border-border ml-2">
+          {modifications.map((mod) => (
+            <GroupedModificationRow
+              key={mod.id}
+              mod={mod}
+              onApprove={onApprove}
+              onQuickReject={onQuickReject}
+              onOpenRejectDialog={onOpenRejectDialog}
+              onViewDetail={onViewDetail}
+              actionLoading={actionLoading}
+            />
+          ))}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function GroupedModificationRow({
+  mod,
+  onApprove,
+  onQuickReject,
+  onOpenRejectDialog,
+  onViewDetail,
+  actionLoading,
+}: {
+  mod: Modification;
+  onApprove: (id: string) => void;
+  onQuickReject: (id: string, reason: string) => void;
+  onOpenRejectDialog: (id: string) => void;
+  onViewDetail: (mod: Modification) => void;
+  actionLoading: string | null;
+}) {
+  const isLoading = actionLoading === mod.id;
+  const beforeStr = formatValue(mod.beforeValue);
+  const afterStr = formatValue(mod.afterValue);
+
+  return (
+    <div className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/30 transition-colors">
+      {/* Status + Priority */}
+      <div className="flex flex-col gap-1 items-center w-16 flex-shrink-0">
+        <Badge className={`text-[10px] ${getStatusColor(mod.status)}`}>
+          {getStatusLabel(mod.status)}
+        </Badge>
+        {mod.priority && (
+          <Badge className={`text-[10px] ${getPriorityColor(mod.priority)}`}>
+            {getPriorityLabel(mod.priority)}
+          </Badge>
+        )}
+      </div>
+
+      {/* Entity + Change */}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-foreground truncate">
+          {mod.entityName || mod.entityId}
+        </p>
+        <div className="text-xs text-muted-foreground mt-0.5">
+          <span>{getModificationTypeLabel(mod.modificationType)}</span>
+          {beforeStr !== '-' && (
+            <span className="ml-2">
+              {beforeStr.slice(0, 40)} → <span className="text-primary">{afterStr.slice(0, 40)}</span>
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-1 flex-shrink-0">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 w-7 p-0"
+          onClick={() => onViewDetail(mod)}
+          title="Dettagli"
+        >
+          <Eye className="h-3.5 w-3.5" />
+        </Button>
+        {mod.status === 'pending' && (
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-green-600 border-green-600 hover:bg-green-50 px-2"
+              onClick={() => onApprove(mod.id)}
+              disabled={isLoading}
+            >
+              {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-red-600 border-red-600 hover:bg-red-50 px-2"
+                  disabled={isLoading}
+                >
+                  <X className="h-3.5 w-3.5" />
+                  <ChevronDown className="h-2.5 w-2.5 ml-0.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                {REJECT_REASONS.map((reason) => (
+                  <DropdownMenuItem
+                    key={reason}
+                    onClick={() => onQuickReject(mod.id, reason)}
+                    className="text-sm cursor-pointer"
+                  >
+                    {reason}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuItem
+                  onClick={() => onOpenRejectDialog(mod.id)}
+                  className="text-sm cursor-pointer text-muted-foreground"
+                >
+                  Altro motivo...
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// =========================================================================
+// Mobile Card View Component
+// =========================================================================
+
+function MobileModificationCard({
+  mod,
+  onApprove,
+  onQuickReject,
+  onOpenRejectDialog,
+  onViewDetail,
+  actionLoading,
+}: {
+  mod: Modification;
+  onApprove: (id: string) => void;
+  onQuickReject: (id: string, reason: string) => void;
+  onOpenRejectDialog: (id: string) => void;
+  onViewDetail: (mod: Modification) => void;
+  actionLoading: string | null;
+}) {
+  const isLoading = actionLoading === mod.id;
+  const beforeStr = formatValue(mod.beforeValue);
+  const afterStr = formatValue(mod.afterValue);
+  const aiNotes = parseNotes(mod.notes);
+
+  return (
+    <div className="border rounded-lg bg-card p-4 space-y-3">
+      {/* Top row: Status + Priority + Entity Type */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Badge className={`text-xs ${getStatusColor(mod.status)}`}>
+          {getStatusLabel(mod.status)}
+        </Badge>
+        {mod.priority && (
+          <Badge className={`text-xs ${getPriorityColor(mod.priority)}`}>
+            {getPriorityLabel(mod.priority)}
+          </Badge>
+        )}
+        <span className="text-xs text-muted-foreground ml-auto">
+          {getEntityTypeLabel(mod.entityType)}
+        </span>
+      </div>
+
+      {/* Entity name */}
+      <div>
+        <p className="font-medium text-sm text-foreground">
+          {mod.entityName || mod.entityId}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {getModificationTypeLabel(mod.modificationType)}
+        </p>
+      </div>
+
+      {/* Before → After */}
+      <div className="bg-muted/50 rounded-lg p-3 space-y-1">
+        {beforeStr !== '-' ? (
+          <div className="text-sm">
+            <span className="text-muted-foreground">{beforeStr.slice(0, 60)}{beforeStr.length > 60 ? '...' : ''}</span>
+            <span className="text-muted-foreground mx-1">→</span>
+            <span className="font-medium text-primary">{afterStr.slice(0, 60)}{afterStr.length > 60 ? '...' : ''}</span>
+          </div>
+        ) : (
+          <p className="text-sm font-medium text-primary">
+            {afterStr.slice(0, 80)}{afterStr.length > 80 ? '...' : ''}
+          </p>
+        )}
+      </div>
+
+      {/* AI Rationale (truncated) */}
+      {aiNotes && aiNotes.rationale && (
+        <p className="text-xs text-muted-foreground line-clamp-2">
+          {aiNotes.rationale}
+        </p>
+      )}
+
+      {/* Result info for non-pending */}
+      {mod.status === 'applied' && (
+        <p className="text-xs text-green-600 flex items-center gap-1">
+          <Check className="h-3 w-3" />
+          {mod.resultMessage || 'Applicata'}
+        </p>
+      )}
+      {mod.status === 'failed' && (
+        <p className="text-xs text-red-600 flex items-center gap-1">
+          <AlertCircle className="h-3 w-3" />
+          {mod.resultMessage || 'Errore'}
+        </p>
+      )}
+      {mod.status === 'rejected' && mod.rejectionReason && (
+        <p className="text-xs text-red-600 flex items-center gap-1">
+          <X className="h-3 w-3" />
+          {mod.rejectionReason}
+        </p>
+      )}
+
+      {/* Action buttons for pending */}
+      {mod.status === 'pending' && (
+        <div className="flex gap-2 pt-1">
+          <Button
+            size="sm"
+            className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+            onClick={() => onApprove(mod.id)}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-1" />
+            ) : (
+              <Check className="h-4 w-4 mr-1" />
+            )}
+            Approva
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="sm"
+                variant="destructive"
+                className="flex-1"
+                disabled={isLoading}
+              >
+                <X className="h-4 w-4 mr-1" />
+                Rifiuta
+                <ChevronDown className="h-3 w-3 ml-1" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              {REJECT_REASONS.map((reason) => (
+                <DropdownMenuItem
+                  key={reason}
+                  onClick={() => onQuickReject(mod.id, reason)}
+                  className="text-sm cursor-pointer"
+                >
+                  {reason}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuItem
+                onClick={() => onOpenRejectDialog(mod.id)}
+                className="text-sm cursor-pointer text-muted-foreground"
+              >
+                Altro motivo...
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
+
+      {/* View Detail button */}
+      <Button
+        variant="ghost"
+        size="sm"
+        className="w-full h-8 text-xs"
+        onClick={() => onViewDetail(mod)}
+      >
+        <Eye className="h-3 w-3 mr-1" />
+        Vedi Dettagli
+      </Button>
+    </div>
   );
 }

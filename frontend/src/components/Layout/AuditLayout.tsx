@@ -27,6 +27,7 @@ import {
   Bell,
   ArrowLeft,
   Menu,
+  ChevronRight,
 } from 'lucide-react';
 
 const navItems = [
@@ -171,12 +172,23 @@ export function AuditLayout() {
                 <Menu className="h-5 w-5" />
               </button>
               <div className="min-w-0">
+                {/* Breadcrumb */}
+                <nav className="flex items-center gap-1 text-xs text-muted-foreground mb-0.5">
+                  <NavLink to="/accounts" className="hover:text-foreground transition-colors">
+                    Account
+                  </NavLink>
+                  <ChevronRight className="h-3 w-3" />
+                  <span className="text-foreground font-medium truncate max-w-[200px]">
+                    {account?.customerName || '...'}
+                  </span>
+                  <ChevronRight className="h-3 w-3" />
+                  <span className="text-foreground font-medium">
+                    {getCurrentPageTitle()}
+                  </span>
+                </nav>
                 <h1 className="text-lg font-semibold text-foreground truncate">
                   {account?.customerName || 'Loading...'}
                 </h1>
-                <p className="text-xs text-muted-foreground">
-                  ID: {account?.customerId}
-                </p>
               </div>
             </div>
             <div className="flex items-center gap-3">

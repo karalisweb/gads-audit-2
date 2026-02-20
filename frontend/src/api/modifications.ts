@@ -99,3 +99,54 @@ export async function bulkRejectModifications(
     { ids, reason },
   );
 }
+
+// =========================================================================
+// DASHBOARD APIs
+// =========================================================================
+
+export interface PendingSummary {
+  totalPending: number;
+  totalHighPriority: number;
+  byAccount: Array<{
+    accountId: string;
+    accountName: string;
+    customerId: string;
+    pendingCount: number;
+    highPriorityCount: number;
+  }>;
+}
+
+export interface ActivityItem {
+  type: string;
+  accountId: string;
+  accountName: string;
+  description: string;
+  timestamp: string;
+}
+
+export interface NextAnalysisInfo {
+  enabled: boolean;
+  nextRunAt: string | null;
+  nextAccounts: string[];
+  accountsPerRun: number;
+  time: string;
+}
+
+// Get cross-account pending modifications summary
+export async function getPendingSummary(): Promise<PendingSummary> {
+  return apiClient.get<PendingSummary>('/modifications/pending-summary');
+}
+
+// Get recent activity (modifications + AI analyses)
+export async function getRecentActivity(
+  limit = 20,
+): Promise<ActivityItem[]> {
+  return apiClient.get<ActivityItem[]>('/modifications/recent-activity', {
+    limit,
+  });
+}
+
+// Get next scheduled analysis info
+export async function getNextAnalysis(): Promise<NextAnalysisInfo> {
+  return apiClient.get<NextAnalysisInfo>('/settings/next-analysis');
+}

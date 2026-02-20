@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getKpis, getIssueSummary, getPerformanceTrend, getHealthScore, type IssueSummary, type KpiSnapshot, type HealthScoreResult } from '@/api/audit';
 import { getAnalysisHistory, getAcceptanceRate, analyzeAllModules, type AIAnalysisLog, type AcceptanceRate } from '@/api/ai';
+import { getModificationSummary } from '@/api/modifications';
 import { formatCurrency, formatNumber, formatPercent, formatRoas } from '@/lib/format';
 import { Button } from '@/components/ui/button';
 import type { KpiData } from '@/types/audit';
-import { AlertTriangle, AlertCircle, Info, TrendingDown, Target, Layers, Wallet, BarChart3, Brain, Loader2, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import type { ModificationSummary } from '@/types';
+import { getEntityTypeLabel } from '@/types/modification';
+import { AlertTriangle, AlertCircle, Info, TrendingDown, TrendingUp, Target, Layers, Wallet, BarChart3, Brain, Loader2, CheckCircle2, XCircle, Clock, Wrench } from 'lucide-react';
 import {
   LineChart,
   Line,
@@ -27,6 +30,7 @@ export function DashboardPage() {
   const [healthScore, setHealthScore] = useState<HealthScoreResult | null>(null);
   const [analysisHistory, setAnalysisHistory] = useState<AIAnalysisLog[]>([]);
   const [acceptanceRate, setAcceptanceRate] = useState<AcceptanceRate | null>(null);
+  const [modSummary, setModSummary] = useState<ModificationSummary | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -41,18 +45,37 @@ export function DashboardPage() {
       getHealthScore(accountId).catch(() => null),
       getAnalysisHistory(accountId, 5).catch(() => []),
       getAcceptanceRate(accountId).catch(() => null),
+      getModificationSummary(accountId).catch(() => null),
     ])
-      .then(([kpisData, issuesData, trendData, hsData, historyData, rateData]) => {
+      .then(([kpisData, issuesData, trendData, hsData, historyData, rateData, modSummaryData]) => {
         setKpis(kpisData);
         setIssueSummary(issuesData);
         setTrend(trendData);
         setHealthScore(hsData);
         setAnalysisHistory(historyData);
         setAcceptanceRate(rateData);
+        setModSummary(modSummaryData);
       })
       .catch(console.error)
       .finally(() => setIsLoading(false));
   }, [accountId]);
+
+  // Compute trend deltas (comparing first and last snapshots)
+  const trendDeltas = useMemo(() => {
+    if (trend.length < 2) return null;
+    const first = trend[0];
+    const last = trend[trend.length - 1];
+    const calcDelta = (newVal: number, oldVal: number) => {
+      if (oldVal === 0) return newVal > 0 ? 100 : 0;
+      return ((newVal - oldVal) / Math.abs(oldVal)) * 100;
+    };
+    return {
+      cost: calcDelta(last.cost, first.cost),
+      conversions: calcDelta(last.conversions, first.conversions),
+      cpa: calcDelta(last.cpa, first.cpa),
+      healthScore: (last.healthScore ?? 0) - (first.healthScore ?? 0),
+    };
+  }, [trend]);
 
   if (isLoading) {
     return (
@@ -198,7 +221,7 @@ export function DashboardPage() {
         />
       </div>
 
-      {/* Performance Cards - Compact */}
+      {/* Performance Cards - Compact with Trend Deltas */}
       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mt-4">Performance</h3>
       <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
         <CompactStatCard
@@ -206,15 +229,20 @@ export function DashboardPage() {
           value={formatCurrency(kpis.performance.cost * 1000000)}
           icon={<Wallet className="h-4 w-4" />}
           highlight
+          trendDelta={trendDeltas?.cost}
+          trendInverted
         />
         <CompactStatCard
           title="Conversioni"
           value={formatNumber(kpis.performance.conversions)}
           subtitle={formatCurrency(kpis.performance.conversionsValue * 1000000)}
+          trendDelta={trendDeltas?.conversions}
         />
         <CompactStatCard
           title="CPA"
           value={formatCurrency(kpis.performance.cpa * 1000000)}
+          trendDelta={trendDeltas?.cpa}
+          trendInverted
         />
         <CompactStatCard
           title="ROAS"
@@ -392,6 +420,48 @@ export function DashboardPage() {
         </Card>
       </div>
 
+      {/* AI Insights: Recommendations by Entity Type */}
+      {modSummary && modSummary.total > 0 && (
+        <Card className="bg-card border-border">
+          <CardContent className="py-3 px-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Wrench className="h-4 w-4 text-primary" />
+              <p className="text-xs font-medium text-muted-foreground">Raccomandazioni per Tipo</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(modSummary.byEntityType)
+                .filter(([, count]) => count > 0)
+                .sort(([, a], [, b]) => b - a)
+                .map(([type, count]) => (
+                  <Link
+                    key={type}
+                    to={`/audit/${accountId}/modifications`}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted hover:bg-muted/80 transition-colors"
+                  >
+                    <span className="text-sm font-medium text-foreground">{count}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {getEntityTypeLabel(type as Parameters<typeof getEntityTypeLabel>[0])}
+                    </span>
+                  </Link>
+                ))}
+            </div>
+            <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+              <span>Totale: <strong className="text-foreground">{modSummary.total}</strong></span>
+              {modSummary.byStatus.pending > 0 && (
+                <span className="text-yellow-600">
+                  {modSummary.byStatus.pending} in attesa
+                </span>
+              )}
+              {modSummary.byStatus.applied > 0 && (
+                <span className="text-green-600">
+                  {modSummary.byStatus.applied} applicate
+                </span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Performance Trend Charts */}
       {trendChartData.length >= 2 && (
         <>
@@ -493,15 +563,30 @@ interface CompactStatCardProps {
   highlight?: boolean;
   valueColor?: string;
   icon?: React.ReactNode;
+  trendDelta?: number | null;
+  trendInverted?: boolean; // true for metrics where lower is better (cost, CPA, CPC)
 }
 
-function CompactStatCard({ title, value, subtitle, highlight, valueColor, icon }: CompactStatCardProps) {
+function CompactStatCard({ title, value, subtitle, highlight, valueColor, icon, trendDelta, trendInverted }: CompactStatCardProps) {
+  // Determine if the trend is positive (good)
+  const showTrend = trendDelta !== undefined && trendDelta !== null && Math.abs(trendDelta) >= 0.5;
+  const isPositive = trendInverted ? trendDelta! < 0 : trendDelta! > 0;
+  const TrendIcon = trendDelta! > 0 ? TrendingUp : TrendingDown;
+
   return (
     <Card className={highlight ? 'bg-primary/5 border-primary/20' : 'bg-card border-border'}>
       <CardContent className="py-2.5 px-3">
         <div className="flex items-center justify-between">
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium text-muted-foreground truncate">{title}</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-xs font-medium text-muted-foreground truncate">{title}</p>
+              {showTrend && (
+                <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                  <TrendIcon className="h-3 w-3" />
+                  {Math.abs(trendDelta!).toFixed(0)}%
+                </span>
+              )}
+            </div>
             <p className={`text-lg font-bold truncate ${valueColor || 'text-foreground'}`}>
               {typeof value === 'number' ? value.toLocaleString() : value}
             </p>
