@@ -7,7 +7,8 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 
 
-## [2.9.0] - 2026-02-20nn### Aggiunton- Dashboard widgets, modifications UI/UX, mobile card view, sidebar badge, audit breadcrumbnn---n## [2.8.0] - 2026-02-20nn### Aggiunton- Deploy strutturato con versioning obbligatorio, changelog auto, docs checknn---n## [2.7.0] - 2026-02-14
+
+## [2.10.0] - 2026-02-20nn### Aggiunton- AI report with chat, unified conversions tab, conversion audit rulesnn---n## [2.9.0] - 2026-02-20nn### Aggiunton- Dashboard widgets, modifications UI/UX, mobile card view, sidebar badge, audit breadcrumbnn---n## [2.8.0] - 2026-02-20nn### Aggiunton- Deploy strutturato con versioning obbligatorio, changelog auto, docs checknn---n## [2.7.0] - 2026-02-14
 
 ### Aggiunto
 - **Pannello admin utenti**: pagina `/admin/users` per invitare collaboratori, gestire ruoli (admin/user), attivare/disattivare ed eliminare utenti

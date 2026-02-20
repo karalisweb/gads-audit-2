@@ -2,7 +2,7 @@
 
 #############################################################
 #  KW GADS Audit - Deploy Script
-#  Versione: 2.9.0
+#  Versione: 2.10.0
 #
 #  App:     KW GADS Audit
 #  URL:     https://gads.karalisdemo.it
@@ -25,7 +25,7 @@ set -e
 # ═══════════════════════════════════════════════════════════
 
 APP_NAME="KW GADS Audit"
-APP_VERSION="2.9.0"
+APP_VERSION="2.10.0"
 VPS_HOST="root@185.192.97.108"
 VPS_PATH="/var/www/gads-audit-2"
 BRANCH="main"
