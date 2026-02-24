@@ -46,6 +46,15 @@ export class GoogleAdsAccount {
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
 
+  @Column({ name: 'schedule_enabled', default: false })
+  scheduleEnabled: boolean;
+
+  @Column({ name: 'schedule_days', type: 'int', array: true, default: '{}' })
+  scheduleDays: number[];
+
+  @Column({ name: 'schedule_time', length: 5, default: '07:00' })
+  scheduleTime: string;
+
   @Column({ name: 'created_by', type: 'uuid', nullable: true })
   createdById: string;
 

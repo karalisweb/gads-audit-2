@@ -18,6 +18,9 @@ export interface GoogleAdsAccount {
   timeZone: string;
   isActive: boolean;
   createdAt: string;
+  scheduleEnabled: boolean;
+  scheduleDays: number[];
+  scheduleTime: string;
 }
 
 export interface ImportRun {

@@ -288,7 +288,10 @@ export function DashboardPage() {
                       : '-'}
                   </p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">
-                    {nextAnalysis.time} · {nextAnalysis.nextAccounts.slice(0, 2).join(', ')}
+                    {nextAnalysis.nextRunAt
+                      ? new Date(nextAnalysis.nextRunAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
+                      : ''}{' '}
+                    {nextAnalysis.nextAccounts.slice(0, 2).join(', ')}
                     {nextAnalysis.nextAccounts.length > 2 && ` +${nextAnalysis.nextAccounts.length - 2}`}
                   </p>
                 </div>

@@ -33,15 +33,20 @@ export class SettingsController {
   @Get('schedule')
   @Roles(UserRole.ADMIN)
   async getScheduleSettings() {
-    return this.settingsService.getScheduleSettings();
+    const emailRecipients = await this.settingsService.getScheduleEmailRecipients();
+    return { emailRecipients };
   }
 
   @Put('schedule')
   @Roles(UserRole.ADMIN)
   async updateScheduleSettings(
-    @Body() dto: { enabled?: boolean; cronExpression?: string; emailRecipients?: string[]; time?: string; accountsPerRun?: number },
+    @Body() dto: { emailRecipients?: string[] },
   ) {
-    return this.settingsService.updateScheduleSettings(dto);
+    if (dto.emailRecipients !== undefined) {
+      await this.settingsService.updateScheduleEmailRecipients(dto.emailRecipients);
+    }
+    const emailRecipients = await this.settingsService.getScheduleEmailRecipients();
+    return { emailRecipients };
   }
 
   @Get('next-analysis')

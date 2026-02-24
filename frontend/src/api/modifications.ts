@@ -128,8 +128,12 @@ export interface NextAnalysisInfo {
   enabled: boolean;
   nextRunAt: string | null;
   nextAccounts: string[];
-  accountsPerRun: number;
-  time: string;
+  scheduledAccounts: Array<{
+    accountId: string;
+    accountName: string;
+    scheduleDays: number[];
+    scheduleTime: string;
+  }>;
 }
 
 // Get cross-account pending modifications summary

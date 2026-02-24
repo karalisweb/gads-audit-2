@@ -109,155 +109,94 @@ export class SettingsService {
     return model || 'gpt-4o';
   }
 
-  // Schedule settings
-  async getScheduleSettings(): Promise<{
-    enabled: boolean;
-    cronExpression: string;
-    emailRecipients: string[];
-    time: string;
-    accountsPerRun: number;
-  }> {
-    const enabled = await this.getSetting('schedule_enabled');
-    const cron = await this.getSetting('schedule_cron');
+  // Schedule: email recipients (per-account scheduling is on the account entity)
+  async getScheduleEmailRecipients(): Promise<string[]> {
     const recipients = await this.getSetting('schedule_email_recipients');
-    const time = await this.getSetting('schedule_time');
-    const accountsPerRun = await this.getSetting('schedule_accounts_per_run');
-
-    return {
-      enabled: enabled === 'true',
-      cronExpression: cron || '0 7 * * 1', // Default: Monday 7 AM
-      emailRecipients: recipients ? recipients.split(',').map(e => e.trim()) : [],
-      time: time || '07:00',
-      accountsPerRun: accountsPerRun ? parseInt(accountsPerRun, 10) : 2,
-    };
+    return recipients ? recipients.split(',').map(e => e.trim()).filter(Boolean) : [];
   }
 
-  async updateScheduleSettings(settings: {
-    enabled?: boolean;
-    cronExpression?: string;
-    emailRecipients?: string[];
-    time?: string;
-    accountsPerRun?: number;
-  }): Promise<{ enabled: boolean; cronExpression: string; emailRecipients: string[]; time: string; accountsPerRun: number }> {
-    if (settings.enabled !== undefined) {
-      await this.setSetting('schedule_enabled', String(settings.enabled));
-    }
-    if (settings.cronExpression !== undefined) {
-      await this.setSetting('schedule_cron', settings.cronExpression);
-    }
-    if (settings.emailRecipients !== undefined) {
-      await this.setSetting('schedule_email_recipients', settings.emailRecipients.join(','));
-    }
-    if (settings.time !== undefined) {
-      await this.setSetting('schedule_time', settings.time);
-    }
-    if (settings.accountsPerRun !== undefined) {
-      await this.setSetting('schedule_accounts_per_run', String(settings.accountsPerRun));
-    }
-    this.logger.log('Schedule settings updated');
-    return this.getScheduleSettings();
-  }
-
-  // Internal: rotazione account
-  async getLastAccountIndex(): Promise<number> {
-    const val = await this.getSetting('schedule_last_account_index');
-    return val ? parseInt(val, 10) : 0;
-  }
-
-  async setLastAccountIndex(index: number): Promise<void> {
-    await this.setSetting('schedule_last_account_index', String(index));
+  async updateScheduleEmailRecipients(recipients: string[]): Promise<string[]> {
+    await this.setSetting('schedule_email_recipients', recipients.join(','));
+    this.logger.log('Schedule email recipients updated');
+    return recipients;
   }
 
   // =========================================================================
-  // DASHBOARD: Prossima analisi schedulata
+  // DASHBOARD: Prossima analisi schedulata (per-account)
   // =========================================================================
 
   async getNextAnalysisInfo(): Promise<{
     enabled: boolean;
     nextRunAt: string | null;
     nextAccounts: string[];
-    accountsPerRun: number;
-    time: string;
+    scheduledAccounts: Array<{
+      accountId: string;
+      accountName: string;
+      scheduleDays: number[];
+      scheduleTime: string;
+    }>;
   }> {
-    const schedule = await this.getScheduleSettings();
+    const accounts = await this.accountsRepository.find({
+      where: { isActive: true, scheduleEnabled: true },
+      order: { customerName: 'ASC' },
+    });
 
-    if (!schedule.enabled) {
+    if (accounts.length === 0) {
       return {
         enabled: false,
         nextRunAt: null,
         nextAccounts: [],
-        accountsPerRun: schedule.accountsPerRun,
-        time: schedule.time,
+        scheduledAccounts: [],
       };
     }
 
-    // Calcola prossimi account in rotazione
-    const accounts = await this.accountsRepository.find({
-      order: { customerName: 'ASC' },
-    });
+    // Calcola prossimo run: trova il primo (giorno, ora) tra tutti gli account schedulati
+    const now = new Date();
+    let nextRunAt: Date | null = null;
+    let nextAccounts: string[] = [];
 
-    const lastIndex = await this.getLastAccountIndex();
-    const perRun = schedule.accountsPerRun;
-    const nextAccounts: string[] = [];
+    for (let daysAhead = 0; daysAhead <= 7; daysAhead++) {
+      const candidate = new Date(now);
+      candidate.setDate(candidate.getDate() + daysAhead);
+      const dayOfWeek = candidate.getDay();
 
-    for (let i = 0; i < perRun && accounts.length > 0; i++) {
-      const idx = (lastIndex + i) % accounts.length;
-      nextAccounts.push(accounts[idx].customerName);
+      // Raggruppa account per orario in questo giorno
+      const timeMap = new Map<string, string[]>();
+      for (const acc of accounts) {
+        if (acc.scheduleDays?.includes(dayOfWeek)) {
+          const time = acc.scheduleTime || '07:00';
+          if (!timeMap.has(time)) timeMap.set(time, []);
+          timeMap.get(time)!.push(acc.customerName || acc.customerId);
+        }
+      }
+
+      // Ordina per orario e trova il primo slot non ancora passato
+      const sortedTimes = Array.from(timeMap.keys()).sort();
+      for (const time of sortedTimes) {
+        const [h, m] = time.split(':').map(Number);
+        const runDate = new Date(candidate);
+        runDate.setHours(h, m, 0, 0);
+
+        if (runDate.getTime() > now.getTime()) {
+          nextRunAt = runDate;
+          nextAccounts = timeMap.get(time)!;
+          break;
+        }
+      }
+
+      if (nextRunAt) break;
     }
-
-    // Calcola prossima data/ora di esecuzione
-    const nextRunAt = this.calculateNextRun(schedule.cronExpression, schedule.time);
 
     return {
       enabled: true,
-      nextRunAt,
+      nextRunAt: nextRunAt ? nextRunAt.toISOString() : null,
       nextAccounts,
-      accountsPerRun: schedule.accountsPerRun,
-      time: schedule.time,
+      scheduledAccounts: accounts.map(a => ({
+        accountId: a.id,
+        accountName: a.customerName || a.customerId,
+        scheduleDays: a.scheduleDays || [],
+        scheduleTime: a.scheduleTime || '07:00',
+      })),
     };
-  }
-
-  private calculateNextRun(cronExpression: string, time: string): string | null {
-    try {
-      // Estrai ora e minuti dal campo time (es: "08:45")
-      const [hours, minutes] = time.split(':').map(Number);
-
-      // Estrai i giorni dalla cron expression (campo 5: day of week)
-      const cronParts = cronExpression.trim().split(/\s+/);
-      const dayOfWeekField = cronParts[4] || '*'; // 0=Dom, 1=Lun, ...
-
-      // Parse giorni validi
-      let validDays: number[] = [];
-      if (dayOfWeekField === '*') {
-        validDays = [0, 1, 2, 3, 4, 5, 6];
-      } else if (dayOfWeekField.includes('-')) {
-        const [start, end] = dayOfWeekField.split('-').map(Number);
-        for (let d = start; d <= end; d++) validDays.push(d);
-      } else if (dayOfWeekField.includes(',')) {
-        validDays = dayOfWeekField.split(',').map(Number);
-      } else {
-        validDays = [parseInt(dayOfWeekField, 10)];
-      }
-
-      // Cerca il prossimo slot valido (max 14 giorni avanti)
-      const now = new Date();
-      for (let daysAhead = 0; daysAhead <= 14; daysAhead++) {
-        const candidate = new Date(now);
-        candidate.setDate(candidate.getDate() + daysAhead);
-        candidate.setHours(hours, minutes, 0, 0);
-
-        const dayOfWeek = candidate.getDay();
-        if (!validDays.includes(dayOfWeek)) continue;
-
-        // Se è oggi, controlla che l'ora non sia già passata
-        if (daysAhead === 0 && candidate.getTime() <= now.getTime()) continue;
-
-        return candidate.toISOString();
-      }
-
-      return null;
-    } catch {
-      return null;
-    }
   }
 }

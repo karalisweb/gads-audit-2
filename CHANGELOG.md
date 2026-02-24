@@ -5,7 +5,27 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.11.0] - 2026-02-24
 
+### Nome Release: Per-Account Scheduling & Enhanced Deploy
+
+### Aggiunto
+- **Scheduling AI per-account**: ogni account Google Ads ha il proprio scheduling indipendente (giorni della settimana + orario) configurabile direttamente dalla card account
+- **UI scheduling inline**: toggle on/off, selettore giorni (Lun-Dom) con pill buttons, time picker integrato nella card
+- **Riepilogo settimanale**: tab Schedule nelle impostazioni mostra una griglia settimanale con tutti gli account schedulati per giorno
+- **Migrazioni DB automatiche**: il deploy esegue automaticamente le migrazioni TypeORM sul VPS
+- **Deploy script migliorato**: aggiunta `--dry-run`, `--help`, `--no-tag`, git tags, health check, aggiornamento automatico GUIDA-UTENTE.md, editor CHANGELOG, nome release, timer durata, info rollback
+
+### Modificato
+- **AI Scheduler**: riscritto per usare scheduling per-account invece della rotazione globale
+- **Settings Schedule**: la tab Schedule nelle impostazioni è ora un riepilogo read-only (la configurazione si fa dalla pagina Account)
+- **Dashboard widget**: widget "Prossima Analisi" adattato alla nuova struttura per-account
+
+### Rimosso
+- Scheduling globale con cron expression e rotazione automatica degli account
+- Impostazioni `schedule_enabled`, `schedule_cron`, `schedule_time`, `schedule_accounts_per_run`, `schedule_last_account_index` dalla tabella `system_settings`
+
+---
 
 
 ## [2.10.0] - 2026-02-20nn### Aggiunton- AI report with chat, unified conversions tab, conversion audit rulesnn---n## [2.9.0] - 2026-02-20nn### Aggiunton- Dashboard widgets, modifications UI/UX, mobile card view, sidebar badge, audit breadcrumbnn---n## [2.8.0] - 2026-02-20nn### Aggiunton- Deploy strutturato con versioning obbligatorio, changelog auto, docs checknn---n## [2.7.0] - 2026-02-14

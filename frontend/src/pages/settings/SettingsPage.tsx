@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Settings, User, Lock, Shield, Check, Bot, Eye, EyeOff, Calendar } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Settings, User, Lock, Shield, Check, Bot, Eye, EyeOff, Calendar, Building2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,43 +8,16 @@ import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/stores/auth.store';
 import { apiClient } from '@/api/client';
 import type { ApiError } from '@/types';
+import type { NextAnalysisInfo } from '@/api/modifications';
 
 type TabType = 'profile' | 'password' | 'security' | 'ai' | 'schedule';
 
-function describeCron(cron: string): string {
-  const parts = cron.trim().split(/\s+/);
-  if (parts.length !== 5) return cron;
+const DAY_NAMES: Record<number, string> = {
+  0: 'Domenica', 1: 'Lunedi', 2: 'Martedi', 3: 'Mercoledi',
+  4: 'Giovedi', 5: 'Venerdi', 6: 'Sabato',
+};
 
-  const [, , , , dayOfWeek] = parts;
-
-  const dayNames: Record<string, string> = {
-    '0': 'Domenica', '1': 'Lunedi', '2': 'Martedi', '3': 'Mercoledi',
-    '4': 'Giovedi', '5': 'Venerdi', '6': 'Sabato', '7': 'Domenica',
-  };
-
-  if (dayOfWeek === '*') {
-    return 'Ogni giorno';
-  }
-
-  if (dayOfWeek === '1-5') {
-    return 'Dal Lunedi al Venerdi';
-  }
-
-  if (dayOfWeek === '1-6') {
-    return 'Dal Lunedi al Sabato';
-  }
-
-  // Handle comma-separated days
-  const days = dayOfWeek.split(',').map(d => dayNames[d.trim()] || d).filter(Boolean);
-  if (days.length === 1) {
-    return `Ogni ${days[0]}`;
-  }
-  if (days.length > 1) {
-    return days.join(', ');
-  }
-
-  return cron;
-}
+const WEEK_DAYS = [1, 2, 3, 4, 5, 6, 0]; // Lun-Dom
 
 interface AISettings {
   hasApiKey: boolean;
@@ -84,11 +58,8 @@ export function SettingsPage() {
   const [aiError, setAiError] = useState('');
 
   // Schedule state
-  const [scheduleEnabled, setScheduleEnabled] = useState(false);
-  const [scheduleCron, setScheduleCron] = useState('0 7 * * 1');
+  const [scheduleSummary, setScheduleSummary] = useState<NextAnalysisInfo | null>(null);
   const [scheduleRecipients, setScheduleRecipients] = useState('');
-  const [scheduleTime, setScheduleTime] = useState('07:00');
-  const [scheduleAccountsPerRun, setScheduleAccountsPerRun] = useState(2);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [scheduleSuccess, setScheduleSuccess] = useState('');
   const [scheduleError, setScheduleError] = useState('');
@@ -240,18 +211,12 @@ export function SettingsPage() {
 
   const loadScheduleSettings = async () => {
     try {
-      const settings = await apiClient.get<{
-        enabled: boolean;
-        cronExpression: string;
-        emailRecipients: string[];
-        time: string;
-        accountsPerRun: number;
-      }>('/settings/schedule');
-      setScheduleEnabled(settings.enabled);
-      setScheduleCron(settings.cronExpression);
+      const [analysisInfo, settings] = await Promise.all([
+        apiClient.get<NextAnalysisInfo>('/settings/next-analysis'),
+        apiClient.get<{ emailRecipients: string[] }>('/settings/schedule'),
+      ]);
+      setScheduleSummary(analysisInfo);
       setScheduleRecipients(settings.emailRecipients.join(', '));
-      setScheduleTime(settings.time || '07:00');
-      setScheduleAccountsPerRun(settings.accountsPerRun || 2);
     } catch (err) {
       console.error('Failed to load schedule settings:', err);
     }
@@ -263,13 +228,9 @@ export function SettingsPage() {
     setScheduleSuccess('');
     try {
       await apiClient.put('/settings/schedule', {
-        enabled: scheduleEnabled,
-        cronExpression: scheduleCron,
         emailRecipients: scheduleRecipients.split(',').map(e => e.trim()).filter(Boolean),
-        time: scheduleTime,
-        accountsPerRun: scheduleAccountsPerRun,
       });
-      setScheduleSuccess('Impostazioni schedulazione salvate');
+      setScheduleSuccess('Destinatari email aggiornati');
       setTimeout(() => setScheduleSuccess(''), 3000);
     } catch (err) {
       setScheduleError((err as ApiError)?.message || 'Errore nel salvataggio');
@@ -680,9 +641,9 @@ export function SettingsPage() {
           {activeTab === 'schedule' && isAdmin && (
             <div className="space-y-6">
               <div>
-                <h3 className="text-lg font-semibold text-foreground mb-2">Schedulazione Analisi AI</h3>
+                <h3 className="text-lg font-semibold text-foreground mb-2">Riepilogo Schedulazione Audit AI</h3>
                 <p className="text-muted-foreground text-sm mb-4">
-                  Configura l'esecuzione automatica dell'analisi AI. Gli account vengono analizzati a rotazione per distribuire il carico.
+                  Panoramica settimanale degli audit AI schedulati per ogni account.
                 </p>
               </div>
 
@@ -698,145 +659,86 @@ export function SettingsPage() {
                 </div>
               )}
 
-              {/* Enable/Disable Toggle */}
-              <Card className="bg-card/50 border-border">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                        scheduleEnabled ? 'bg-success/20' : 'bg-muted'
-                      }`}>
-                        {scheduleEnabled ? (
-                          <Check className="h-5 w-5 text-success" />
-                        ) : (
-                          <Calendar className="h-5 w-5 text-muted-foreground" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium text-foreground">
-                          {scheduleEnabled ? 'Schedulazione Attiva' : 'Schedulazione Disattivata'}
+              {/* Weekly Calendar Summary */}
+              {scheduleSummary && scheduleSummary.scheduledAccounts.length > 0 ? (
+                <div className="grid grid-cols-7 gap-1">
+                  {WEEK_DAYS.map(day => {
+                    const accountsForDay = scheduleSummary.scheduledAccounts.filter(
+                      a => a.scheduleDays.includes(day)
+                    );
+                    return (
+                      <div key={day} className="text-center">
+                        <p className="text-xs font-medium text-muted-foreground mb-1.5">
+                          {DAY_NAMES[day]?.slice(0, 3)}
                         </p>
-                        <p className="text-sm text-muted-foreground">
-                          {scheduleEnabled
-                            ? 'L\'analisi AI verrà eseguita automaticamente'
-                            : 'Attiva per eseguire l\'analisi AI automaticamente'}
-                        </p>
+                        <div className={`rounded-lg p-2 min-h-[80px] ${
+                          accountsForDay.length > 0 ? 'bg-primary/10 border border-primary/20' : 'bg-muted/30 border border-border'
+                        }`}>
+                          {accountsForDay.length > 0 ? (
+                            <div className="space-y-1">
+                              {accountsForDay.map(acc => (
+                                <div key={acc.accountId} className="text-[10px] leading-tight">
+                                  <p className="font-medium text-foreground truncate" title={acc.accountName}>
+                                    {acc.accountName.split(' ')[0]}
+                                  </p>
+                                  <p className="text-muted-foreground">{acc.scheduleTime}</p>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-[10px] text-muted-foreground mt-2">-</p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setScheduleEnabled(!scheduleEnabled)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        scheduleEnabled ? 'bg-primary' : 'bg-muted-foreground/30'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          scheduleEnabled ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Time & Accounts per run */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="scheduleTime" className="text-foreground">Ora di esecuzione</Label>
-                  <Input
-                    id="scheduleTime"
-                    type="time"
-                    value={scheduleTime}
-                    onChange={(e) => setScheduleTime(e.target.value)}
-                    className="bg-input border-border text-foreground"
-                  />
-                  <p className="text-xs text-muted-foreground">L'analisi partira a quest'ora</p>
+                    );
+                  })}
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="accountsPerRun" className="text-foreground">Account per esecuzione</Label>
-                  <select
-                    id="accountsPerRun"
-                    value={scheduleAccountsPerRun}
-                    onChange={(e) => setScheduleAccountsPerRun(parseInt(e.target.value, 10))}
-                    className="w-full h-10 px-3 rounded-md border border-border bg-input text-foreground"
-                  >
-                    <option value={1}>1 account</option>
-                    <option value={2}>2 account</option>
-                    <option value={3}>3 account</option>
-                    <option value={6}>Tutti (6 account)</option>
-                  </select>
-                  <p className="text-xs text-muted-foreground">Gli account vengono analizzati a rotazione</p>
-                </div>
-              </div>
-
-              {/* Cron Expression */}
-              <div className="space-y-2">
-                <Label htmlFor="cronExpression" className="text-foreground">Giorni di esecuzione</Label>
-
-                {/* Descrizione leggibile */}
+              ) : (
                 <Card className="bg-card/50 border-border">
-                  <CardContent className="p-3">
-                    <p className="text-sm text-foreground">
-                      <span className="font-medium">Programmazione attuale:</span>{' '}
-                      <span className="text-primary font-medium">{describeCron(scheduleCron)}</span>
+                  <CardContent className="p-6 text-center">
+                    <Calendar className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">
+                      Nessun account con audit AI schedulato.
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Configura lo scheduling dalla pagina Account.
                     </p>
                   </CardContent>
                 </Card>
+              )}
 
-                {/* Preset buttons */}
-                <p className="text-xs text-muted-foreground font-medium mt-3">Scegli i giorni:</p>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { label: 'Ogni giorno', value: '0 0 * * *' },
-                    { label: 'Lun-Ven', value: '0 0 * * 1-5' },
-                    { label: 'Lun-Sab', value: '0 0 * * 1-6' },
-                    { label: 'Lun, Mer, Ven', value: '0 0 * * 1,3,5' },
-                    { label: 'Lun e Gio', value: '0 0 * * 1,4' },
-                    { label: 'Solo Lunedi', value: '0 0 * * 1' },
-                  ].map((preset) => (
-                    <button
-                      key={preset.value}
-                      type="button"
-                      onClick={() => setScheduleCron(preset.value)}
-                      className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
-                        scheduleCron === preset.value
-                          ? 'bg-primary/20 border-primary text-primary font-medium'
-                          : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
-                      }`}
-                    >
-                      {preset.label}
-                    </button>
+              {/* Account list with schedule details */}
+              {scheduleSummary && scheduleSummary.scheduledAccounts.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-foreground">Dettaglio per account</Label>
+                  {scheduleSummary.scheduledAccounts.map(acc => (
+                    <Card key={acc.accountId} className="bg-card/50 border-border">
+                      <CardContent className="p-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Building2 className="h-3.5 w-3.5 text-primary" />
+                            <span className="text-sm font-medium text-foreground">{acc.accountName}</span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {acc.scheduleDays
+                              .sort((a, b) => {
+                                const order = [1,2,3,4,5,6,0];
+                                return order.indexOf(a) - order.indexOf(b);
+                              })
+                              .map(d => DAY_NAMES[d]?.slice(0, 3))
+                              .join(', ')}{' '}
+                            alle {acc.scheduleTime}
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
                   ))}
                 </div>
-
-                {/* Campo cron avanzato (collapsabile) */}
-                <details className="mt-3">
-                  <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-                    Configurazione avanzata (espressione cron)
-                  </summary>
-                  <div className="mt-2 space-y-1">
-                    <Input
-                      id="cronExpression"
-                      type="text"
-                      value={scheduleCron}
-                      onChange={(e) => setScheduleCron(e.target.value)}
-                      placeholder="0 7 * * 1"
-                      className="bg-input border-border text-foreground font-mono text-sm"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Formato: <code className="bg-muted px-1 rounded">minuto ora giorno-mese mese giorno-settimana</code>
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Giorni: 0=Dom, 1=Lun, 2=Mar, 3=Mer, 4=Gio, 5=Ven, 6=Sab
-                    </p>
-                  </div>
-                </details>
-              </div>
+              )}
 
               {/* Email Recipients */}
               <div className="space-y-2">
-                <Label htmlFor="emailRecipients" className="text-foreground">Destinatari Email</Label>
+                <Label htmlFor="emailRecipients" className="text-foreground">Destinatari Email Report</Label>
                 <textarea
                   id="emailRecipients"
                   value={scheduleRecipients}
@@ -846,7 +748,7 @@ export function SettingsPage() {
                   className="w-full px-3 py-2 rounded-md border border-border bg-input text-foreground text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Inserisci gli indirizzi email separati da virgola. Il report con i risultati dell'analisi verrà inviato a tutti i destinatari.
+                  Il report con i risultati dell'analisi viene inviato a tutti i destinatari dopo ogni esecuzione.
                 </p>
               </div>
 
@@ -856,7 +758,7 @@ export function SettingsPage() {
                 disabled={scheduleLoading}
                 className="bg-gradient-to-r from-primary to-yellow-500 hover:from-primary/90 hover:to-yellow-500/90 text-primary-foreground"
               >
-                {scheduleLoading ? 'Salvataggio...' : 'Salva impostazioni schedulazione'}
+                {scheduleLoading ? 'Salvataggio...' : 'Salva destinatari email'}
               </Button>
 
               {/* Info Card */}
@@ -867,10 +769,10 @@ export function SettingsPage() {
                     <div className="text-sm">
                       <p className="font-medium text-blue-500 mb-1">Come funziona</p>
                       <p className="text-muted-foreground">
-                        Il sistema analizza <strong>{scheduleAccountsPerRun} account alla volta</strong> in rotazione automatica.
-                        Nei giorni configurati, all'ora impostata, vengono analizzati i prossimi {scheduleAccountsPerRun} account
-                        e le modifiche proposte dall'AI vengono create automaticamente come "In Attesa" di approvazione.
-                        Un report viene inviato via email ai destinatari configurati.
+                        Ogni account ha il proprio scheduling configurabile direttamente dalla{' '}
+                        <Link to="/accounts" className="text-primary hover:underline font-medium">pagina Account</Link>.
+                        Nei giorni e all'ora impostati per ogni account, l'analisi AI viene eseguita automaticamente
+                        e le modifiche proposte vengono create come "In Attesa" di approvazione.
                       </p>
                     </div>
                   </div>

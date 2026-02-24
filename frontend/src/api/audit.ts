@@ -79,6 +79,20 @@ export async function getAccount(accountId: string): Promise<GoogleAdsAccount> {
   return apiClient.get<GoogleAdsAccount>(`/audit/accounts/${accountId}`);
 }
 
+// Account Schedule
+export interface UpdateAccountScheduleDto {
+  scheduleEnabled?: boolean;
+  scheduleDays?: number[];
+  scheduleTime?: string;
+}
+
+export async function updateAccountSchedule(
+  accountId: string,
+  data: UpdateAccountScheduleDto,
+): Promise<GoogleAdsAccount> {
+  return apiClient.patch<GoogleAdsAccount>(`/audit/accounts/${accountId}/schedule`, data);
+}
+
 // Import Runs
 export async function getImportRuns(accountId: string): Promise<ImportRun[]> {
   return apiClient.get<ImportRun[]>(`/audit/accounts/${accountId}/runs`);

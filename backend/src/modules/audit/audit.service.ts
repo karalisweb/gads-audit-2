@@ -36,6 +36,7 @@ import {
   NegativeKeywordFilterDto,
   AssetFilterDto,
   CreateAccountDto,
+  UpdateAccountScheduleDto,
 } from './dto';
 
 @Injectable()
@@ -257,6 +258,30 @@ export class AuditService {
     await this.accountRepository.save(account);
 
     return { success: true, message: `Account "${account.customerName}" eliminato con successo` };
+  }
+
+  async updateAccountSchedule(
+    accountId: string,
+    dto: UpdateAccountScheduleDto,
+  ): Promise<GoogleAdsAccount> {
+    const account = await this.accountRepository.findOne({
+      where: { id: accountId, isActive: true },
+    });
+    if (!account) {
+      throw new NotFoundException('Account not found');
+    }
+
+    if (dto.scheduleEnabled !== undefined) {
+      account.scheduleEnabled = dto.scheduleEnabled;
+    }
+    if (dto.scheduleDays !== undefined) {
+      account.scheduleDays = dto.scheduleDays;
+    }
+    if (dto.scheduleTime !== undefined) {
+      account.scheduleTime = dto.scheduleTime;
+    }
+
+    return this.accountRepository.save(account);
   }
 
   async getAccount(accountId: string): Promise<GoogleAdsAccount> {

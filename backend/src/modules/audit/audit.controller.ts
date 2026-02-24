@@ -13,6 +13,7 @@ import {
   IssueFilterDto,
   CreateAccountDto,
   RevealSecretDto,
+  UpdateAccountScheduleDto,
 } from './dto';
 
 @Controller('audit')
@@ -44,6 +45,14 @@ export class AuditController {
   @Get('accounts/:accountId')
   async getAccount(@Param('accountId', ParseUUIDPipe) accountId: string) {
     return this.auditService.getAccount(accountId);
+  }
+
+  @Patch('accounts/:accountId/schedule')
+  async updateAccountSchedule(
+    @Param('accountId', ParseUUIDPipe) accountId: string,
+    @Body() dto: UpdateAccountScheduleDto,
+  ) {
+    return this.auditService.updateAccountSchedule(accountId, dto);
   }
 
   @Post('accounts/:accountId/reveal-secret')

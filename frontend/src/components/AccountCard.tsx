@@ -1,14 +1,26 @@
+import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Building2, Key, Trash2, Calendar, Wrench, DollarSign, Target, Megaphone, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
+import { Building2, Key, Trash2, Calendar, Wrench, DollarSign, Target, Megaphone, TrendingUp, TrendingDown, AlertTriangle, Bot, Clock } from 'lucide-react';
 import { formatCurrency, formatNumber } from '@/lib/format';
-import type { AccountWithStats } from '@/api/audit';
+import type { AccountWithStats, UpdateAccountScheduleDto } from '@/api/audit';
+
+const DAYS = [
+  { value: 1, label: 'Lun' },
+  { value: 2, label: 'Mar' },
+  { value: 3, label: 'Mer' },
+  { value: 4, label: 'Gio' },
+  { value: 5, label: 'Ven' },
+  { value: 6, label: 'Sab' },
+  { value: 0, label: 'Dom' },
+];
 
 interface AccountCardProps {
   account: AccountWithStats;
   onRevealSecret?: (accountId: string) => void;
   onDelete?: (account: AccountWithStats) => void;
+  onScheduleUpdate?: (accountId: string, data: UpdateAccountScheduleDto) => void;
   showActions?: boolean;
 }
 
@@ -41,9 +53,14 @@ function HealthScoreBadge({ score }: { score: number }) {
   );
 }
 
-export function AccountCard({ account, onRevealSecret, onDelete, showActions = true }: AccountCardProps) {
+export function AccountCard({ account, onRevealSecret, onDelete, onScheduleUpdate, showActions = true }: AccountCardProps) {
   const stats = account.stats;
   const trends = account.trends;
+  const timeDebounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const [localEnabled, setLocalEnabled] = useState(account.scheduleEnabled);
+  const [localDays, setLocalDays] = useState<number[]>(account.scheduleDays || []);
+  const [localTime, setLocalTime] = useState(account.scheduleTime || '07:00');
 
   const handleRevealClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -55,6 +72,29 @@ export function AccountCard({ account, onRevealSecret, onDelete, showActions = t
     e.preventDefault();
     e.stopPropagation();
     onDelete?.(account);
+  };
+
+  const handleToggleSchedule = () => {
+    const newEnabled = !localEnabled;
+    setLocalEnabled(newEnabled);
+    onScheduleUpdate?.(account.id, { scheduleEnabled: newEnabled });
+  };
+
+  const handleToggleDay = (day: number) => {
+    const newDays = localDays.includes(day)
+      ? localDays.filter(d => d !== day)
+      : [...localDays, day];
+    setLocalDays(newDays);
+    onScheduleUpdate?.(account.id, { scheduleDays: newDays });
+  };
+
+  const handleTimeChange = (time: string) => {
+    setLocalTime(time);
+    // Debounce per evitare troppe chiamate API
+    if (timeDebounceRef.current) clearTimeout(timeDebounceRef.current);
+    timeDebounceRef.current = setTimeout(() => {
+      onScheduleUpdate?.(account.id, { scheduleTime: time });
+    }, 500);
   };
 
   return (
@@ -164,6 +204,64 @@ export function AccountCard({ account, onRevealSecret, onDelete, showActions = t
             </p>
           </div>
         </div>
+
+        {/* Schedule AI Audit */}
+        {onScheduleUpdate && (
+          <div className="border border-border rounded-lg p-3 mb-3 bg-muted/20">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-1.5">
+                <Bot className="h-3.5 w-3.5 text-primary" />
+                <span className="text-xs font-medium text-foreground">Audit AI</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleToggleSchedule}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                  localEnabled ? 'bg-primary' : 'bg-muted-foreground/30'
+                }`}
+              >
+                <span
+                  className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                    localEnabled ? 'translate-x-[18px]' : 'translate-x-[3px]'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {localEnabled && (
+              <div className="space-y-2">
+                {/* Day pills */}
+                <div className="flex gap-1">
+                  {DAYS.map(day => (
+                    <button
+                      key={day.value}
+                      type="button"
+                      onClick={() => handleToggleDay(day.value)}
+                      className={`flex-1 py-1 text-[10px] font-medium rounded transition-colors ${
+                        localDays.includes(day.value)
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted'
+                      }`}
+                    >
+                      {day.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Time picker */}
+                <div className="flex items-center gap-1.5">
+                  <Clock className="h-3 w-3 text-muted-foreground" />
+                  <input
+                    type="time"
+                    value={localTime}
+                    onChange={(e) => handleTimeChange(e.target.value)}
+                    className="h-7 px-2 text-xs rounded border border-border bg-input text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex gap-2">
