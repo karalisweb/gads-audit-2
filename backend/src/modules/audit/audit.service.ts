@@ -280,6 +280,9 @@ export class AuditService {
     if (dto.scheduleTime !== undefined) {
       account.scheduleTime = dto.scheduleTime;
     }
+    if (dto.scheduleFrequency !== undefined) {
+      account.scheduleFrequency = dto.scheduleFrequency;
+    }
 
     return this.accountRepository.save(account);
   }

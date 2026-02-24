@@ -728,6 +728,11 @@ export function SettingsPage() {
                               .map(d => DAY_NAMES[d]?.slice(0, 3))
                               .join(', ')}{' '}
                             alle {acc.scheduleTime}
+                            {acc.scheduleFrequency && acc.scheduleFrequency !== 'weekly' && (
+                              <span className="ml-1 text-primary">
+                                ({acc.scheduleFrequency === 'biweekly' ? 'ogni 2 sett.' : 'mensile'})
+                              </span>
+                            )}
                           </span>
                         </div>
                       </CardContent>

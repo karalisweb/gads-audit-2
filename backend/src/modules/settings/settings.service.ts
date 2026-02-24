@@ -134,6 +134,7 @@ export class SettingsService {
       accountName: string;
       scheduleDays: number[];
       scheduleTime: string;
+      scheduleFrequency: string;
     }>;
   }> {
     const accounts = await this.accountsRepository.find({
@@ -196,6 +197,7 @@ export class SettingsService {
         accountName: a.customerName || a.customerId,
         scheduleDays: a.scheduleDays || [],
         scheduleTime: a.scheduleTime || '07:00',
+        scheduleFrequency: a.scheduleFrequency || 'weekly',
       })),
     };
   }

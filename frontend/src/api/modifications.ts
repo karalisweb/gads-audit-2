@@ -133,6 +133,7 @@ export interface NextAnalysisInfo {
     accountName: string;
     scheduleDays: number[];
     scheduleTime: string;
+    scheduleFrequency: string;
   }>;
 }
 

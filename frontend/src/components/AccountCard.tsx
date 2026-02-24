@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Building2, Key, Trash2, Calendar, Wrench, DollarSign, Target, Megaphone, TrendingUp, TrendingDown, AlertTriangle, Bot, Clock } from 'lucide-react';
+import { Building2, Key, Trash2, Calendar, Wrench, DollarSign, Target, Megaphone, TrendingUp, TrendingDown, AlertTriangle, Bot, Clock, Repeat } from 'lucide-react';
 import { formatCurrency, formatNumber } from '@/lib/format';
 import type { AccountWithStats, UpdateAccountScheduleDto } from '@/api/audit';
 
@@ -14,6 +14,12 @@ const DAYS = [
   { value: 5, label: 'Ven' },
   { value: 6, label: 'Sab' },
   { value: 0, label: 'Dom' },
+];
+
+const FREQUENCIES = [
+  { value: 'weekly' as const, label: 'Ogni settimana' },
+  { value: 'biweekly' as const, label: 'Ogni 2 settimane' },
+  { value: 'monthly' as const, label: 'Ogni mese' },
 ];
 
 interface AccountCardProps {
@@ -61,6 +67,7 @@ export function AccountCard({ account, onRevealSecret, onDelete, onScheduleUpdat
   const [localEnabled, setLocalEnabled] = useState(account.scheduleEnabled);
   const [localDays, setLocalDays] = useState<number[]>(account.scheduleDays || []);
   const [localTime, setLocalTime] = useState(account.scheduleTime || '07:00');
+  const [localFrequency, setLocalFrequency] = useState<'weekly' | 'biweekly' | 'monthly'>(account.scheduleFrequency || 'weekly');
 
   const handleRevealClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -95,6 +102,11 @@ export function AccountCard({ account, onRevealSecret, onDelete, onScheduleUpdat
     timeDebounceRef.current = setTimeout(() => {
       onScheduleUpdate?.(account.id, { scheduleTime: time });
     }, 500);
+  };
+
+  const handleFrequencyChange = (frequency: 'weekly' | 'biweekly' | 'monthly') => {
+    setLocalFrequency(frequency);
+    onScheduleUpdate?.(account.id, { scheduleFrequency: frequency });
   };
 
   return (
@@ -248,15 +260,29 @@ export function AccountCard({ account, onRevealSecret, onDelete, onScheduleUpdat
                   ))}
                 </div>
 
-                {/* Time picker */}
-                <div className="flex items-center gap-1.5">
-                  <Clock className="h-3 w-3 text-muted-foreground" />
-                  <input
-                    type="time"
-                    value={localTime}
-                    onChange={(e) => handleTimeChange(e.target.value)}
-                    className="h-7 px-2 text-xs rounded border border-border bg-input text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                  />
+                {/* Time picker + Frequency */}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="h-3 w-3 text-muted-foreground" />
+                    <input
+                      type="time"
+                      value={localTime}
+                      onChange={(e) => handleTimeChange(e.target.value)}
+                      className="h-7 px-2 text-xs rounded border border-border bg-input text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-1">
+                    <Repeat className="h-3 w-3 text-muted-foreground" />
+                    <select
+                      value={localFrequency}
+                      onChange={(e) => handleFrequencyChange(e.target.value as 'weekly' | 'biweekly' | 'monthly')}
+                      className="h-7 px-1.5 text-xs rounded border border-border bg-input text-foreground focus:outline-none focus:ring-1 focus:ring-ring flex-1"
+                    >
+                      {FREQUENCIES.map(f => (
+                        <option key={f.value} value={f.value}>{f.label}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
             )}

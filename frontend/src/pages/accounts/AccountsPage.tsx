@@ -161,7 +161,7 @@ export function AccountsPage() {
       const updated = await updateAccountSchedule(accountId, data);
       setAccounts(prev => prev.map(a =>
         a.id === accountId
-          ? { ...a, scheduleEnabled: updated.scheduleEnabled, scheduleDays: updated.scheduleDays, scheduleTime: updated.scheduleTime }
+          ? { ...a, scheduleEnabled: updated.scheduleEnabled, scheduleDays: updated.scheduleDays, scheduleTime: updated.scheduleTime, scheduleFrequency: updated.scheduleFrequency }
           : a
       ));
     } catch (err) {

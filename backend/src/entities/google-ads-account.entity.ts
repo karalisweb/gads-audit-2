@@ -55,6 +55,9 @@ export class GoogleAdsAccount {
   @Column({ name: 'schedule_time', length: 5, default: '07:00' })
   scheduleTime: string;
 
+  @Column({ name: 'schedule_frequency', length: 10, default: 'weekly' })
+  scheduleFrequency: string; // 'weekly' | 'biweekly' | 'monthly'
+
   @Column({ name: 'created_by', type: 'uuid', nullable: true })
   createdById: string;
 

@@ -22,6 +22,39 @@ export class AISchedulerService {
     private readonly accountRepository: Repository<GoogleAdsAccount>,
   ) {}
 
+  /**
+   * Calcola il numero della settimana ISO dell'anno.
+   * Usato per determinare se eseguire l'analisi in base alla frequenza.
+   */
+  private getISOWeekNumber(date: Date): number {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  }
+
+  /**
+   * Determina se l'analisi deve essere eseguita questa settimana
+   * in base alla frequenza configurata.
+   * - weekly: ogni settimana
+   * - biweekly: settimane pari (2, 4, 6...)
+   * - monthly: solo la prima settimana del mese (giorno 1-7)
+   */
+  private shouldRunThisWeek(now: Date, frequency: string): boolean {
+    switch (frequency) {
+      case 'biweekly': {
+        const weekNum = this.getISOWeekNumber(now);
+        return weekNum % 2 === 0; // Esegui nelle settimane pari
+      }
+      case 'monthly': {
+        return now.getDate() <= 7; // Esegui solo nella prima settimana del mese
+      }
+      case 'weekly':
+      default:
+        return true; // Esegui sempre
+    }
+  }
+
   // Check every hour at :00 — each account has its own day/time config
   @Cron('0 * * * *')
   async handleScheduledAnalysis() {
@@ -47,11 +80,17 @@ export class AISchedulerService {
 
       // Filter accounts that should run right now
       const accountsToRun = accounts.filter(account => {
+        // Check day of week
         if (!account.scheduleDays || !account.scheduleDays.includes(currentDay)) {
           return false;
         }
+        // Check hour
         const [scheduledHour] = (account.scheduleTime || '07:00').split(':');
-        return currentHour === scheduledHour.padStart(2, '0');
+        if (currentHour !== scheduledHour.padStart(2, '0')) {
+          return false;
+        }
+        // Check frequency
+        return this.shouldRunThisWeek(now, account.scheduleFrequency || 'weekly');
       });
 
       if (accountsToRun.length === 0) {

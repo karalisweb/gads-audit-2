@@ -84,6 +84,7 @@ export interface UpdateAccountScheduleDto {
   scheduleEnabled?: boolean;
   scheduleDays?: number[];
   scheduleTime?: string;
+  scheduleFrequency?: 'weekly' | 'biweekly' | 'monthly';
 }
 
 export async function updateAccountSchedule(

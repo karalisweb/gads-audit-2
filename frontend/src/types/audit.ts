@@ -21,6 +21,7 @@ export interface GoogleAdsAccount {
   scheduleEnabled: boolean;
   scheduleDays: number[];
   scheduleTime: string;
+  scheduleFrequency: 'weekly' | 'biweekly' | 'monthly';
 }
 
 export interface ImportRun {
