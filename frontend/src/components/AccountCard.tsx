@@ -56,7 +56,7 @@ function HealthScoreBadge({ score }: { score: number }) {
 export function AccountCard({ account, onRevealSecret, onDelete, onScheduleUpdate, showActions = true }: AccountCardProps) {
   const stats = account.stats;
   const trends = account.trends;
-  const timeDebounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const timeDebounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const [localEnabled, setLocalEnabled] = useState(account.scheduleEnabled);
   const [localDays, setLocalDays] = useState<number[]>(account.scheduleDays || []);
