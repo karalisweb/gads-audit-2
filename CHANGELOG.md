@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.11.1] - 2026-03-02
+
+### Aggiunto
+- Add modification type filter on modifications page
+
+---
+
+
 ## [2.11.0] - 2026-02-24
 
 ### Nome Release: Per-Account Scheduling & Enhanced Deploy

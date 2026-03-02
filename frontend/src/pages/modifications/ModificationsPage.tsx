@@ -46,7 +46,7 @@ import type {
   ModificationStatus,
   PaginatedResponse,
 } from '@/types';
-import type { ModificationEntityType } from '@/types/modification';
+import type { ModificationEntityType, ModificationType } from '@/types/modification';
 import {
   getStatusColor,
   getStatusLabel,
@@ -242,6 +242,7 @@ export function ModificationsPage() {
   });
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [modTypeFilter, setModTypeFilter] = useState<string>('all');
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [selectedModId, setSelectedModId] = useState<string | null>(null);
@@ -271,6 +272,10 @@ export function ModificationsPage() {
           priorityFilter !== 'all'
             ? priorityFilter
             : undefined,
+        modificationType:
+          modTypeFilter !== 'all'
+            ? (modTypeFilter as ModificationType)
+            : undefined,
       };
       const [modsResult, summaryResult] = await Promise.all([
         getModifications(accountId, appliedFilters),
@@ -283,7 +288,7 @@ export function ModificationsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [accountId, filters, statusFilter, priorityFilter]);
+  }, [accountId, filters, statusFilter, priorityFilter, modTypeFilter]);
 
   useEffect(() => {
     fetchData();
@@ -841,6 +846,31 @@ export function ModificationsPage() {
             <SelectItem value="high">Alta</SelectItem>
             <SelectItem value="medium">Media</SelectItem>
             <SelectItem value="low">Bassa</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={modTypeFilter} onValueChange={setModTypeFilter}>
+          <SelectTrigger className="w-[210px]">
+            <SelectValue placeholder="Filtra per tipo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tutti i tipi</SelectItem>
+            <SelectItem value="campaign.budget">Modifica Budget</SelectItem>
+            <SelectItem value="campaign.status">Stato Campagna</SelectItem>
+            <SelectItem value="campaign.target_cpa">Target CPA</SelectItem>
+            <SelectItem value="campaign.target_roas">Target ROAS</SelectItem>
+            <SelectItem value="ad_group.status">Stato Gruppo</SelectItem>
+            <SelectItem value="ad_group.cpc_bid">Bid CPC Gruppo</SelectItem>
+            <SelectItem value="ad.status">Stato Annuncio</SelectItem>
+            <SelectItem value="ad.headlines">Titoli Annuncio</SelectItem>
+            <SelectItem value="ad.descriptions">Descrizioni Annuncio</SelectItem>
+            <SelectItem value="ad.final_url">URL Finale Annuncio</SelectItem>
+            <SelectItem value="keyword.status">Stato Keyword</SelectItem>
+            <SelectItem value="keyword.cpc_bid">Bid CPC Keyword</SelectItem>
+            <SelectItem value="keyword.final_url">URL Finale Keyword</SelectItem>
+            <SelectItem value="negative_keyword.add">Aggiungi Negativa</SelectItem>
+            <SelectItem value="negative_keyword.remove">Rimuovi Negativa</SelectItem>
+            <SelectItem value="conversion.primary">Conversione Primaria</SelectItem>
+            <SelectItem value="conversion.default_value">Valore Default</SelectItem>
           </SelectContent>
         </Select>
 
