@@ -6,6 +6,8 @@ import { AIService } from './ai.service';
 import { EmailService } from '../email/email.service';
 import { SettingsService } from '../settings/settings.service';
 import { ModificationsService } from '../modifications/modifications.service';
+import { AuditRulesService } from '../audit/audit-rules.service';
+import { AuditService } from '../audit/audit.service';
 import { GoogleAdsAccount, AnalysisTriggerType } from '../../entities';
 
 @Injectable()
@@ -18,6 +20,8 @@ export class AISchedulerService {
     private readonly emailService: EmailService,
     private readonly settingsService: SettingsService,
     private readonly modificationsService: ModificationsService,
+    private readonly auditRulesService: AuditRulesService,
+    private readonly auditService: AuditService,
     @InjectRepository(GoogleAdsAccount)
     private readonly accountRepository: Repository<GoogleAdsAccount>,
   ) {}
@@ -141,6 +145,17 @@ export class AISchedulerService {
             } catch (error) {
               this.logger.error(`Failed to create modifications for module ${moduleId} of ${account.customerName}: ${error.message}`);
             }
+          }
+
+          // Run rule-based audit to generate audit_issues
+          try {
+            const latestRun = await this.auditService.getLatestRun(account.id);
+            if (latestRun) {
+              const issueCount = await this.auditRulesService.runAllRules(account.id, latestRun.runId);
+              this.logger.log(`Audit rules completed for ${account.customerName}: ${issueCount} issues found`);
+            }
+          } catch (error) {
+            this.logger.error(`Failed to run audit rules for ${account.customerName}: ${error.message}`);
           }
 
           results.push({

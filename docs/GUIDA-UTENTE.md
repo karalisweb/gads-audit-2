@@ -230,4 +230,4 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 ---
 
-*Ultimo aggiornamento: 2 Marzo 2026 | Versione app: 2.11.1*
+*Ultimo aggiornamento: 3 Marzo 2026 | Versione app: 2.11.2*

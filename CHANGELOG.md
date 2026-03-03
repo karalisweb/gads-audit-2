@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.11.2] - 2026-03-03
+
+### Aggiunto
+- Run audit rules automatically during scheduled AI analysis
+
+---
+
+
 ## [2.11.1] - 2026-03-02
 
 ### Aggiunto

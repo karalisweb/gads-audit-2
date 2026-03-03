@@ -4,6 +4,7 @@ import { AIController } from './ai.controller';
 import { AIService } from './ai.service';
 import { AISchedulerService } from './ai-scheduler.service';
 import { ModificationsModule } from '../modifications/modifications.module';
+import { AuditModule } from '../audit/audit.module';
 import {
   Campaign,
   AdGroup,
@@ -46,6 +47,7 @@ import {
       AuditIssue,
     ]),
     ModificationsModule,
+    AuditModule,
   ],
   controllers: [AIController],
   providers: [AIService, AISchedulerService],
