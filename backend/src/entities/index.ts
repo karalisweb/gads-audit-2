@@ -25,3 +25,4 @@ export * from './run-kpi-snapshot.entity';
 export * from './ai-analysis-log.entity';
 export * from './audit-report.entity';
 export * from './audit-report-message.entity';
+export * from './landing-page-brief.entity';

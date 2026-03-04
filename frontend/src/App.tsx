@@ -29,6 +29,8 @@ const AssetsPage = lazy(() => import('@/pages/audit/AssetsPage').then(m => ({ de
 const AuditReportPage = lazy(() => import('@/pages/audit/AuditReportPage').then(m => ({ default: m.AuditReportPage })));
 const ConversionsPage = lazy(() => import('@/pages/audit/ConversionsPage').then(m => ({ default: m.ConversionsPage })));
 const LandingPagesPage = lazy(() => import('@/pages/audit/LandingPagesPage').then(m => ({ default: m.LandingPagesPage })));
+const LandingPagePlannerPage = lazy(() => import('@/pages/audit/LandingPagePlannerPage').then(m => ({ default: m.LandingPagePlannerPage })));
+const LandingPageBriefPage = lazy(() => import('@/pages/audit/LandingPageBriefPage').then(m => ({ default: m.LandingPageBriefPage })));
 const ModificationsPage = lazy(() => import('@/pages/modifications/ModificationsPage').then(m => ({ default: m.ModificationsPage })));
 
 function PageLoader() {
@@ -81,6 +83,8 @@ function App() {
                 <Route path="report" element={<AuditReportPage />} />
                 <Route path="conversions" element={<ConversionsPage />} />
                 <Route path="landing-pages" element={<LandingPagesPage />} />
+                <Route path="lp-planner" element={<LandingPagePlannerPage />} />
+                <Route path="lp-planner/:briefId" element={<LandingPageBriefPage />} />
                 <Route path="modifications" element={<ModificationsPage />} />
                 <Route index element={<Navigate to="dashboard" replace />} />
               </Route>

@@ -17,6 +17,7 @@ import { ModificationsModule } from './modules/modifications/modifications.modul
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { EmailModule } from './modules/email/email.module';
 import { SettingsModule } from './modules/settings/settings.module';
+import { LandingPagesModule } from './modules/landing-pages/landing-pages.module';
 import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
@@ -53,6 +54,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     AIModule,
     ModificationsModule,
     EmailModule,
+    LandingPagesModule,
   ],
   controllers: [AppController],
   providers: [

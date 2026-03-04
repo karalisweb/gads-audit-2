@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.12.0] - 2026-03-04
+
+### Aggiunto
+- Add LP Planner - keyword clustering + AI brief generation for landing pages
+
+---
+
+
 ## [2.11.2] - 2026-03-03
 
 ### Aggiunto

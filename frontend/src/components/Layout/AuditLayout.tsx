@@ -22,6 +22,7 @@ import {
   Target,
   Wrench,
   Globe,
+  PenTool,
   User,
   Bell,
   ArrowLeft,
@@ -41,6 +42,7 @@ const navItems = [
   { path: 'negative-keywords', label: 'Negative KW', shortLabel: 'Neg.', icon: MinusCircle },
   { path: 'assets', label: 'Assets', shortLabel: 'Assets', icon: Image },
   { path: 'landing-pages', label: 'Landing Pages', shortLabel: 'LP', icon: Globe },
+  { path: 'lp-planner', label: 'LP Planner', shortLabel: 'Planner', icon: PenTool },
   { path: 'modifications', label: 'Modifiche', shortLabel: 'Mod.', icon: Wrench },
 ];
 
@@ -57,6 +59,7 @@ const pageTitles: Record<string, string> = {
   'negative-keywords': 'Negative KW',
   'assets': 'Assets',
   'landing-pages': 'Landing Pages',
+  'lp-planner': 'LP Planner',
   'modifications': 'Modifiche',
 };
 
