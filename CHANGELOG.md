@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.13.3] - 2026-03-04
+
+### Corretto
+- Add missing PeriodSelection import in DashboardPage
+
+---
+
+
 ## [2.13.2] - 2026-03-04
 
 ### Corretto

@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getKpis, getIssueSummary, getPerformanceTrend, getHealthScore, getPeriodMetrics, type IssueSummary, type KpiSnapshot, type HealthScoreResult, type PeriodMetricsResponse } from '@/api/audit';
 import type { AuditLayoutContext } from '@/components/Layout/AuditLayout';
+import type { PeriodSelection } from '@/components/period';
 import { getAnalysisHistory, getAcceptanceRate, analyzeAllModules, type AIAnalysisLog, type AcceptanceRate } from '@/api/ai';
 import { getModificationSummary } from '@/api/modifications';
 import { formatCurrency, formatNumber, formatPercent, formatRoas } from '@/lib/format';

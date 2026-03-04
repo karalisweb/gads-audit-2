@@ -21,7 +21,7 @@ set -e
 # ═══════════════════════════════════════════════════════════
 
 APP_NAME="KW GADS Audit"
-APP_VERSION="2.13.2"
+APP_VERSION="2.13.3"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VPS_HOST="root@185.192.97.108"
 VPS_PATH="/var/www/gads-audit-2"
