@@ -28,7 +28,6 @@ import {
   scrapeSourceUrl,
   updateBrief,
   type LandingPageBrief,
-  type BriefSection,
 } from '@/api/landing-pages';
 
 const sectionIcons: Record<string, any> = {

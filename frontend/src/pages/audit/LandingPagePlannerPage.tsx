@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  PenTool,
   Loader2,
   Plus,
   Trash2,
   Search,
   ExternalLink,
-  AlertTriangle,
   Sparkles,
   FileText,
 } from 'lucide-react';
