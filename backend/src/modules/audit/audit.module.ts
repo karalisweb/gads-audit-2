@@ -19,6 +19,7 @@ import {
   AuditIssue,
   User,
   RunKpiSnapshot,
+  DailyMetric,
 } from '../../entities';
 
 @Module({
@@ -39,6 +40,7 @@ import {
       AuditIssue,
       User,
       RunKpiSnapshot,
+      DailyMetric,
     ]),
   ],
   controllers: [AuditController],

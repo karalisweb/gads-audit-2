@@ -2,9 +2,9 @@ import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Building2, Key, Trash2, Calendar, Wrench, DollarSign, Target, Megaphone, TrendingUp, TrendingDown, AlertTriangle, Bot, Clock, Repeat } from 'lucide-react';
+import { Building2, Key, Trash2, Calendar, Wrench, DollarSign, Target, Megaphone, TrendingUp, TrendingDown, AlertTriangle, Bot, Clock, Repeat, Briefcase, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatCurrency, formatNumber } from '@/lib/format';
-import type { AccountWithStats, UpdateAccountScheduleDto } from '@/api/audit';
+import type { AccountWithStats, UpdateAccountScheduleDto, UpdateAccountStrategyDto } from '@/api/audit';
 
 const DAYS = [
   { value: 1, label: 'Lun' },
@@ -22,11 +22,31 @@ const FREQUENCIES = [
   { value: 'monthly' as const, label: 'Ogni mese' },
 ];
 
+const BUSINESS_TYPES = [
+  { value: '', label: 'Non specificato' },
+  { value: 'hotel', label: 'Hotel / Struttura' },
+  { value: 'ecommerce', label: 'E-commerce' },
+  { value: 'services', label: 'Servizi' },
+  { value: 'lead_gen', label: 'Lead Generation' },
+  { value: 'local_business', label: 'Attivita Locale' },
+  { value: 'other', label: 'Altro' },
+];
+
+const PRIMARY_OBJECTIVES = [
+  { value: '', label: 'Non specificato' },
+  { value: 'brand_awareness', label: 'Brand Awareness' },
+  { value: 'leads', label: 'Contatti / Richieste' },
+  { value: 'conversions', label: 'Conversioni / Vendite' },
+  { value: 'traffic', label: 'Traffico' },
+  { value: 'calls', label: 'Chiamate' },
+];
+
 interface AccountCardProps {
   account: AccountWithStats;
   onRevealSecret?: (accountId: string) => void;
   onDelete?: (account: AccountWithStats) => void;
   onScheduleUpdate?: (accountId: string, data: UpdateAccountScheduleDto) => void;
+  onStrategyUpdate?: (accountId: string, data: UpdateAccountStrategyDto) => void;
   showActions?: boolean;
 }
 
@@ -59,15 +79,22 @@ function HealthScoreBadge({ score }: { score: number }) {
   );
 }
 
-export function AccountCard({ account, onRevealSecret, onDelete, onScheduleUpdate, showActions = true }: AccountCardProps) {
+export function AccountCard({ account, onRevealSecret, onDelete, onScheduleUpdate, onStrategyUpdate, showActions = true }: AccountCardProps) {
   const stats = account.stats;
   const trends = account.trends;
   const timeDebounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const strategyDebounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const [localEnabled, setLocalEnabled] = useState(account.scheduleEnabled);
   const [localDays, setLocalDays] = useState<number[]>(account.scheduleDays || []);
   const [localTime, setLocalTime] = useState(account.scheduleTime || '07:00');
   const [localFrequency, setLocalFrequency] = useState<'weekly' | 'biweekly' | 'monthly'>(account.scheduleFrequency || 'weekly');
+
+  // Strategy state
+  const [strategyExpanded, setStrategyExpanded] = useState(false);
+  const [localBusinessType, setLocalBusinessType] = useState(account.businessType || '');
+  const [localObjective, setLocalObjective] = useState(account.primaryObjective || '');
+  const [localNotes, setLocalNotes] = useState(account.strategyNotes || '');
 
   const handleRevealClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -108,6 +135,26 @@ export function AccountCard({ account, onRevealSecret, onDelete, onScheduleUpdat
     setLocalFrequency(frequency);
     onScheduleUpdate?.(account.id, { scheduleFrequency: frequency });
   };
+
+  const handleBusinessTypeChange = (value: string) => {
+    setLocalBusinessType(value);
+    onStrategyUpdate?.(account.id, { businessType: value || undefined });
+  };
+
+  const handleObjectiveChange = (value: string) => {
+    setLocalObjective(value);
+    onStrategyUpdate?.(account.id, { primaryObjective: value || undefined });
+  };
+
+  const handleNotesChange = (value: string) => {
+    setLocalNotes(value);
+    if (strategyDebounceRef.current) clearTimeout(strategyDebounceRef.current);
+    strategyDebounceRef.current = setTimeout(() => {
+      onStrategyUpdate?.(account.id, { strategyNotes: value });
+    }, 800);
+  };
+
+  const hasStrategy = !!(account.businessType || account.primaryObjective || account.strategyNotes);
 
   return (
     <Card className="bg-card border-border hover:border-primary/30 transition-colors">
@@ -284,6 +331,62 @@ export function AccountCard({ account, onRevealSecret, onDelete, onScheduleUpdat
                     </select>
                   </div>
                 </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Account Strategy */}
+        {onStrategyUpdate && (
+          <div className="border border-border rounded-lg p-3 mb-3 bg-muted/20">
+            <button
+              type="button"
+              onClick={() => setStrategyExpanded(!strategyExpanded)}
+              className="flex items-center justify-between w-full"
+            >
+              <div className="flex items-center gap-1.5">
+                <Briefcase className="h-3.5 w-3.5 text-primary" />
+                <span className="text-xs font-medium text-foreground">Strategia</span>
+                {hasStrategy && !strategyExpanded && (
+                  <span className="text-[10px] text-muted-foreground ml-1">
+                    {BUSINESS_TYPES.find(b => b.value === account.businessType)?.label || ''}
+                    {account.primaryObjective ? ` · ${PRIMARY_OBJECTIVES.find(o => o.value === account.primaryObjective)?.label || ''}` : ''}
+                  </span>
+                )}
+              </div>
+              {strategyExpanded ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+            </button>
+
+            {strategyExpanded && (
+              <div className="space-y-2 mt-2">
+                <div className="flex items-center gap-2">
+                  <select
+                    value={localBusinessType}
+                    onChange={(e) => handleBusinessTypeChange(e.target.value)}
+                    className="h-7 px-1.5 text-xs rounded border border-border bg-input text-foreground focus:outline-none focus:ring-1 focus:ring-ring flex-1"
+                  >
+                    {BUSINESS_TYPES.map(bt => (
+                      <option key={bt.value} value={bt.value}>{bt.label}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={localObjective}
+                    onChange={(e) => handleObjectiveChange(e.target.value)}
+                    className="h-7 px-1.5 text-xs rounded border border-border bg-input text-foreground focus:outline-none focus:ring-1 focus:ring-ring flex-1"
+                  >
+                    {PRIMARY_OBJECTIVES.map(obj => (
+                      <option key={obj.value} value={obj.value}>{obj.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <textarea
+                  value={localNotes}
+                  onChange={(e) => handleNotesChange(e.target.value)}
+                  placeholder="Note strategiche (es: deve battere Booking sulle ricerche brand...)"
+                  rows={2}
+                  maxLength={2000}
+                  className="w-full px-2 py-1.5 text-xs rounded border border-border bg-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+                />
               </div>
             )}
           </div>

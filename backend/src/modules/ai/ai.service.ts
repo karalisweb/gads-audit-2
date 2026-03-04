@@ -128,6 +128,9 @@ export class AIService {
     // Fetch decision history context (learning dalle decisioni utente approve/reject)
     const decisionHistoryContext = await this.buildDecisionHistoryContext(accountId);
 
+    // Fetch account strategy context (tipo business, obiettivo, note strategiche)
+    const accountStrategyContext = await this.buildAccountStrategyContext(accountId);
+
     // Fetch data based on module requirements
     const { data, stats } = await this.fetchModuleData(
       accountId,
@@ -142,12 +145,14 @@ export class AIService {
     // Prepend all context layers to prompts
     const enrichedSystemPrompt = [
       decisionHistoryContext.systemPrefix,
+      accountStrategyContext.systemPrefix,
       campaignStrategyContext.systemPrefix,
       moduleConfig.systemPrompt,
     ].filter(Boolean).join('\n\n');
 
     const enrichedUserPrompt = [
       decisionHistoryContext.userPrefix,
+      accountStrategyContext.userPrefix,
       campaignStrategyContext.userPrefix,
       userPrompt,
     ].filter(Boolean).join('\n\n');
@@ -257,6 +262,63 @@ QUANDO analizzi un ad group, keyword, annuncio o qualsiasi entita, DEVI prima ve
 ${campaignLines}
 
 Usa questo contesto per interpretare correttamente i dati che seguono. Le metriche da valutare dipendono dalla strategia della campagna padre.`;
+
+    return { systemPrefix, userPrefix };
+  }
+
+  /**
+   * Costruisce il contesto strategico dell'account (tipo business, obiettivo, note).
+   * Viene iniettato in TUTTI i moduli AI come prefisso, così l'AI adatta le raccomandazioni
+   * alla strategia specifica dell'account (es. hotel vs lead gen vs ecommerce).
+   */
+  private async buildAccountStrategyContext(
+    accountId: string,
+  ): Promise<{ systemPrefix: string; userPrefix: string }> {
+    const account = await this.accountRepository.findOne({
+      where: { id: accountId },
+      select: ['customerName', 'businessType', 'primaryObjective', 'strategyNotes'],
+    });
+
+    if (!account || (!account.businessType && !account.primaryObjective && !account.strategyNotes)) {
+      return { systemPrefix: '', userPrefix: '' };
+    }
+
+    const businessTypeLabels: Record<string, string> = {
+      hotel: 'Hotel / Struttura ricettiva',
+      ecommerce: 'E-commerce',
+      services: 'Servizi professionali',
+      lead_gen: 'Lead generation',
+      local_business: 'Attività locale',
+      other: 'Altro',
+    };
+
+    const objectiveLabels: Record<string, string> = {
+      brand_awareness: 'Brand awareness - essere visibili e riconosciuti',
+      leads: 'Generazione contatti/richieste',
+      conversions: 'Conversioni e vendite',
+      traffic: 'Traffico al sito',
+      calls: 'Chiamate telefoniche',
+    };
+
+    const systemPrefix = `STRATEGIA ACCOUNT - ADATTA TUTTE LE RACCOMANDAZIONI:
+Questo account ha una strategia di business specifica. TUTTE le raccomandazioni devono essere coerenti con il tipo di business, l'obiettivo primario e le note strategiche.
+NON suggerire azioni che contraddicono la strategia. Se l'obiettivo è brand awareness, NON suggerire di tagliare campagne brand. Se l'obiettivo è lead generation, concentrati sulla qualità dei lead e il CPA.`;
+
+    const parts: string[] = [];
+    if (account.customerName) {
+      parts.push(`Account: ${account.customerName}`);
+    }
+    if (account.businessType) {
+      parts.push(`Tipo business: ${businessTypeLabels[account.businessType] || account.businessType}`);
+    }
+    if (account.primaryObjective) {
+      parts.push(`Obiettivo primario: ${objectiveLabels[account.primaryObjective] || account.primaryObjective}`);
+    }
+    if (account.strategyNotes) {
+      parts.push(`Note strategiche: ${account.strategyNotes}`);
+    }
+
+    const userPrefix = `CONTESTO STRATEGICO ACCOUNT:\n${parts.join('\n')}\n\nAdatta tutte le raccomandazioni a questa strategia.`;
 
     return { systemPrefix, userPrefix };
   }
@@ -1270,14 +1332,19 @@ ${auditIssues
   .join('\n')}
 `.trim();
 
+      // Inject account strategy context into report
+      const accountStrategyCtx = await this.buildAccountStrategyContext(accountId);
+      const strategyBlock = [accountStrategyCtx.systemPrefix, accountStrategyCtx.userPrefix].filter(Boolean).join('\n\n');
+
       const systemPrompt = `Sei un esperto Google Ads Specialist senior con oltre 10 anni di esperienza. Genera un REPORT DI AUDIT completo e professionale in italiano per l'account Google Ads analizzato.
 
-Il report deve essere:
+${strategyBlock ? strategyBlock + '\n\n' : ''}Il report deve essere:
 - DISCORSIVO e narrativo, non una semplice lista puntata
 - Coprire sia gli ASPETTI POSITIVI che NEGATIVI dell'account
 - Basato sui DATI CONCRETI forniti
 - Strutturato in sezioni chiare con heading markdown (##)
 - Professionale ma comprensibile anche per chi non è un esperto
+- COERENTE con la strategia dell'account (se specificata sopra)
 
 STRUTTURA OBBLIGATORIA DEL REPORT:
 

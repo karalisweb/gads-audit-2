@@ -23,8 +23,9 @@ import {
   ConversionAction,
   GeoPerformance,
   DevicePerformance,
+  DailyMetric,
 } from '../../entities';
-import { IngestDto, DatasetName, VALID_DATASETS } from './dto';
+import { IngestDto, DatasetName, VALID_DATASETS, DAILY_DATASET_ENTITY_MAP } from './dto';
 
 @Injectable()
 export class IntegrationsService {
@@ -224,6 +225,15 @@ export class IntegrationsService {
       case 'device_performance':
         await this.processDevicePerformance(manager, accountId, runId, data, dateStart, dateEnd);
         break;
+      case 'daily_campaigns':
+      case 'daily_ad_groups':
+      case 'daily_keywords':
+      case 'daily_ads':
+      case 'daily_search_terms': {
+        const entityType = DAILY_DATASET_ENTITY_MAP[datasetName];
+        await this.processDailyMetrics(manager, accountId, runId, data, entityType);
+        break;
+      }
     }
   }
 
@@ -599,6 +609,51 @@ export class IntegrationsService {
         },
         ['accountId', 'runId', 'campaignId', 'device'],
       );
+    }
+  }
+
+  /**
+   * Processa metriche giornaliere per qualsiasi tipo di entità.
+   * Inserisce/aggiorna righe nella tabella daily_metrics con breakdown per giorno.
+   */
+  private async processDailyMetrics(
+    manager: EntityManager,
+    accountId: string,
+    runId: string,
+    data: Record<string, unknown>[],
+    entityType: string,
+  ): Promise<void> {
+    // Batch insert for performance
+    const batchSize = 100;
+    for (let i = 0; i < data.length; i += batchSize) {
+      const batch = data.slice(i, i + batchSize);
+      const values = batch.map(row => ({
+        accountId,
+        runId,
+        entityType,
+        entityId: String(row.entity_id || row.entityId || row.campaign_id || row.campaignId || row.ad_group_id || row.adGroupId || row.keyword_id || row.keywordId || row.ad_id || row.adId || ''),
+        entityName: String(row.entity_name || row.entityName || row.campaign_name || row.campaignName || row.ad_group_name || row.adGroupName || row.keyword_text || row.keywordText || row.ad_name || row.adName || row.search_term || row.searchTerm || ''),
+        campaignId: String(row.campaign_id || row.campaignId || ''),
+        date: String(row.date || row.segments_date || row.segmentsDate || ''),
+        impressions: String(row.impressions || 0),
+        clicks: String(row.clicks || 0),
+        costMicros: String(row.cost_micros || row.costMicros || 0),
+        conversions: String(row.conversions || 0),
+        conversionsValue: String(row.conversions_value || row.conversionsValue || 0),
+        ctr: String(row.ctr || 0),
+        averageCpcMicros: String(row.average_cpc_micros || row.averageCpcMicros || 0),
+      }));
+
+      await manager
+        .createQueryBuilder()
+        .insert()
+        .into(DailyMetric)
+        .values(values)
+        .orUpdate(
+          ['impressions', 'clicks', 'cost_micros', 'conversions', 'conversions_value', 'ctr', 'average_cpc_micros', 'entity_name'],
+          ['account_id', 'run_id', 'entity_type', 'entity_id', 'date'],
+        )
+        .execute();
     }
   }
 

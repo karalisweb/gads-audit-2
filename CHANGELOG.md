@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.13.0] - 2026-03-04
+
+### Aggiunto
+- Account strategy + daily metrics + period filter
+
+---
+
+
 ## [2.12.1] - 2026-03-04
 
 ### Modificato

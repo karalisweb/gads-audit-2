@@ -58,6 +58,16 @@ export class GoogleAdsAccount {
   @Column({ name: 'schedule_frequency', length: 10, default: 'weekly' })
   scheduleFrequency: string; // 'weekly' | 'biweekly' | 'monthly'
 
+  // Account strategy fields
+  @Column({ name: 'business_type', length: 50, nullable: true })
+  businessType: string; // hotel, ecommerce, services, lead_gen, local_business, other
+
+  @Column({ name: 'primary_objective', length: 50, nullable: true })
+  primaryObjective: string; // brand_awareness, leads, conversions, traffic, calls
+
+  @Column({ name: 'strategy_notes', type: 'text', nullable: true })
+  strategyNotes: string;
+
   @Column({ name: 'created_by', type: 'uuid', nullable: true })
   createdById: string;
 

@@ -234,6 +234,7 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 | Versione | Data | Descrizione |
 |----------|------|-------------|
+| 2.13.0 | 4 Marzo 2026 | Account strategy + daily metrics + period filter |
 | 2.12.1 | 4 Marzo 2026 | Code cleanup, shared OpenAI provider, deploy script improvements |
 | 2.12.0 | 4 Marzo 2026 | LP Planner con clustering keyword e brief AI per landing page |
 | 2.11.2 | 3 Marzo 2026 | Esecuzione automatica audit rules durante analisi AI schedulata |
@@ -242,4 +243,4 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 ---
 
-*Ultimo aggiornamento: 4 Marzo 2026 | Versione app: 2.12.1*
+*Ultimo aggiornamento: 4 Marzo 2026 | Versione app: 2.13.0*

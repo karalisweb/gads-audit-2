@@ -14,6 +14,7 @@ import {
   CreateAccountDto,
   RevealSecretDto,
   UpdateAccountScheduleDto,
+  UpdateAccountStrategyDto,
 } from './dto';
 
 @Controller('audit')
@@ -55,6 +56,14 @@ export class AuditController {
     return this.auditService.updateAccountSchedule(accountId, dto);
   }
 
+  @Patch('accounts/:accountId/strategy')
+  async updateAccountStrategy(
+    @Param('accountId', ParseUUIDPipe) accountId: string,
+    @Body() dto: UpdateAccountStrategyDto,
+  ) {
+    return this.auditService.updateAccountStrategy(accountId, dto);
+  }
+
   @Post('accounts/:accountId/reveal-secret')
   async revealSharedSecret(
     @Param('accountId', ParseUUIDPipe) accountId: string,
@@ -89,6 +98,25 @@ export class AuditController {
     @Query('runId') runId?: string,
   ) {
     return this.auditService.getKpis(accountId, runId);
+  }
+
+  @Get('accounts/:accountId/period-metrics')
+  async getPeriodMetrics(
+    @Param('accountId', ParseUUIDPipe) accountId: string,
+    @Query('dateFrom') dateFrom: string,
+    @Query('dateTo') dateTo: string,
+    @Query('compare') compare?: string,
+  ) {
+    return this.auditService.getPeriodMetrics(accountId, dateFrom, dateTo, compare === 'true');
+  }
+
+  @Get('period-metrics-all')
+  async getPeriodMetricsAll(
+    @Query('dateFrom') dateFrom: string,
+    @Query('dateTo') dateTo: string,
+    @Query('compare') compare?: string,
+  ) {
+    return this.auditService.getPeriodMetricsAll(dateFrom, dateTo, compare === 'true');
   }
 
   @Get('accounts/:accountId/health-score')

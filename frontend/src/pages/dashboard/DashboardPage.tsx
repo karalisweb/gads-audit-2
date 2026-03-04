@@ -1,10 +1,11 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { getAccountsWithStats, type AccountWithStats } from '@/api/audit';
+import { getAccountsWithStats, getPeriodMetricsAll, type AccountWithStats, type PeriodMetricsResponse } from '@/api/audit';
+import { PeriodSelector, getDefaultPeriod, type PeriodSelection } from '@/components/period/PeriodSelector';
 import {
   getPendingSummary,
   getRecentActivity,
@@ -31,6 +32,7 @@ import {
 } from 'lucide-react';
 import { AccountCard } from '@/components/AccountCard';
 import { formatCurrency, formatNumber } from '@/lib/format';
+import { TrendingUp, TrendingDown } from 'lucide-react';
 
 // Helper: tempo relativo ("2 ore fa", "ieri", etc.)
 function timeAgo(dateString: string): string {
@@ -67,6 +69,19 @@ function ActivityIcon({ type }: { type: string }) {
   }
 }
 
+function PeriodChangeBadge({ value, inverted = false }: { value: number | undefined; inverted?: boolean }) {
+  if (!value || value === 0) return null;
+  const isPositive = inverted ? value < 0 : value > 0;
+  const color = isPositive ? 'text-green-600' : 'text-red-600';
+  const Icon = value > 0 ? TrendingUp : TrendingDown;
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium ${color}`}>
+      <Icon className="h-3 w-3" />
+      {Math.abs(value).toFixed(1)}%
+    </span>
+  );
+}
+
 export function DashboardPage() {
   const [accounts, setAccounts] = useState<AccountWithStats[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -74,9 +89,31 @@ export function DashboardPage() {
   const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([]);
   const [nextAnalysis, setNextAnalysis] = useState<NextAnalysisInfo | null>(null);
 
+  // Period metrics state
+  const [period, setPeriod] = useState<PeriodSelection>(getDefaultPeriod(7));
+  const [periodMetrics, setPeriodMetrics] = useState<PeriodMetricsResponse | null>(null);
+
   useEffect(() => {
     loadAll();
   }, []);
+
+  // Load period metrics when period changes
+  const loadPeriodMetrics = useCallback(async (p: PeriodSelection) => {
+    try {
+      const data = await getPeriodMetricsAll(p.dateFrom, p.dateTo, p.compare);
+      setPeriodMetrics(data);
+    } catch {
+      setPeriodMetrics(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPeriodMetrics(period);
+  }, [period, loadPeriodMetrics]);
+
+  const handlePeriodChange = (p: PeriodSelection) => {
+    setPeriod(p);
+  };
 
   const loadAll = async () => {
     setIsLoading(true);
@@ -148,12 +185,17 @@ export function DashboardPage() {
 
   return (
     <div className="p-3 sm:p-6">
-      {/* Header */}
+      {/* Header + Period Selector */}
       <div className="mb-6">
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Account ordinati per health score (peggiori prima)
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-2">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dashboard</h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              Account ordinati per health score (peggiori prima)
+            </p>
+          </div>
+          <PeriodSelector value={period} onChange={handlePeriodChange} />
+        </div>
       </div>
 
       {/* ═══════════════════════════════════════════════════════
@@ -213,28 +255,64 @@ export function DashboardPage() {
       {/* Summary Row */}
       {summary && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-          <Card className="bg-card border-border">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                <DollarSign className="h-4 w-4" />
-                <span className="text-xs">Spesa Totale</span>
-              </div>
-              <p className="text-lg font-bold text-foreground">
-                {formatCurrency(summary.totalCost * 1000000)}
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="bg-card border-border">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                <Target className="h-4 w-4" />
-                <span className="text-xs">Conversioni Totali</span>
-              </div>
-              <p className="text-lg font-bold text-foreground">
-                {formatNumber(summary.totalConversions)}
-              </p>
-            </CardContent>
-          </Card>
+          {/* Period-aware KPIs: use daily metrics if available, fallback to aggregated */}
+          {periodMetrics?.hasDailyData && periodMetrics.current ? (
+            <>
+              <Card className="bg-card border-border">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between text-muted-foreground mb-1">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4" />
+                      <span className="text-xs">Spesa Totale</span>
+                    </div>
+                    {periodMetrics.changes && <PeriodChangeBadge value={periodMetrics.changes.cost} inverted />}
+                  </div>
+                  <p className="text-lg font-bold text-foreground">
+                    {formatCurrency(periodMetrics.current.cost * 1000000)}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="bg-card border-border">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between text-muted-foreground mb-1">
+                    <div className="flex items-center gap-2">
+                      <Target className="h-4 w-4" />
+                      <span className="text-xs">Conversioni</span>
+                    </div>
+                    {periodMetrics.changes && <PeriodChangeBadge value={periodMetrics.changes.conversions} />}
+                  </div>
+                  <p className="text-lg font-bold text-foreground">
+                    {formatNumber(periodMetrics.current.conversions)}
+                  </p>
+                </CardContent>
+              </Card>
+            </>
+          ) : (
+            <>
+              <Card className="bg-card border-border">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                    <DollarSign className="h-4 w-4" />
+                    <span className="text-xs">Spesa Totale</span>
+                  </div>
+                  <p className="text-lg font-bold text-foreground">
+                    {formatCurrency(summary.totalCost * 1000000)}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="bg-card border-border">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                    <Target className="h-4 w-4" />
+                    <span className="text-xs">Conversioni Totali</span>
+                  </div>
+                  <p className="text-lg font-bold text-foreground">
+                    {formatNumber(summary.totalConversions)}
+                  </p>
+                </CardContent>
+              </Card>
+            </>
+          )}
           <Card className="bg-card border-border">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 text-muted-foreground mb-1">

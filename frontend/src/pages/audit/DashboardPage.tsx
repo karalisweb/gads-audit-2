@@ -1,8 +1,9 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getKpis, getIssueSummary, getPerformanceTrend, getHealthScore, type IssueSummary, type KpiSnapshot, type HealthScoreResult } from '@/api/audit';
+import { getKpis, getIssueSummary, getPerformanceTrend, getHealthScore, getPeriodMetrics, type IssueSummary, type KpiSnapshot, type HealthScoreResult, type PeriodMetricsResponse } from '@/api/audit';
+import { PeriodSelector, getDefaultPeriod, type PeriodSelection } from '@/components/period/PeriodSelector';
 import { getAnalysisHistory, getAcceptanceRate, analyzeAllModules, type AIAnalysisLog, type AcceptanceRate } from '@/api/ai';
 import { getModificationSummary } from '@/api/modifications';
 import { formatCurrency, formatNumber, formatPercent, formatRoas } from '@/lib/format';
@@ -33,6 +34,24 @@ export function DashboardPage() {
   const [modSummary, setModSummary] = useState<ModificationSummary | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Period metrics state
+  const [period, setPeriod] = useState<PeriodSelection>(getDefaultPeriod(7));
+  const [periodMetrics, setPeriodMetrics] = useState<PeriodMetricsResponse | null>(null);
+
+  const loadPeriodMetrics = useCallback(async (p: PeriodSelection) => {
+    if (!accountId) return;
+    try {
+      const data = await getPeriodMetrics(accountId, p.dateFrom, p.dateTo, p.compare);
+      setPeriodMetrics(data);
+    } catch {
+      setPeriodMetrics(null);
+    }
+  }, [accountId]);
+
+  useEffect(() => {
+    loadPeriodMetrics(period);
+  }, [period, loadPeriodMetrics]);
 
   useEffect(() => {
     if (!accountId) return;
@@ -111,7 +130,84 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-bold text-foreground">Dashboard</h2>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <h2 className="text-xl font-bold text-foreground">Dashboard</h2>
+        <PeriodSelector value={period} onChange={setPeriod} compact />
+      </div>
+
+      {/* Period Metrics Banner */}
+      {periodMetrics?.hasDailyData && periodMetrics.current && (
+        <Card className="bg-primary/5 border-primary/20">
+          <CardContent className="py-3 px-4">
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+              <div>
+                <p className="text-[10px] text-muted-foreground">Costo</p>
+                <p className="text-sm font-bold text-foreground">{formatCurrency(periodMetrics.current.cost * 1000000)}</p>
+                {periodMetrics.changes && periodMetrics.changes.cost !== 0 && (
+                  <span className={`text-[10px] font-medium ${periodMetrics.changes.cost > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    {periodMetrics.changes.cost > 0 ? '+' : ''}{periodMetrics.changes.cost.toFixed(1)}%
+                  </span>
+                )}
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground">Conv.</p>
+                <p className="text-sm font-bold text-foreground">{formatNumber(periodMetrics.current.conversions)}</p>
+                {periodMetrics.changes && periodMetrics.changes.conversions !== 0 && (
+                  <span className={`text-[10px] font-medium ${periodMetrics.changes.conversions > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {periodMetrics.changes.conversions > 0 ? '+' : ''}{periodMetrics.changes.conversions.toFixed(1)}%
+                  </span>
+                )}
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground">CPA</p>
+                <p className="text-sm font-bold text-foreground">{periodMetrics.current.cpa > 0 ? `€${periodMetrics.current.cpa.toFixed(2)}` : '-'}</p>
+                {periodMetrics.changes && periodMetrics.changes.cpa !== 0 && (
+                  <span className={`text-[10px] font-medium ${periodMetrics.changes.cpa > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    {periodMetrics.changes.cpa > 0 ? '+' : ''}{periodMetrics.changes.cpa.toFixed(1)}%
+                  </span>
+                )}
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground">Click</p>
+                <p className="text-sm font-bold text-foreground">{formatNumber(periodMetrics.current.clicks)}</p>
+                {periodMetrics.changes && periodMetrics.changes.clicks !== 0 && (
+                  <span className={`text-[10px] font-medium ${periodMetrics.changes.clicks > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {periodMetrics.changes.clicks > 0 ? '+' : ''}{periodMetrics.changes.clicks.toFixed(1)}%
+                  </span>
+                )}
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground">CTR</p>
+                <p className="text-sm font-bold text-foreground">{periodMetrics.current.ctr > 0 ? `${periodMetrics.current.ctr.toFixed(2)}%` : '-'}</p>
+                {periodMetrics.changes && periodMetrics.changes.ctr !== 0 && (
+                  <span className={`text-[10px] font-medium ${periodMetrics.changes.ctr > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {periodMetrics.changes.ctr > 0 ? '+' : ''}{periodMetrics.changes.ctr.toFixed(1)}%
+                  </span>
+                )}
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground">ROAS</p>
+                <p className="text-sm font-bold text-foreground">{periodMetrics.current.roas > 0 ? periodMetrics.current.roas.toFixed(2) : '-'}</p>
+                {periodMetrics.changes && periodMetrics.changes.roas !== 0 && (
+                  <span className={`text-[10px] font-medium ${periodMetrics.changes.roas > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {periodMetrics.changes.roas > 0 ? '+' : ''}{periodMetrics.changes.roas.toFixed(1)}%
+                  </span>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {!periodMetrics?.hasDailyData && (
+        <Card className="bg-yellow-500/5 border-yellow-500/20">
+          <CardContent className="py-2 px-4">
+            <p className="text-xs text-yellow-700 dark:text-yellow-400">
+              I dati giornalieri saranno disponibili dopo il prossimo import. Le metriche mostrate sotto sono aggregate dall'ultimo run.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Health Score + Problems Row */}
       <div className="grid gap-3 md:grid-cols-2">

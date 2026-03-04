@@ -19,6 +19,7 @@ import {
   ConversionAction,
   GeoPerformance,
   DevicePerformance,
+  DailyMetric,
 } from '../../entities';
 
 @Module({
@@ -37,6 +38,7 @@ import {
       ConversionAction,
       GeoPerformance,
       DevicePerformance,
+      DailyMetric,
     ]),
     forwardRef(() => ModificationsModule),
     forwardRef(() => AuditModule),

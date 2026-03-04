@@ -25,6 +25,7 @@ import {
   User,
   ImportStatus,
   RunKpiSnapshot,
+  DailyMetric,
 } from '../../entities';
 import {
   PaginatedResponse,
@@ -37,6 +38,7 @@ import {
   AssetFilterDto,
   CreateAccountDto,
   UpdateAccountScheduleDto,
+  UpdateAccountStrategyDto,
 } from './dto';
 
 @Injectable()
@@ -72,6 +74,8 @@ export class AuditService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(RunKpiSnapshot)
     private readonly snapshotRepository: Repository<RunKpiSnapshot>,
+    @InjectRepository(DailyMetric)
+    private readonly dailyMetricRepository: Repository<DailyMetric>,
   ) {}
 
   // =========================================================================
@@ -285,6 +289,206 @@ export class AuditService {
     }
 
     return this.accountRepository.save(account);
+  }
+
+  async updateAccountStrategy(
+    accountId: string,
+    dto: UpdateAccountStrategyDto,
+  ): Promise<GoogleAdsAccount> {
+    const account = await this.accountRepository.findOne({
+      where: { id: accountId, isActive: true },
+    });
+    if (!account) {
+      throw new NotFoundException('Account not found');
+    }
+
+    if (dto.businessType !== undefined) {
+      account.businessType = dto.businessType;
+    }
+    if (dto.primaryObjective !== undefined) {
+      account.primaryObjective = dto.primaryObjective;
+    }
+    if (dto.strategyNotes !== undefined) {
+      account.strategyNotes = dto.strategyNotes;
+    }
+
+    return this.accountRepository.save(account);
+  }
+
+  // =========================================================================
+  // PERIOD METRICS (daily_metrics based)
+  // =========================================================================
+
+  async getPeriodMetrics(
+    accountId: string,
+    dateFrom: string,
+    dateTo: string,
+    compare = false,
+  ) {
+    const current = await this.aggregateDailyMetrics(accountId, dateFrom, dateTo);
+
+    if (!compare) {
+      return {
+        dateFrom,
+        dateTo,
+        current,
+        previous: null,
+        changes: null,
+        hasDailyData: current._rowCount > 0,
+      };
+    }
+
+    // Calculate previous period (same duration, immediately before)
+    const from = new Date(dateFrom);
+    const to = new Date(dateTo);
+    const durationMs = to.getTime() - from.getTime();
+    const prevTo = new Date(from.getTime() - 86400000); // day before dateFrom
+    const prevFrom = new Date(prevTo.getTime() - durationMs);
+
+    const prevDateFrom = prevFrom.toISOString().split('T')[0];
+    const prevDateTo = prevTo.toISOString().split('T')[0];
+
+    const previous = await this.aggregateDailyMetrics(accountId, prevDateFrom, prevDateTo);
+
+    const changes = this.calculatePeriodChanges(current, previous);
+
+    return {
+      dateFrom,
+      dateTo,
+      current,
+      previous: { dateFrom: prevDateFrom, dateTo: prevDateTo, ...previous },
+      changes,
+      hasDailyData: current._rowCount > 0 || previous._rowCount > 0,
+    };
+  }
+
+  async getPeriodMetricsAll(
+    dateFrom: string,
+    dateTo: string,
+    compare = false,
+  ) {
+    const accounts = await this.accountRepository.find({ where: { isActive: true } });
+    const accountIds = accounts.map(a => a.id);
+
+    if (accountIds.length === 0) {
+      return { dateFrom, dateTo, current: null, previous: null, changes: null, hasDailyData: false };
+    }
+
+    const current = await this.aggregateDailyMetricsMulti(accountIds, dateFrom, dateTo);
+
+    if (!compare) {
+      return {
+        dateFrom,
+        dateTo,
+        current,
+        previous: null,
+        changes: null,
+        hasDailyData: current._rowCount > 0,
+      };
+    }
+
+    const from = new Date(dateFrom);
+    const to = new Date(dateTo);
+    const durationMs = to.getTime() - from.getTime();
+    const prevTo = new Date(from.getTime() - 86400000);
+    const prevFrom = new Date(prevTo.getTime() - durationMs);
+    const prevDateFrom = prevFrom.toISOString().split('T')[0];
+    const prevDateTo = prevTo.toISOString().split('T')[0];
+
+    const previous = await this.aggregateDailyMetricsMulti(accountIds, prevDateFrom, prevDateTo);
+    const changes = this.calculatePeriodChanges(current, previous);
+
+    return {
+      dateFrom,
+      dateTo,
+      current,
+      previous: { dateFrom: prevDateFrom, dateTo: prevDateTo, ...previous },
+      changes,
+      hasDailyData: current._rowCount > 0 || previous._rowCount > 0,
+    };
+  }
+
+  private async aggregateDailyMetrics(accountId: string, dateFrom: string, dateTo: string) {
+    const result = await this.dailyMetricRepository
+      .createQueryBuilder('dm')
+      .select('COALESCE(SUM(dm.impressions), 0)', 'impressions')
+      .addSelect('COALESCE(SUM(dm.clicks), 0)', 'clicks')
+      .addSelect('COALESCE(SUM(dm.cost_micros), 0)', 'costMicros')
+      .addSelect('COALESCE(SUM(dm.conversions), 0)', 'conversions')
+      .addSelect('COALESCE(SUM(dm.conversions_value), 0)', 'conversionsValue')
+      .addSelect('COUNT(*)', 'rowCount')
+      .where('dm.account_id = :accountId', { accountId })
+      .andWhere('dm.entity_type = :entityType', { entityType: 'campaign' })
+      .andWhere('dm.date BETWEEN :dateFrom AND :dateTo', { dateFrom, dateTo })
+      .getRawOne();
+
+    return this.buildPeriodResult(result);
+  }
+
+  private async aggregateDailyMetricsMulti(accountIds: string[], dateFrom: string, dateTo: string) {
+    const result = await this.dailyMetricRepository
+      .createQueryBuilder('dm')
+      .select('COALESCE(SUM(dm.impressions), 0)', 'impressions')
+      .addSelect('COALESCE(SUM(dm.clicks), 0)', 'clicks')
+      .addSelect('COALESCE(SUM(dm.cost_micros), 0)', 'costMicros')
+      .addSelect('COALESCE(SUM(dm.conversions), 0)', 'conversions')
+      .addSelect('COALESCE(SUM(dm.conversions_value), 0)', 'conversionsValue')
+      .addSelect('COUNT(*)', 'rowCount')
+      .where('dm.account_id IN (:...accountIds)', { accountIds })
+      .andWhere('dm.entity_type = :entityType', { entityType: 'campaign' })
+      .andWhere('dm.date BETWEEN :dateFrom AND :dateTo', { dateFrom, dateTo })
+      .getRawOne();
+
+    return this.buildPeriodResult(result);
+  }
+
+  private buildPeriodResult(result: Record<string, string>) {
+    const impressions = parseInt(result.impressions) || 0;
+    const clicks = parseInt(result.clicks) || 0;
+    const costMicros = parseInt(result.costMicros) || 0;
+    const conversions = parseFloat(result.conversions) || 0;
+    const conversionsValue = parseFloat(result.conversionsValue) || 0;
+
+    const cost = costMicros / 1_000_000;
+    const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
+    const cpc = clicks > 0 ? cost / clicks : 0;
+    const cpa = conversions > 0 ? cost / conversions : 0;
+    const roas = cost > 0 ? conversionsValue / cost : 0;
+
+    return {
+      impressions,
+      clicks,
+      cost: Math.round(cost * 100) / 100,
+      conversions: Math.round(conversions * 100) / 100,
+      conversionsValue: Math.round(conversionsValue * 100) / 100,
+      ctr: Math.round(ctr * 100) / 100,
+      cpc: Math.round(cpc * 100) / 100,
+      cpa: Math.round(cpa * 100) / 100,
+      roas: Math.round(roas * 100) / 100,
+      _rowCount: parseInt(result.rowCount) || 0,
+    };
+  }
+
+  private calculatePeriodChanges(
+    current: ReturnType<typeof this.buildPeriodResult>,
+    previous: ReturnType<typeof this.buildPeriodResult>,
+  ) {
+    const pctChange = (curr: number, prev: number) => {
+      if (prev === 0) return curr > 0 ? 100 : 0;
+      return Math.round(((curr - prev) / prev) * 10000) / 100;
+    };
+
+    return {
+      impressions: pctChange(current.impressions, previous.impressions),
+      clicks: pctChange(current.clicks, previous.clicks),
+      cost: pctChange(current.cost, previous.cost),
+      conversions: pctChange(current.conversions, previous.conversions),
+      conversionsValue: pctChange(current.conversionsValue, previous.conversionsValue),
+      ctr: pctChange(current.ctr, previous.ctr),
+      cpc: pctChange(current.cpc, previous.cpc),
+      cpa: pctChange(current.cpa, previous.cpa),
+      roas: pctChange(current.roas, previous.roas),
+    };
   }
 
   async getAccount(accountId: string): Promise<GoogleAdsAccount> {

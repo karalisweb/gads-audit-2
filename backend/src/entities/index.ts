@@ -26,3 +26,4 @@ export * from './ai-analysis-log.entity';
 export * from './audit-report.entity';
 export * from './audit-report-message.entity';
 export * from './landing-page-brief.entity';
+export * from './daily-metric.entity';

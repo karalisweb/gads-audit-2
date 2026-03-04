@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { Search, Building2, Plus, Copy, Check } from 'lucide-react';
 import { apiClient } from '@/api/client';
-import { getAccountsWithStats, updateAccountSchedule, type AccountWithStats, type UpdateAccountScheduleDto } from '@/api/audit';
+import { getAccountsWithStats, updateAccountSchedule, updateAccountStrategy, type AccountWithStats, type UpdateAccountScheduleDto, type UpdateAccountStrategyDto } from '@/api/audit';
 import { AccountCard } from '@/components/AccountCard';
 
 interface CreatedAccount {
@@ -166,6 +166,19 @@ export function AccountsPage() {
       ));
     } catch (err) {
       console.error('Failed to update schedule:', err);
+    }
+  };
+
+  const handleStrategyUpdate = async (accountId: string, data: UpdateAccountStrategyDto) => {
+    try {
+      const updated = await updateAccountStrategy(accountId, data);
+      setAccounts(prev => prev.map(a =>
+        a.id === accountId
+          ? { ...a, businessType: updated.businessType, primaryObjective: updated.primaryObjective, strategyNotes: updated.strategyNotes }
+          : a
+      ));
+    } catch (err) {
+      console.error('Failed to update strategy:', err);
     }
   };
 
@@ -359,6 +372,7 @@ export function AccountsPage() {
               onRevealSecret={handleOpenRevealDialog}
               onDelete={handleOpenDeleteDialog}
               onScheduleUpdate={handleScheduleUpdate}
+              onStrategyUpdate={handleStrategyUpdate}
             />
           ))}
         </div>

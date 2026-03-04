@@ -46,7 +46,12 @@ var CONFIG = {
     'assets',
     'conversion_actions',
     'geo_performance',
-    'device_performance'
+    'device_performance',
+    'daily_campaigns',
+    'daily_ad_groups',
+    'daily_keywords',
+    'daily_ads',
+    'daily_search_terms'
   ],
 
   // Escludi campagne Performance Max
@@ -123,6 +128,21 @@ function exportDataset(accountId, runId, datasetName, totalDatasets) {
       break;
     case 'device_performance':
       data = extractDevicePerformance();
+      break;
+    case 'daily_campaigns':
+      data = extractDailyCampaigns();
+      break;
+    case 'daily_ad_groups':
+      data = extractDailyAdGroups();
+      break;
+    case 'daily_keywords':
+      data = extractDailyKeywords();
+      break;
+    case 'daily_ads':
+      data = extractDailyAds();
+      break;
+    case 'daily_search_terms':
+      data = extractDailySearchTerms();
       break;
     default:
       Logger.log('  > Unknown dataset: ' + datasetName);
@@ -861,6 +881,208 @@ function extractDevicePerformance() {
   }
 
   return deviceData;
+}
+
+// =============================================================================
+// DAILY METRICS EXTRACTION FUNCTIONS (per-day breakdown)
+// =============================================================================
+
+function extractDailyCampaigns() {
+  var data = [];
+  var query = 'SELECT ' +
+    'campaign.id, ' +
+    'campaign.name, ' +
+    'segments.date, ' +
+    'metrics.impressions, ' +
+    'metrics.clicks, ' +
+    'metrics.cost_micros, ' +
+    'metrics.conversions, ' +
+    'metrics.conversions_value, ' +
+    'metrics.ctr, ' +
+    'metrics.average_cpc ' +
+    'FROM campaign ' +
+    'WHERE segments.date BETWEEN "' + CONFIG.DATE_RANGE.START + '" AND "' + CONFIG.DATE_RANGE.END + '" ' +
+    (CONFIG.EXCLUDE_PMAX ? 'AND campaign.advertising_channel_type != "PERFORMANCE_MAX" ' : '') +
+    'AND campaign.status != "REMOVED"';
+
+  var report = AdsApp.report(query);
+  var rows = report.rows();
+  while (rows.hasNext()) {
+    var row = rows.next();
+    data.push({
+      entity_id: row['campaign.id'],
+      entity_name: row['campaign.name'],
+      campaign_id: row['campaign.id'],
+      date: row['segments.date'],
+      impressions: parseInt(row['metrics.impressions']) || 0,
+      clicks: parseInt(row['metrics.clicks']) || 0,
+      cost_micros: parseInt(row['metrics.cost_micros']) || 0,
+      conversions: parseFloat(row['metrics.conversions']) || 0,
+      conversions_value: parseFloat(row['metrics.conversions_value']) || 0,
+      ctr: parseFloat(row['metrics.ctr']) || 0,
+      average_cpc_micros: parseInt(row['metrics.average_cpc']) || 0
+    });
+  }
+  return data;
+}
+
+function extractDailyAdGroups() {
+  var data = [];
+  var query = 'SELECT ' +
+    'ad_group.id, ' +
+    'ad_group.name, ' +
+    'campaign.id, ' +
+    'segments.date, ' +
+    'metrics.impressions, ' +
+    'metrics.clicks, ' +
+    'metrics.cost_micros, ' +
+    'metrics.conversions, ' +
+    'metrics.conversions_value, ' +
+    'metrics.ctr, ' +
+    'metrics.average_cpc ' +
+    'FROM ad_group ' +
+    'WHERE segments.date BETWEEN "' + CONFIG.DATE_RANGE.START + '" AND "' + CONFIG.DATE_RANGE.END + '" ' +
+    (CONFIG.EXCLUDE_PMAX ? 'AND campaign.advertising_channel_type != "PERFORMANCE_MAX" ' : '') +
+    'AND ad_group.status != "REMOVED"';
+
+  var report = AdsApp.report(query);
+  var rows = report.rows();
+  while (rows.hasNext()) {
+    var row = rows.next();
+    data.push({
+      entity_id: row['ad_group.id'],
+      entity_name: row['ad_group.name'],
+      campaign_id: row['campaign.id'],
+      date: row['segments.date'],
+      impressions: parseInt(row['metrics.impressions']) || 0,
+      clicks: parseInt(row['metrics.clicks']) || 0,
+      cost_micros: parseInt(row['metrics.cost_micros']) || 0,
+      conversions: parseFloat(row['metrics.conversions']) || 0,
+      conversions_value: parseFloat(row['metrics.conversions_value']) || 0,
+      ctr: parseFloat(row['metrics.ctr']) || 0,
+      average_cpc_micros: parseInt(row['metrics.average_cpc']) || 0
+    });
+  }
+  return data;
+}
+
+function extractDailyKeywords() {
+  var data = [];
+  var query = 'SELECT ' +
+    'ad_group_criterion.criterion_id, ' +
+    'ad_group_criterion.keyword.text, ' +
+    'campaign.id, ' +
+    'segments.date, ' +
+    'metrics.impressions, ' +
+    'metrics.clicks, ' +
+    'metrics.cost_micros, ' +
+    'metrics.conversions, ' +
+    'metrics.conversions_value, ' +
+    'metrics.ctr, ' +
+    'metrics.average_cpc ' +
+    'FROM keyword_view ' +
+    'WHERE segments.date BETWEEN "' + CONFIG.DATE_RANGE.START + '" AND "' + CONFIG.DATE_RANGE.END + '" ' +
+    (CONFIG.EXCLUDE_PMAX ? 'AND campaign.advertising_channel_type != "PERFORMANCE_MAX" ' : '') +
+    'AND ad_group_criterion.status != "REMOVED"';
+
+  var report = AdsApp.report(query);
+  var rows = report.rows();
+  while (rows.hasNext()) {
+    var row = rows.next();
+    data.push({
+      entity_id: row['ad_group_criterion.criterion_id'],
+      entity_name: row['ad_group_criterion.keyword.text'],
+      campaign_id: row['campaign.id'],
+      date: row['segments.date'],
+      impressions: parseInt(row['metrics.impressions']) || 0,
+      clicks: parseInt(row['metrics.clicks']) || 0,
+      cost_micros: parseInt(row['metrics.cost_micros']) || 0,
+      conversions: parseFloat(row['metrics.conversions']) || 0,
+      conversions_value: parseFloat(row['metrics.conversions_value']) || 0,
+      ctr: parseFloat(row['metrics.ctr']) || 0,
+      average_cpc_micros: parseInt(row['metrics.average_cpc']) || 0
+    });
+  }
+  return data;
+}
+
+function extractDailyAds() {
+  var data = [];
+  var query = 'SELECT ' +
+    'ad_group_ad.ad.id, ' +
+    'ad_group_ad.ad.name, ' +
+    'campaign.id, ' +
+    'segments.date, ' +
+    'metrics.impressions, ' +
+    'metrics.clicks, ' +
+    'metrics.cost_micros, ' +
+    'metrics.conversions, ' +
+    'metrics.conversions_value, ' +
+    'metrics.ctr, ' +
+    'metrics.average_cpc ' +
+    'FROM ad_group_ad ' +
+    'WHERE segments.date BETWEEN "' + CONFIG.DATE_RANGE.START + '" AND "' + CONFIG.DATE_RANGE.END + '" ' +
+    (CONFIG.EXCLUDE_PMAX ? 'AND campaign.advertising_channel_type != "PERFORMANCE_MAX" ' : '') +
+    'AND ad_group_ad.status != "REMOVED"';
+
+  var report = AdsApp.report(query);
+  var rows = report.rows();
+  while (rows.hasNext()) {
+    var row = rows.next();
+    data.push({
+      entity_id: row['ad_group_ad.ad.id'],
+      entity_name: row['ad_group_ad.ad.name'] || '',
+      campaign_id: row['campaign.id'],
+      date: row['segments.date'],
+      impressions: parseInt(row['metrics.impressions']) || 0,
+      clicks: parseInt(row['metrics.clicks']) || 0,
+      cost_micros: parseInt(row['metrics.cost_micros']) || 0,
+      conversions: parseFloat(row['metrics.conversions']) || 0,
+      conversions_value: parseFloat(row['metrics.conversions_value']) || 0,
+      ctr: parseFloat(row['metrics.ctr']) || 0,
+      average_cpc_micros: parseInt(row['metrics.average_cpc']) || 0
+    });
+  }
+  return data;
+}
+
+function extractDailySearchTerms() {
+  var data = [];
+  var query = 'SELECT ' +
+    'search_term_view.search_term, ' +
+    'campaign.id, ' +
+    'segments.date, ' +
+    'metrics.impressions, ' +
+    'metrics.clicks, ' +
+    'metrics.cost_micros, ' +
+    'metrics.conversions, ' +
+    'metrics.conversions_value, ' +
+    'metrics.ctr, ' +
+    'metrics.average_cpc ' +
+    'FROM search_term_view ' +
+    'WHERE segments.date BETWEEN "' + CONFIG.DATE_RANGE.START + '" AND "' + CONFIG.DATE_RANGE.END + '" ' +
+    (CONFIG.EXCLUDE_PMAX ? 'AND campaign.advertising_channel_type != "PERFORMANCE_MAX" ' : '');
+
+  var report = AdsApp.report(query);
+  var rows = report.rows();
+  while (rows.hasNext()) {
+    var row = rows.next();
+    var searchTerm = row['search_term_view.search_term'];
+    data.push({
+      entity_id: searchTerm, // search terms don't have a numeric ID
+      entity_name: searchTerm,
+      campaign_id: row['campaign.id'],
+      date: row['segments.date'],
+      impressions: parseInt(row['metrics.impressions']) || 0,
+      clicks: parseInt(row['metrics.clicks']) || 0,
+      cost_micros: parseInt(row['metrics.cost_micros']) || 0,
+      conversions: parseFloat(row['metrics.conversions']) || 0,
+      conversions_value: parseFloat(row['metrics.conversions_value']) || 0,
+      ctr: parseFloat(row['metrics.ctr']) || 0,
+      average_cpc_micros: parseInt(row['metrics.average_cpc']) || 0
+    });
+  }
+  return data;
 }
 
 // =============================================================================

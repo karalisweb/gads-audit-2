@@ -94,6 +94,20 @@ export async function updateAccountSchedule(
   return apiClient.patch<GoogleAdsAccount>(`/audit/accounts/${accountId}/schedule`, data);
 }
 
+// Account Strategy
+export interface UpdateAccountStrategyDto {
+  businessType?: string;
+  primaryObjective?: string;
+  strategyNotes?: string;
+}
+
+export async function updateAccountStrategy(
+  accountId: string,
+  data: UpdateAccountStrategyDto,
+): Promise<GoogleAdsAccount> {
+  return apiClient.patch<GoogleAdsAccount>(`/audit/accounts/${accountId}/strategy`, data);
+}
+
 // Import Runs
 export async function getImportRuns(accountId: string): Promise<ImportRun[]> {
   return apiClient.get<ImportRun[]>(`/audit/accounts/${accountId}/runs`);
@@ -309,4 +323,50 @@ export interface LandingPageAnalysis {
 export async function getLandingPageAnalysis(accountId: string, runId?: string): Promise<LandingPageAnalysis> {
   const params = runId ? { runId } : undefined;
   return apiClient.get<LandingPageAnalysis>(`/audit/accounts/${accountId}/landing-pages`, params);
+}
+
+// Period Metrics
+export interface PeriodMetricsData {
+  impressions: number;
+  clicks: number;
+  cost: number;
+  conversions: number;
+  conversionsValue: number;
+  ctr: number;
+  cpc: number;
+  cpa: number;
+  roas: number;
+  _rowCount: number;
+}
+
+export interface PeriodMetricsResponse {
+  dateFrom: string;
+  dateTo: string;
+  current: PeriodMetricsData | null;
+  previous: (PeriodMetricsData & { dateFrom: string; dateTo: string }) | null;
+  changes: Record<string, number> | null;
+  hasDailyData: boolean;
+}
+
+export async function getPeriodMetrics(
+  accountId: string,
+  dateFrom: string,
+  dateTo: string,
+  compare = false,
+): Promise<PeriodMetricsResponse> {
+  return apiClient.get<PeriodMetricsResponse>(
+    `/audit/accounts/${accountId}/period-metrics`,
+    { dateFrom, dateTo, compare },
+  );
+}
+
+export async function getPeriodMetricsAll(
+  dateFrom: string,
+  dateTo: string,
+  compare = false,
+): Promise<PeriodMetricsResponse> {
+  return apiClient.get<PeriodMetricsResponse>(
+    '/audit/period-metrics-all',
+    { dateFrom, dateTo, compare },
+  );
 }

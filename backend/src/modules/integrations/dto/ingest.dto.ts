@@ -62,7 +62,12 @@ export type DatasetName =
   | 'assets'
   | 'conversion_actions'
   | 'geo_performance'
-  | 'device_performance';
+  | 'device_performance'
+  | 'daily_campaigns'
+  | 'daily_ad_groups'
+  | 'daily_keywords'
+  | 'daily_ads'
+  | 'daily_search_terms';
 
 export const VALID_DATASETS: DatasetName[] = [
   'campaigns',
@@ -75,4 +80,18 @@ export const VALID_DATASETS: DatasetName[] = [
   'conversion_actions',
   'geo_performance',
   'device_performance',
+  'daily_campaigns',
+  'daily_ad_groups',
+  'daily_keywords',
+  'daily_ads',
+  'daily_search_terms',
 ];
+
+// Mapping from daily dataset names to entity types
+export const DAILY_DATASET_ENTITY_MAP: Record<string, string> = {
+  daily_campaigns: 'campaign',
+  daily_ad_groups: 'ad_group',
+  daily_keywords: 'keyword',
+  daily_ads: 'ad',
+  daily_search_terms: 'search_term',
+};
