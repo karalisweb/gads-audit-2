@@ -9,29 +9,68 @@ import { Skeleton } from '@/components/ui/skeleton';
 // Auth pages (always loaded - entry point)
 import { LoginPage, VerifyTwoFactorPage, AcceptInvitePage, ForgotPasswordPage, ResetPasswordPage } from '@/pages/auth';
 
-// Lazy loaded pages
-const DashboardPage = lazy(() => import('@/pages/dashboard/DashboardPage').then(m => ({ default: m.DashboardPage })));
-const AccountsPage = lazy(() => import('@/pages/accounts/AccountsPage').then(m => ({ default: m.AccountsPage })));
-const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage').then(m => ({ default: m.ProfilePage })));
-const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage').then(m => ({ default: m.SettingsPage })));
-const AdminUsersPage = lazy(() => import('@/pages/admin/AdminUsersPage').then(m => ({ default: m.AdminUsersPage })));
-const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
+/**
+ * Wrapper around React.lazy that auto-reloads on chunk loading failures.
+ * After a deploy, old chunk hashes become invalid. This detects the error
+ * and triggers a page reload to fetch the new HTML with updated chunk refs.
+ * Prevents infinite loops by tracking reloads in sessionStorage (max 1/min per path).
+ */
+function lazyWithRetry<T extends React.ComponentType<unknown>>(
+  factory: () => Promise<{ default: T } | { [key: string]: T }>,
+  resolver?: (m: Record<string, T>) => T,
+) {
+  return lazy(() =>
+    (resolver
+      ? factory().then(m => ({ default: resolver(m as Record<string, T>) }))
+      : factory() as Promise<{ default: T }>
+    ).catch((error: Error) => {
+      const msg = error?.message || '';
+      const isChunkError =
+        msg.includes('Failed to fetch dynamically imported module') ||
+        msg.includes('Importing a module script failed') ||
+        msg.includes('Loading chunk') ||
+        msg.includes('Loading CSS chunk');
 
-// Audit pages (lazy)
-const AuditDashboardPage = lazy(() => import('@/pages/audit/DashboardPage').then(m => ({ default: m.DashboardPage })));
-const CampaignsPage = lazy(() => import('@/pages/audit/CampaignsPage').then(m => ({ default: m.CampaignsPage })));
-const AdGroupsPage = lazy(() => import('@/pages/audit/AdGroupsPage').then(m => ({ default: m.AdGroupsPage })));
-const AdsPage = lazy(() => import('@/pages/audit/AdsPage').then(m => ({ default: m.AdsPage })));
-const KeywordsPage = lazy(() => import('@/pages/audit/KeywordsPage').then(m => ({ default: m.KeywordsPage })));
-const SearchTermsPage = lazy(() => import('@/pages/audit/SearchTermsPage').then(m => ({ default: m.SearchTermsPage })));
-const NegativeKeywordsPage = lazy(() => import('@/pages/audit/NegativeKeywordsPage').then(m => ({ default: m.NegativeKeywordsPage })));
-const AssetsPage = lazy(() => import('@/pages/audit/AssetsPage').then(m => ({ default: m.AssetsPage })));
-const AuditReportPage = lazy(() => import('@/pages/audit/AuditReportPage').then(m => ({ default: m.AuditReportPage })));
-const ConversionsPage = lazy(() => import('@/pages/audit/ConversionsPage').then(m => ({ default: m.ConversionsPage })));
-const LandingPagesPage = lazy(() => import('@/pages/audit/LandingPagesPage').then(m => ({ default: m.LandingPagesPage })));
-const LandingPagePlannerPage = lazy(() => import('@/pages/audit/LandingPagePlannerPage').then(m => ({ default: m.LandingPagePlannerPage })));
-const LandingPageBriefPage = lazy(() => import('@/pages/audit/LandingPageBriefPage').then(m => ({ default: m.LandingPageBriefPage })));
-const ModificationsPage = lazy(() => import('@/pages/modifications/ModificationsPage').then(m => ({ default: m.ModificationsPage })));
+      if (isChunkError) {
+        const reloadKey = 'chunk_reload_' + window.location.pathname;
+        const lastReload = sessionStorage.getItem(reloadKey);
+        const now = Date.now();
+
+        if (!lastReload || now - parseInt(lastReload) > 60000) {
+          sessionStorage.setItem(reloadKey, String(now));
+          window.location.reload();
+          // Return a never-resolving promise to prevent React from rendering error state
+          return new Promise<{ default: T }>(() => {});
+        }
+      }
+      throw error;
+    }),
+  );
+}
+
+// Lazy loaded pages with auto-reload on chunk failure
+const DashboardPage = lazyWithRetry(() => import('@/pages/dashboard/DashboardPage'), m => m.DashboardPage);
+const AccountsPage = lazyWithRetry(() => import('@/pages/accounts/AccountsPage'), m => m.AccountsPage);
+const ProfilePage = lazyWithRetry(() => import('@/pages/profile/ProfilePage'), m => m.ProfilePage);
+const SettingsPage = lazyWithRetry(() => import('@/pages/settings/SettingsPage'), m => m.SettingsPage);
+const AdminUsersPage = lazyWithRetry(() => import('@/pages/admin/AdminUsersPage'), m => m.AdminUsersPage);
+const NotFoundPage = lazyWithRetry(() => import('@/pages/NotFoundPage'), m => m.NotFoundPage);
+
+// Audit pages (lazy with auto-reload)
+const AuditDashboardPage = lazyWithRetry(() => import('@/pages/audit/DashboardPage'), m => m.DashboardPage);
+const CampaignsPage = lazyWithRetry(() => import('@/pages/audit/CampaignsPage'), m => m.CampaignsPage);
+const AdGroupsPage = lazyWithRetry(() => import('@/pages/audit/AdGroupsPage'), m => m.AdGroupsPage);
+const AdsPage = lazyWithRetry(() => import('@/pages/audit/AdsPage'), m => m.AdsPage);
+const KeywordsPage = lazyWithRetry(() => import('@/pages/audit/KeywordsPage'), m => m.KeywordsPage);
+const SearchTermsPage = lazyWithRetry(() => import('@/pages/audit/SearchTermsPage'), m => m.SearchTermsPage);
+const NegativeKeywordsPage = lazyWithRetry(() => import('@/pages/audit/NegativeKeywordsPage'), m => m.NegativeKeywordsPage);
+const AssetsPage = lazyWithRetry(() => import('@/pages/audit/AssetsPage'), m => m.AssetsPage);
+const AuditReportPage = lazyWithRetry(() => import('@/pages/audit/AuditReportPage'), m => m.AuditReportPage);
+const ConversionsPage = lazyWithRetry(() => import('@/pages/audit/ConversionsPage'), m => m.ConversionsPage);
+const LandingPagesPage = lazyWithRetry(() => import('@/pages/audit/LandingPagesPage'), m => m.LandingPagesPage);
+const LandingPagePlannerPage = lazyWithRetry(() => import('@/pages/audit/LandingPagePlannerPage'), m => m.LandingPagePlannerPage);
+const LandingPageBriefPage = lazyWithRetry(() => import('@/pages/audit/LandingPageBriefPage'), m => m.LandingPageBriefPage);
+const ModificationsPage = lazyWithRetry(() => import('@/pages/modifications/ModificationsPage'), m => m.ModificationsPage);
 
 function PageLoader() {
   return (

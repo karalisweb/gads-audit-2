@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.14.5] - 2026-03-04
+
+### Corretto
+- Auto-reload on chunk loading failure after deploys
+
+---
+
+
 ## [2.14.4] - 2026-03-04
 
 ### Corretto

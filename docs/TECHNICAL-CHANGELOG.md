@@ -6,6 +6,7 @@ Log tecnico delle modifiche al software, auto-generato dal deploy script.
 
 | Versione | Data | Commit |
 |----------|------|--------|
+| 2.14.5 | 2026-03-04 | fix: auto-reload on chunk loading failure after deploys |
 | 2.14.4 | 2026-03-04 | fix: parse adGroupId~criterionId in keyword modifications for all download scripts |
 | 2.14.3 | 2026-03-04 | fix: extend daily_metrics entity_id to varchar(255) for long search terms |
 | 2.14.2 | 2026-03-04 | fix: daily_search_terms dedup + HMAC guard GET body mismatch |
