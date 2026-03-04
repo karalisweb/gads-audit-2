@@ -234,6 +234,7 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 | Versione | Data | Descrizione |
 |----------|------|-------------|
+| 2.14.3 | 4 Marzo 2026 | Extend daily_metrics entity_id to varchar(255) for long search terms |
 | 2.14.2 | 4 Marzo 2026 | Daily_search_terms dedup + HMAC guard GET body mismatch |
 | 2.14.1 | 4 Marzo 2026 | Add compare mode to entity tables with % change badges |
 | 2.14.0 | 4 Marzo 2026 | Period filter on all entity tables (campaigns, ad groups, keywords, ads, search terms) |
@@ -250,4 +251,4 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 ---
 
-*Ultimo aggiornamento: 4 Marzo 2026 | Versione app: 2.14.2*
+*Ultimo aggiornamento: 4 Marzo 2026 | Versione app: 2.14.3*

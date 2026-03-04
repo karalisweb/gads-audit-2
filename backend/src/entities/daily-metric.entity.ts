@@ -32,7 +32,7 @@ export class DailyMetric {
   @Column({ name: 'entity_type', length: 30 })
   entityType: string;
 
-  @Column({ name: 'entity_id', length: 50 })
+  @Column({ name: 'entity_id', length: 255 })
   entityId: string;
 
   @Column({ name: 'entity_name', length: 500, nullable: true })

@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.14.3] - 2026-03-04
+
+### Corretto
+- Extend daily_metrics entity_id to varchar(255) for long search terms
+
+---
+
+
 ## [2.14.2] - 2026-03-04
 
 ### Corretto
