@@ -125,6 +125,8 @@ export class LandingPagesService {
       totalCost: number;
       totalConversions: number;
     }[];
+    excludedKeywordCount: number;
+    totalKeywordCount: number;
   }> {
     const runId = await this.getLatestRunId(accountId);
     if (!runId) {
@@ -153,12 +155,44 @@ export class LandingPagesService {
       .andWhere("kw.finalUrl != ''")
       .getMany();
 
+    const totalKeywordCount = keywords.length;
+
     if (keywords.length === 0) {
-      return { clusters: [] };
+      return { clusters: [], excludedKeywordCount: 0, totalKeywordCount: 0 };
+    }
+
+    // Exclude keywords already assigned to existing briefs for this account
+    const existingBriefs = await this.briefRepository.find({
+      where: { accountId },
+      select: ['keywordCluster'],
+    });
+
+    const usedKeywordTexts = new Set<string>();
+    for (const brief of existingBriefs) {
+      if (brief.keywordCluster && Array.isArray(brief.keywordCluster)) {
+        for (const kw of brief.keywordCluster) {
+          if (kw.keywordText) {
+            usedKeywordTexts.add(kw.keywordText.toLowerCase().trim());
+          }
+        }
+      }
+    }
+
+    const availableKeywords = usedKeywordTexts.size > 0
+      ? keywords.filter((kw) => !usedKeywordTexts.has((kw.keywordText || '').toLowerCase().trim()))
+      : keywords;
+    const excludedKeywordCount = totalKeywordCount - availableKeywords.length;
+
+    this.logger.log(
+      `Clustering: ${availableKeywords.length} available keywords (${excludedKeywordCount} excluded, already in ${existingBriefs.length} briefs)`,
+    );
+
+    if (availableKeywords.length === 0) {
+      return { clusters: [], excludedKeywordCount, totalKeywordCount };
     }
 
     // Prepare keyword data for AI
-    const kwData = keywords.map((kw) => ({
+    const kwData = availableKeywords.map((kw) => ({
       keywordText: kw.keywordText,
       keywordId: kw.keywordId,
       matchType: kw.matchType,
@@ -265,7 +299,7 @@ Analizza e crea i cluster semantici.`;
     });
 
     this.logger.log(`Generated ${clusters.length} clusters for account ${accountId}`);
-    return { clusters };
+    return { clusters, excludedKeywordCount, totalKeywordCount };
   }
 
   // =========================================================================

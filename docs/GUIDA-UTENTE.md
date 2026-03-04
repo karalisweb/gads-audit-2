@@ -234,6 +234,7 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 | Versione | Data | Descrizione |
 |----------|------|-------------|
+| 2.14.6 | 4 Marzo 2026 | LP Planner excludes already-briefed keywords, persists clusters, prevents cannibalization |
 | 2.14.5 | 4 Marzo 2026 | Auto-reload on chunk loading failure after deploys |
 | 2.14.4 | 4 Marzo 2026 | Parse adGroupId~criterionId in keyword modifications for all download scripts |
 | 2.14.3 | 4 Marzo 2026 | Extend daily_metrics entity_id to varchar(255) for long search terms |
@@ -253,4 +254,4 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 ---
 
-*Ultimo aggiornamento: 4 Marzo 2026 | Versione app: 2.14.5*
+*Ultimo aggiornamento: 4 Marzo 2026 | Versione app: 2.14.6*

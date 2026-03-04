@@ -63,8 +63,16 @@ export async function getBrief(id: string): Promise<LandingPageBrief> {
   return apiClient.get<LandingPageBrief>(`/landing-pages/${id}`);
 }
 
-export async function generateClusters(accountId: string): Promise<{ clusters: KeywordCluster[] }> {
-  return apiClient.post<{ clusters: KeywordCluster[] }>('/landing-pages/cluster', { accountId });
+export async function generateClusters(accountId: string): Promise<{
+  clusters: KeywordCluster[];
+  excludedKeywordCount: number;
+  totalKeywordCount: number;
+}> {
+  return apiClient.post<{
+    clusters: KeywordCluster[];
+    excludedKeywordCount: number;
+    totalKeywordCount: number;
+  }>('/landing-pages/cluster', { accountId });
 }
 
 export async function createBrief(data: {

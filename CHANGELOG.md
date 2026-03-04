@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.14.6] - 2026-03-04
+
+### Corretto
+- LP Planner excludes already-briefed keywords, persists clusters, prevents cannibalization
+
+---
+
+
 ## [2.14.5] - 2026-03-04
 
 ### Corretto

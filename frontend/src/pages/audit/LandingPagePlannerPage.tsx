@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Loader2,
@@ -8,6 +8,7 @@ import {
   ExternalLink,
   Sparkles,
   FileText,
+  Info,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,11 @@ function formatCurrency(value: number): string {
   return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value);
 }
 
+/** Storage key for persisting clusters per account */
+function clusterStorageKey(accountId: string) {
+  return `lp_clusters_${accountId}`;
+}
+
 export function LandingPagePlannerPage() {
   const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
@@ -35,11 +41,38 @@ export function LandingPagePlannerPage() {
   const [clusterLoading, setClusterLoading] = useState(false);
   const [creatingBrief, setCreatingBrief] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [excludedInfo, setExcludedInfo] = useState<{ excluded: number; total: number } | null>(null);
 
+  // Restore clusters from sessionStorage on mount
   useEffect(() => {
     if (!accountId) return;
     loadBriefs();
+    try {
+      const saved = sessionStorage.getItem(clusterStorageKey(accountId));
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed.clusters) && parsed.clusters.length > 0) {
+          setClusters(parsed.clusters);
+          if (parsed.excludedInfo) setExcludedInfo(parsed.excludedInfo);
+        }
+      }
+    } catch { /* ignore parse errors */ }
   }, [accountId]);
+
+  // Persist clusters to sessionStorage whenever they change
+  const persistClusters = useCallback((newClusters: KeywordCluster[], info?: { excluded: number; total: number } | null) => {
+    setClusters(newClusters);
+    if (accountId) {
+      if (newClusters.length > 0) {
+        sessionStorage.setItem(clusterStorageKey(accountId), JSON.stringify({
+          clusters: newClusters,
+          excludedInfo: info ?? excludedInfo,
+        }));
+      } else {
+        sessionStorage.removeItem(clusterStorageKey(accountId));
+      }
+    }
+  }, [accountId, excludedInfo]);
 
   // Se arrivo dalla pagina LP con sourceUrl, avvio clustering automatico
   useEffect(() => {
@@ -68,7 +101,13 @@ export function LandingPagePlannerPage() {
       setClusterLoading(true);
       setError('');
       const result = await generateClusters(accountId);
-      setClusters(result.clusters || []);
+      const newClusters = result.clusters || [];
+      const info = {
+        excluded: result.excludedKeywordCount || 0,
+        total: result.totalKeywordCount || 0,
+      };
+      setExcludedInfo(info);
+      persistClusters(newClusters, info);
     } catch (err: any) {
       setError(err.message || 'Errore nella generazione dei cluster');
     } finally {
@@ -96,7 +135,20 @@ export function LandingPagePlannerPage() {
           matchType: kw.matchType,
         })),
       });
-      navigate(`/audit/${accountId}/lp-planner/${brief.id}`);
+
+      // Remove the used cluster from the list (don't navigate away — let user create more briefs)
+      const remaining = clusters.filter((c) => c.topic !== cluster.topic);
+      persistClusters(remaining);
+
+      // Reload briefs to include the new one
+      await loadBriefs();
+
+      // If user wants to go to the brief, they can click on it in the list below
+      // But also offer immediate navigation
+      if (remaining.length === 0) {
+        // All clusters used, navigate to brief
+        navigate(`/audit/${accountId}/lp-planner/${brief.id}`);
+      }
     } catch (err: any) {
       setError(err.message || 'Errore nella creazione del brief');
     } finally {
@@ -109,6 +161,12 @@ export function LandingPagePlannerPage() {
     try {
       await deleteBrief(id);
       setBriefs((prev) => prev.filter((b) => b.id !== id));
+      // Clear cached clusters since deleted brief frees up keywords
+      if (accountId) {
+        sessionStorage.removeItem(clusterStorageKey(accountId));
+        setClusters([]);
+        setExcludedInfo(null);
+      }
     } catch (err: any) {
       setError(err.message || 'Errore nell\'eliminazione');
     }
@@ -156,7 +214,26 @@ export function LandingPagePlannerPage() {
           </Button>
         </CardHeader>
         <CardContent>
-          {clusters.length === 0 && !clusterLoading ? (
+          {/* Info banner: excluded keywords */}
+          {excludedInfo && excludedInfo.excluded > 0 && (
+            <div className="flex items-start gap-2 bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 mb-4">
+              <Info className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+              <p className="text-xs text-blue-400">
+                <strong>{excludedInfo.excluded}</strong> keyword su {excludedInfo.total} escluse dal clustering
+                perché già assegnate a brief esistenti.
+                {' '}Elimina un brief per liberare le sue keyword.
+              </p>
+            </div>
+          )}
+
+          {/* Empty state: no keywords available */}
+          {excludedInfo && excludedInfo.excluded > 0 && clusters.length === 0 && !clusterLoading && (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              Tutte le keyword sono già assegnate a brief. Elimina un brief per liberare keyword, oppure controlla i brief esistenti qui sotto.
+            </p>
+          )}
+
+          {clusters.length === 0 && !clusterLoading && !(excludedInfo && excludedInfo.excluded > 0) ? (
             <p className="text-sm text-muted-foreground text-center py-6">
               Clicca "Analizza Cluster" per raggruppare le keyword dell'account in cluster semantici.
               L'AI identificherà le keyword principali e i gruppi per cui creare landing page dedicate.
