@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.14.0] - 2026-03-04
+
+### Aggiunto
+- Period filter on all entity tables (campaigns, ad groups, keywords, ads, search terms)
+
+---
+
+
 ## [2.13.4] - 2026-03-04
 
 ### Aggiunto

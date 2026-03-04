@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/collapsible';
 import { ModifyButton } from '@/components/modifications';
 import { getAds, getCampaigns, getAdGroups } from '@/api/audit';
+import { usePeriodEntityMetrics } from '@/hooks/usePeriodEntityMetrics';
 import type { Campaign, AdGroup } from '@/types/audit';
 import {
   formatCurrency,
@@ -477,6 +478,7 @@ export function AdsPage() {
   const [searchInput, setSearchInput] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [openCards, setOpenCards] = useState<Set<string>>(new Set());
+  const { hasData: hasPeriodData, getEntityMetrics } = usePeriodEntityMetrics('ad');
 
   // Campaign selector state
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -631,9 +633,23 @@ export function AdsPage() {
   // Filtra per stato (client-side)
   const filteredData = useMemo(() => {
     if (!data?.data) return [];
-    if (statusFilter === 'all') return data.data;
-    return data.data.filter(ad => ad.status === statusFilter);
-  }, [data, statusFilter]);
+    let items = statusFilter === 'all' ? data.data : data.data.filter(ad => ad.status === statusFilter);
+    if (!hasPeriodData) return items;
+    return items.map(entity => {
+      const pm = getEntityMetrics(entity.adId);
+      if (!pm) return entity;
+      return {
+        ...entity,
+        impressions: String(pm.impressions),
+        clicks: String(pm.clicks),
+        costMicros: String(Math.round(pm.cost * 1_000_000)),
+        conversions: String(pm.conversions),
+        conversionsValue: String(pm.conversionsValue),
+        ctr: String(pm.ctr / 100),
+        averageCpcMicros: String(Math.round(pm.cpc * 1_000_000)),
+      };
+    });
+  }, [data, statusFilter, hasPeriodData, getEntityMetrics]);
 
   // Conta per stato
   const statusCounts = useMemo(() => {

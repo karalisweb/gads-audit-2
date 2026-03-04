@@ -370,3 +370,37 @@ export async function getPeriodMetricsAll(
     { dateFrom, dateTo, compare },
   );
 }
+
+// Period entity metrics - per-entity aggregated metrics for a date range
+export interface EntityMetrics {
+  impressions: number;
+  clicks: number;
+  cost: number;
+  conversions: number;
+  conversionsValue: number;
+  ctr: number;
+  cpc: number;
+  cpa: number;
+  roas: number;
+  conversionRate: number;
+}
+
+export interface PeriodEntityMetricsResponse {
+  entityType: string;
+  dateFrom: string;
+  dateTo: string;
+  metrics: Record<string, EntityMetrics>;
+  hasData: boolean;
+}
+
+export async function getPeriodEntityMetrics(
+  accountId: string,
+  entityType: string,
+  dateFrom: string,
+  dateTo: string,
+): Promise<PeriodEntityMetricsResponse> {
+  return apiClient.get<PeriodEntityMetricsResponse>(
+    `/audit/accounts/${accountId}/period-entity-metrics`,
+    { entityType, dateFrom, dateTo },
+  );
+}

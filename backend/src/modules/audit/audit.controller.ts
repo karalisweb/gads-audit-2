@@ -119,6 +119,16 @@ export class AuditController {
     return this.auditService.getPeriodMetricsAll(dateFrom, dateTo, compare === 'true');
   }
 
+  @Get('accounts/:accountId/period-entity-metrics')
+  async getPeriodEntityMetrics(
+    @Param('accountId', ParseUUIDPipe) accountId: string,
+    @Query('entityType') entityType: string,
+    @Query('dateFrom') dateFrom: string,
+    @Query('dateTo') dateTo: string,
+  ) {
+    return this.auditService.getPeriodEntityMetrics(accountId, entityType, dateFrom, dateTo);
+  }
+
   @Get('accounts/:accountId/health-score')
   async getHealthScore(
     @Param('accountId', ParseUUIDPipe) accountId: string,

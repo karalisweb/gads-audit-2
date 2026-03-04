@@ -408,6 +408,70 @@ export class AuditService {
     };
   }
 
+  async getPeriodEntityMetrics(
+    accountId: string,
+    entityType: string,
+    dateFrom: string,
+    dateTo: string,
+  ) {
+    const allowedTypes = ['campaign', 'ad_group', 'keyword', 'ad', 'search_term'];
+    if (!allowedTypes.includes(entityType)) {
+      throw new NotFoundException(`Invalid entity type: ${entityType}`);
+    }
+
+    const results = await this.dailyMetricRepository
+      .createQueryBuilder('dm')
+      .select('dm.entity_id', 'entityId')
+      .addSelect('COALESCE(SUM(dm.impressions), 0)', 'impressions')
+      .addSelect('COALESCE(SUM(dm.clicks), 0)', 'clicks')
+      .addSelect('COALESCE(SUM(dm.cost_micros), 0)', 'costMicros')
+      .addSelect('COALESCE(SUM(dm.conversions), 0)', 'conversions')
+      .addSelect('COALESCE(SUM(dm.conversions_value), 0)', 'conversionsValue')
+      .where('dm.account_id = :accountId', { accountId })
+      .andWhere('dm.entity_type = :entityType', { entityType })
+      .andWhere('dm.date BETWEEN :dateFrom AND :dateTo', { dateFrom, dateTo })
+      .groupBy('dm.entity_id')
+      .getRawMany();
+
+    // Build entityId -> metrics map
+    const metricsMap: Record<string, {
+      impressions: number;
+      clicks: number;
+      cost: number;
+      conversions: number;
+      conversionsValue: number;
+      ctr: number;
+      cpc: number;
+      cpa: number;
+      roas: number;
+      conversionRate: number;
+    }> = {};
+
+    for (const r of results) {
+      const impressions = parseInt(r.impressions) || 0;
+      const clicks = parseInt(r.clicks) || 0;
+      const costMicros = parseInt(r.costMicros) || 0;
+      const conversions = parseFloat(r.conversions) || 0;
+      const conversionsValue = parseFloat(r.conversionsValue) || 0;
+      const cost = costMicros / 1_000_000;
+
+      metricsMap[r.entityId] = {
+        impressions,
+        clicks,
+        cost: Math.round(cost * 100) / 100,
+        conversions: Math.round(conversions * 100) / 100,
+        conversionsValue: Math.round(conversionsValue * 100) / 100,
+        ctr: impressions > 0 ? Math.round((clicks / impressions) * 10000) / 100 : 0,
+        cpc: clicks > 0 ? Math.round((cost / clicks) * 100) / 100 : 0,
+        cpa: conversions > 0 ? Math.round((cost / conversions) * 100) / 100 : 0,
+        roas: cost > 0 ? Math.round((conversionsValue / cost) * 100) / 100 : 0,
+        conversionRate: clicks > 0 ? Math.round((conversions / clicks) * 10000) / 100 : 0,
+      };
+    }
+
+    return { entityType, dateFrom, dateTo, metrics: metricsMap, hasData: results.length > 0 };
+  }
+
   private async aggregateDailyMetrics(accountId: string, dateFrom: string, dateTo: string) {
     const result = await this.dailyMetricRepository
       .createQueryBuilder('dm')

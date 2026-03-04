@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/data-table/DataTable';
@@ -31,6 +31,7 @@ import { Ban, Plus, X, ChevronDown, ChevronRight, Search, Download } from 'lucid
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { exportToCsv, microsToDecimal, formatPercent } from '@/lib/export-csv';
 import { getSearchTerms, getCampaigns, getAdGroups } from '@/api/audit';
+import { usePeriodEntityMetrics } from '@/hooks/usePeriodEntityMetrics';
 import { createModification } from '@/api/modifications';
 import { formatCurrency, formatNumber, formatCtr } from '@/lib/format';
 import type { SearchTerm, Campaign, AdGroup, PaginatedResponse, SearchTermFilters } from '@/types/audit';
@@ -328,6 +329,7 @@ export function SearchTermsPage() {
 
   // Expanded card state for mobile
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
+  const { hasData: hasPeriodData, getEntityMetrics } = usePeriodEntityMetrics('search_term');
 
   // Campaign/AdGroup filter options
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -469,6 +471,26 @@ export function SearchTermsPage() {
     }
   };
 
+  // Period metrics overlay
+  const tableData = useMemo(() => {
+    if (!data?.data) return [];
+    if (!hasPeriodData) return data.data;
+    return data.data.map(entity => {
+      const pm = getEntityMetrics(entity.searchTerm);
+      if (!pm) return entity;
+      return {
+        ...entity,
+        impressions: String(pm.impressions),
+        clicks: String(pm.clicks),
+        costMicros: String(Math.round(pm.cost * 1_000_000)),
+        conversions: String(pm.conversions),
+        conversionsValue: String(pm.conversionsValue),
+        ctr: String(pm.ctr / 100),
+        averageCpcMicros: String(Math.round(pm.cpc * 1_000_000)),
+      };
+    });
+  }, [data, hasPeriodData, getEntityMetrics]);
+
   const pageIndex = (filters.page || 1) - 1;
   const pageSize = filters.limit || 50;
   const pageCount = data?.meta.totalPages || 1;
@@ -583,7 +605,7 @@ export function SearchTermsPage() {
           ) : (
             <>
               <div className="space-y-2">
-                {data?.data.map((term) => (
+                {tableData.map((term) => (
                   <SearchTermCardMobile
                     key={term.id}
                     term={term}
@@ -592,7 +614,7 @@ export function SearchTermsPage() {
                     onAddNegative={handleOpenNegativeDialog}
                   />
                 ))}
-                {(!data?.data || data.data.length === 0) && (
+                {tableData.length === 0 && (
                   <div className="text-center py-12 text-muted-foreground">
                     Nessun search term trovato
                   </div>
@@ -637,7 +659,7 @@ export function SearchTermsPage() {
       {!isMobile && (
         <DataTable
           columns={columns}
-          data={data?.data || []}
+          data={tableData}
           isLoading={isLoading}
           pageCount={pageCount}
           pageIndex={pageIndex}
