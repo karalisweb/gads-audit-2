@@ -2,7 +2,7 @@
  * GADS Audit 2.0 - Google Ads Download Script
  *
  * ACCOUNT: OFFICINA 3MT (7050747943)
- * ULTIMA MODIFICA: 2026-02-12
+ * ULTIMA MODIFICA: 2026-03-04
  *
  * Questo script estrae dati dall'account Google Ads e li invia all'app di audit
  * tramite HTTPS POST con autenticazione HMAC-SHA256.
@@ -1463,10 +1463,20 @@ function applyAdGroupCpcBid(mod) {
   }
 }
 
+// Parse entityId that may contain adGroupId~criterionId format
+function parseEntityId(entityId) {
+  if (entityId && entityId.indexOf('~') !== -1) {
+    var parts = entityId.split('~');
+    return { adGroupId: parts[0], criterionId: parts[1] };
+  }
+  return { adGroupId: null, criterionId: entityId };
+}
+
 // Keyword modifications
 function applyKeywordStatus(mod) {
+  var parsed = parseEntityId(mod.entityId);
   var keywordIterator = AdsApp.keywords()
-    .withCondition('Id = ' + mod.entityId)
+    .withCondition('Id = ' + parsed.criterionId)
     .get();
 
   if (!keywordIterator.hasNext()) {
@@ -1493,8 +1503,9 @@ function applyKeywordStatus(mod) {
 }
 
 function applyKeywordCpcBid(mod) {
+  var parsed = parseEntityId(mod.entityId);
   var keywordIterator = AdsApp.keywords()
-    .withCondition('Id = ' + mod.entityId)
+    .withCondition('Id = ' + parsed.criterionId)
     .get();
 
   if (!keywordIterator.hasNext()) {
@@ -1517,8 +1528,9 @@ function applyKeywordCpcBid(mod) {
 }
 
 function applyKeywordFinalUrl(mod) {
+  var parsed = parseEntityId(mod.entityId);
   var keywordIterator = AdsApp.keywords()
-    .withCondition('Id = ' + mod.entityId)
+    .withCondition('Id = ' + parsed.criterionId)
     .get();
 
   if (!keywordIterator.hasNext()) {
@@ -1545,11 +1557,21 @@ function addNegativeKeyword(mod) {
   var text = mod.afterValue.text;
   var matchType = mod.afterValue.matchType || 'BROAD';
   var level = mod.afterValue.level || 'CAMPAIGN';
+  var parsed = parseEntityId(mod.entityId);
+
+  // If entityId contains adGroupId~criterionId, use AD_GROUP level
+  if (parsed.adGroupId && !mod.afterValue.campaignId) {
+    level = 'AD_GROUP';
+    if (!mod.afterValue.adGroupId) {
+      mod.afterValue.adGroupId = parsed.adGroupId;
+    }
+  }
 
   try {
     if (level === 'CAMPAIGN') {
+      var campaignId = mod.afterValue.campaignId || mod.entityId;
       var campaignIterator = AdsApp.campaigns()
-        .withCondition('CampaignId = ' + mod.afterValue.campaignId)
+        .withCondition('CampaignId = ' + campaignId)
         .get();
 
       if (!campaignIterator.hasNext()) {
@@ -1567,8 +1589,9 @@ function addNegativeKeyword(mod) {
       };
 
     } else if (level === 'AD_GROUP') {
+      var adGroupId = mod.afterValue.adGroupId || parsed.adGroupId;
       var adGroupIterator = AdsApp.adGroups()
-        .withCondition('AdGroupId = ' + mod.afterValue.adGroupId)
+        .withCondition('AdGroupId = ' + adGroupId)
         .get();
 
       if (!adGroupIterator.hasNext()) {
