@@ -6,6 +6,7 @@ Log tecnico delle modifiche al software, auto-generato dal deploy script.
 
 | Versione | Data | Commit |
 |----------|------|--------|
+| 2.13.4 | 2026-03-04 | feat: Performance section uses period-filtered data from daily_metrics |
 | 2.13.3 | 2026-03-04 | fix: add missing PeriodSelection import in DashboardPage |
 | 2.13.2 | 2026-03-04 | fix: add PeriodSelector to AuditLayout header on all audit pages |
 | 2.13.1 | 2026-03-04 | fix: remove old PeriodSelector from AuditLayout |

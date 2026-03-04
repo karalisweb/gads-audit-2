@@ -234,6 +234,7 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 | Versione | Data | Descrizione |
 |----------|------|-------------|
+| 2.13.4 | 4 Marzo 2026 | Performance section uses period-filtered data from daily_metrics |
 | 2.13.3 | 4 Marzo 2026 | Add missing PeriodSelection import in DashboardPage |
 | 2.13.2 | 4 Marzo 2026 | Add PeriodSelector to AuditLayout header on all audit pages |
 | 2.13.1 | 4 Marzo 2026 | Remove old PeriodSelector from AuditLayout |
@@ -246,4 +247,4 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 ---
 
-*Ultimo aggiornamento: 4 Marzo 2026 | Versione app: 2.13.3*
+*Ultimo aggiornamento: 4 Marzo 2026 | Versione app: 2.13.4*

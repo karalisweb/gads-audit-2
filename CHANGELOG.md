@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.13.4] - 2026-03-04
+
+### Aggiunto
+- Performance section uses period-filtered data from daily_metrics
+
+---
+
+
 ## [2.13.3] - 2026-03-04
 
 ### Corretto

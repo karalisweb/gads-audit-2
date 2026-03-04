@@ -135,70 +135,6 @@ export function DashboardPage() {
         <h2 className="text-xl font-bold text-foreground">Dashboard</h2>
       </div>
 
-      {/* Period Metrics Banner */}
-      {periodMetrics?.hasDailyData && periodMetrics.current && (
-        <Card className="bg-primary/5 border-primary/20">
-          <CardContent className="py-3 px-4">
-            <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-              <div>
-                <p className="text-[10px] text-muted-foreground">Costo</p>
-                <p className="text-sm font-bold text-foreground">{formatCurrency(periodMetrics.current.cost * 1000000)}</p>
-                {periodMetrics.changes && periodMetrics.changes.cost !== 0 && (
-                  <span className={`text-[10px] font-medium ${periodMetrics.changes.cost > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    {periodMetrics.changes.cost > 0 ? '+' : ''}{periodMetrics.changes.cost.toFixed(1)}%
-                  </span>
-                )}
-              </div>
-              <div>
-                <p className="text-[10px] text-muted-foreground">Conv.</p>
-                <p className="text-sm font-bold text-foreground">{formatNumber(periodMetrics.current.conversions)}</p>
-                {periodMetrics.changes && periodMetrics.changes.conversions !== 0 && (
-                  <span className={`text-[10px] font-medium ${periodMetrics.changes.conversions > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {periodMetrics.changes.conversions > 0 ? '+' : ''}{periodMetrics.changes.conversions.toFixed(1)}%
-                  </span>
-                )}
-              </div>
-              <div>
-                <p className="text-[10px] text-muted-foreground">CPA</p>
-                <p className="text-sm font-bold text-foreground">{periodMetrics.current.cpa > 0 ? `€${periodMetrics.current.cpa.toFixed(2)}` : '-'}</p>
-                {periodMetrics.changes && periodMetrics.changes.cpa !== 0 && (
-                  <span className={`text-[10px] font-medium ${periodMetrics.changes.cpa > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    {periodMetrics.changes.cpa > 0 ? '+' : ''}{periodMetrics.changes.cpa.toFixed(1)}%
-                  </span>
-                )}
-              </div>
-              <div>
-                <p className="text-[10px] text-muted-foreground">Click</p>
-                <p className="text-sm font-bold text-foreground">{formatNumber(periodMetrics.current.clicks)}</p>
-                {periodMetrics.changes && periodMetrics.changes.clicks !== 0 && (
-                  <span className={`text-[10px] font-medium ${periodMetrics.changes.clicks > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {periodMetrics.changes.clicks > 0 ? '+' : ''}{periodMetrics.changes.clicks.toFixed(1)}%
-                  </span>
-                )}
-              </div>
-              <div>
-                <p className="text-[10px] text-muted-foreground">CTR</p>
-                <p className="text-sm font-bold text-foreground">{periodMetrics.current.ctr > 0 ? `${periodMetrics.current.ctr.toFixed(2)}%` : '-'}</p>
-                {periodMetrics.changes && periodMetrics.changes.ctr !== 0 && (
-                  <span className={`text-[10px] font-medium ${periodMetrics.changes.ctr > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {periodMetrics.changes.ctr > 0 ? '+' : ''}{periodMetrics.changes.ctr.toFixed(1)}%
-                  </span>
-                )}
-              </div>
-              <div>
-                <p className="text-[10px] text-muted-foreground">ROAS</p>
-                <p className="text-sm font-bold text-foreground">{periodMetrics.current.roas > 0 ? periodMetrics.current.roas.toFixed(2) : '-'}</p>
-                {periodMetrics.changes && periodMetrics.changes.roas !== 0 && (
-                  <span className={`text-[10px] font-medium ${periodMetrics.changes.roas > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {periodMetrics.changes.roas > 0 ? '+' : ''}{periodMetrics.changes.roas.toFixed(1)}%
-                  </span>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {!periodMetrics?.hasDailyData && (
         <Card className="bg-yellow-500/5 border-yellow-500/20">
           <CardContent className="py-2 px-4">
@@ -317,63 +253,136 @@ export function DashboardPage() {
         />
       </div>
 
-      {/* Performance Cards - Compact with Trend Deltas */}
-      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mt-4">Performance</h3>
-      <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
-        <CompactStatCard
-          title="Costo"
-          value={formatCurrency(kpis.performance.cost * 1000000)}
-          icon={<Wallet className="h-4 w-4" />}
-          highlight
-          trendDelta={trendDeltas?.cost}
-          trendInverted
-        />
-        <CompactStatCard
-          title="Conversioni"
-          value={formatNumber(kpis.performance.conversions)}
-          subtitle={formatCurrency(kpis.performance.conversionsValue * 1000000)}
-          trendDelta={trendDeltas?.conversions}
-        />
-        <CompactStatCard
-          title="CPA"
-          value={formatCurrency(kpis.performance.cpa * 1000000)}
-          trendDelta={trendDeltas?.cpa}
-          trendInverted
-        />
-        <CompactStatCard
-          title="ROAS"
-          value={formatRoas(kpis.performance.roas)}
-          valueColor={kpis.performance.roas >= 3 ? 'text-green-600' : kpis.performance.roas >= 1 ? 'text-yellow-600' : 'text-red-600'}
-        />
-        <CompactStatCard
-          title="CTR"
-          value={formatPercent(kpis.performance.ctr)}
-          valueColor={kpis.performance.ctr >= 3 ? 'text-green-600' : kpis.performance.ctr >= 1 ? 'text-yellow-600' : 'text-red-600'}
-        />
-        <CompactStatCard
-          title="CPC"
-          value={formatCurrency(kpis.performance.avgCpc * 1000000)}
-        />
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-        <CompactStatCard
-          title="Impressioni"
-          value={formatNumber(kpis.performance.impressions)}
-        />
-        <CompactStatCard
-          title="Click"
-          value={formatNumber(kpis.performance.clicks)}
-        />
-        <CompactStatCard
-          title="Conv. Rate"
-          value={formatPercent(kpis.performance.conversionRate)}
-        />
-        <CompactStatCard
-          title="Annunci"
-          value={kpis.overview.totalAds}
-        />
-      </div>
+      {/* Performance Cards - period-filtered when daily data available, otherwise aggregate */}
+      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mt-4">
+        Performance
+        {periodMetrics?.hasDailyData && (
+          <span className="ml-2 text-[10px] font-normal normal-case text-primary">
+            {period.dateFrom} → {period.dateTo}
+          </span>
+        )}
+      </h3>
+      {periodMetrics?.hasDailyData && periodMetrics.current ? (
+        <>
+          <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
+            <CompactStatCard
+              title="Costo"
+              value={formatCurrency(periodMetrics.current.cost * 1000000)}
+              icon={<Wallet className="h-4 w-4" />}
+              highlight
+              trendDelta={periodMetrics.changes?.cost}
+              trendInverted
+            />
+            <CompactStatCard
+              title="Conversioni"
+              value={formatNumber(periodMetrics.current.conversions)}
+              subtitle={`Valore: ${formatCurrency(periodMetrics.current.conversionsValue * 1000000)}`}
+              trendDelta={periodMetrics.changes?.conversions}
+            />
+            <CompactStatCard
+              title="CPA"
+              value={periodMetrics.current.cpa > 0 ? formatCurrency(periodMetrics.current.cpa * 1000000) : '-'}
+              trendDelta={periodMetrics.changes?.cpa}
+              trendInverted
+            />
+            <CompactStatCard
+              title="ROAS"
+              value={periodMetrics.current.roas > 0 ? periodMetrics.current.roas.toFixed(2) : '-'}
+              valueColor={periodMetrics.current.roas >= 3 ? 'text-green-600' : periodMetrics.current.roas >= 1 ? 'text-yellow-600' : 'text-red-600'}
+              trendDelta={periodMetrics.changes?.roas}
+            />
+            <CompactStatCard
+              title="CTR"
+              value={periodMetrics.current.ctr > 0 ? `${periodMetrics.current.ctr.toFixed(2)}%` : '-'}
+              valueColor={periodMetrics.current.ctr >= 3 ? 'text-green-600' : periodMetrics.current.ctr >= 1 ? 'text-yellow-600' : 'text-red-600'}
+              trendDelta={periodMetrics.changes?.ctr}
+            />
+            <CompactStatCard
+              title="CPC"
+              value={periodMetrics.current.cpc > 0 ? formatCurrency(periodMetrics.current.cpc * 1000000) : '-'}
+              trendDelta={periodMetrics.changes?.cpc}
+              trendInverted
+            />
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+            <CompactStatCard
+              title="Impressioni"
+              value={formatNumber(periodMetrics.current.impressions)}
+              trendDelta={periodMetrics.changes?.impressions}
+            />
+            <CompactStatCard
+              title="Click"
+              value={formatNumber(periodMetrics.current.clicks)}
+              trendDelta={periodMetrics.changes?.clicks}
+            />
+            <CompactStatCard
+              title="Conv. Rate"
+              value={periodMetrics.current.clicks > 0 ? formatPercent((periodMetrics.current.conversions / periodMetrics.current.clicks) * 100) : '-'}
+            />
+            <CompactStatCard
+              title="Annunci"
+              value={kpis.overview.totalAds}
+            />
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
+            <CompactStatCard
+              title="Costo"
+              value={formatCurrency(kpis.performance.cost * 1000000)}
+              icon={<Wallet className="h-4 w-4" />}
+              highlight
+              trendDelta={trendDeltas?.cost}
+              trendInverted
+            />
+            <CompactStatCard
+              title="Conversioni"
+              value={formatNumber(kpis.performance.conversions)}
+              subtitle={formatCurrency(kpis.performance.conversionsValue * 1000000)}
+              trendDelta={trendDeltas?.conversions}
+            />
+            <CompactStatCard
+              title="CPA"
+              value={formatCurrency(kpis.performance.cpa * 1000000)}
+              trendDelta={trendDeltas?.cpa}
+              trendInverted
+            />
+            <CompactStatCard
+              title="ROAS"
+              value={formatRoas(kpis.performance.roas)}
+              valueColor={kpis.performance.roas >= 3 ? 'text-green-600' : kpis.performance.roas >= 1 ? 'text-yellow-600' : 'text-red-600'}
+            />
+            <CompactStatCard
+              title="CTR"
+              value={formatPercent(kpis.performance.ctr)}
+              valueColor={kpis.performance.ctr >= 3 ? 'text-green-600' : kpis.performance.ctr >= 1 ? 'text-yellow-600' : 'text-red-600'}
+            />
+            <CompactStatCard
+              title="CPC"
+              value={formatCurrency(kpis.performance.avgCpc * 1000000)}
+            />
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+            <CompactStatCard
+              title="Impressioni"
+              value={formatNumber(kpis.performance.impressions)}
+            />
+            <CompactStatCard
+              title="Click"
+              value={formatNumber(kpis.performance.clicks)}
+            />
+            <CompactStatCard
+              title="Conv. Rate"
+              value={formatPercent(kpis.performance.conversionRate)}
+            />
+            <CompactStatCard
+              title="Annunci"
+              value={kpis.overview.totalAds}
+            />
+          </div>
+        </>
+      )}
 
       {/* Quality Cards - Compact */}
       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mt-4">Qualità</h3>
