@@ -27,11 +27,3 @@ export function useIsMobile(): boolean {
 
   return isMobile;
 }
-
-/**
- * Hook per ottenere il view mode di default basato sulla viewport
- */
-export function useDefaultViewMode(): 'cards' | 'table' {
-  const isMobile = useIsMobile();
-  return isMobile ? 'cards' : 'table';
-}

@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { LandingPagesService } from './landing-pages.service';
+import { CreateBriefDto, UpdateBriefDto } from './dto';
 
 @Controller('landing-pages')
 export class LandingPagesController {
@@ -30,16 +31,7 @@ export class LandingPagesController {
   }
 
   @Post()
-  async createBrief(
-    @Body()
-    body: {
-      accountId: string;
-      name: string;
-      sourceUrl?: string;
-      primaryKeyword?: string;
-      keywordCluster?: any[];
-    },
-  ) {
+  async createBrief(@Body() body: CreateBriefDto) {
     return this.landingPagesService.createBrief(body);
   }
 
@@ -56,9 +48,9 @@ export class LandingPagesController {
   @Patch(':id')
   async updateBrief(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: { name?: string; notes?: string; status?: string; sourceUrl?: string },
+    @Body() body: UpdateBriefDto,
   ) {
-    return this.landingPagesService.updateBrief(id, body as any);
+    return this.landingPagesService.updateBrief(id, body);
   }
 
   @Delete(':id')

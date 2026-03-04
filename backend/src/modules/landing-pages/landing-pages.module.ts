@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { LandingPagesController } from './landing-pages.controller';
 import { LandingPagesService } from './landing-pages.service';
 import { ScraperService } from './scraper.service';
+import { AIModule } from '../ai/ai.module';
 import {
   LandingPageBrief,
   Keyword,
@@ -18,6 +19,7 @@ import {
       GoogleAdsAccount,
       ImportRun,
     ]),
+    AIModule,
   ],
   controllers: [LandingPagesController],
   providers: [LandingPagesService, ScraperService],

@@ -230,4 +230,16 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 ---
 
-*Ultimo aggiornamento: 4 Marzo 2026 | Versione app: 2.12.0*
+## Cronologia Aggiornamenti
+
+| Versione | Data | Descrizione |
+|----------|------|-------------|
+| 2.12.1 | 4 Marzo 2026 | Code cleanup, shared OpenAI provider, deploy script improvements |
+| 2.12.0 | 4 Marzo 2026 | LP Planner con clustering keyword e brief AI per landing page |
+| 2.11.2 | 3 Marzo 2026 | Esecuzione automatica audit rules durante analisi AI schedulata |
+| 2.11.1 | 2 Marzo 2026 | Filtro tipo modifica nella pagina modifiche |
+| 2.11.0 | 24 Febbraio 2026 | Scheduling AI per-account e deploy script migliorato |
+
+---
+
+*Ultimo aggiornamento: 4 Marzo 2026 | Versione app: 2.12.1*

@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.12.1] - 2026-03-04
+
+### Modificato
+- Code cleanup, shared OpenAI provider, deploy script improvements
+
+---
+
+
 ## [2.12.0] - 2026-03-04
 
 ### Aggiunto

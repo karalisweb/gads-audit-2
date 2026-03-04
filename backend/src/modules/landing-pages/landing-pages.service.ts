@@ -1,16 +1,15 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ConfigService } from '@nestjs/config';
-import OpenAI from 'openai';
 import {
   LandingPageBrief,
   LandingPageBriefStatus,
   Keyword,
   GoogleAdsAccount,
   ImportRun,
+  ImportStatus,
 } from '../../entities';
-import { SettingsService } from '../settings/settings.service';
+import { OpenAIProvider } from '../ai/openai.provider';
 import { ScraperService } from './scraper.service';
 
 @Injectable()
@@ -26,27 +25,13 @@ export class LandingPagesService {
     private readonly accountRepository: Repository<GoogleAdsAccount>,
     @InjectRepository(ImportRun)
     private readonly importRunRepository: Repository<ImportRun>,
-    private readonly settingsService: SettingsService,
-    private readonly configService: ConfigService,
+    private readonly openaiProvider: OpenAIProvider,
     private readonly scraperService: ScraperService,
   ) {}
 
-  private async getOpenAIClient(): Promise<OpenAI> {
-    let apiKey = await this.settingsService.getOpenAIApiKey();
-    if (!apiKey) {
-      apiKey = this.configService.get<string>('ai.openaiApiKey') ?? null;
-    }
-    if (!apiKey) {
-      throw new BadRequestException(
-        'OpenAI API key not configured. Please configure it in Settings > AI.',
-      );
-    }
-    return new OpenAI({ apiKey });
-  }
-
   private async getLatestRunId(accountId: string): Promise<string | null> {
     const run = await this.importRunRepository.findOne({
-      where: { accountId, status: 'completed' as any },
+      where: { accountId, status: ImportStatus.COMPLETED },
       order: { completedAt: 'DESC' },
     });
     return run?.runId || null;
@@ -89,7 +74,7 @@ export class LandingPagesService {
 
   async updateBrief(
     id: string,
-    data: Partial<Pick<LandingPageBrief, 'name' | 'notes' | 'status' | 'brief' | 'sourceUrl'>>,
+    data: Partial<Pick<LandingPageBrief, 'name' | 'notes' | 'status' | 'sourceUrl'>>,
   ): Promise<LandingPageBrief> {
     const brief = await this.getBrief(id);
     Object.assign(brief, data);
@@ -186,9 +171,8 @@ export class LandingPagesService {
       finalUrl: kw.finalUrl,
     }));
 
-    const openai = await this.getOpenAIClient();
-    let model = this.configService.get<string>('ai.openaiModel') || 'gpt-4o';
-    const isGpt5 = model.startsWith('gpt-5');
+    const openai = await this.openaiProvider.getClient();
+    const { model, isGpt5, maxTokens } = await this.openaiProvider.getModelConfig();
 
     const systemPrompt = `Sei un esperto di Google Ads e SEO. Il tuo compito è analizzare un elenco di keyword attive e raggrupparle in cluster semantici.
 
@@ -229,7 +213,7 @@ Analizza e crea i cluster semantici.`;
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      ...(isGpt5 ? { max_completion_tokens: 4096 } : { max_tokens: 4096 }),
+      ...(isGpt5 ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
       temperature: 0.3,
       response_format: { type: 'json_object' },
     });
@@ -298,7 +282,6 @@ Analizza e crea i cluster semantici.`;
     // Scrape if not done yet
     if (!brief.scrapedContent && brief.sourceUrl) {
       await this.scrapeSourceUrl(id);
-      // Re-fetch after scrape
       const updated = await this.getBrief(id);
       brief.scrapedContent = updated.scrapedContent;
     }
@@ -308,9 +291,8 @@ Analizza e crea i cluster semantici.`;
       where: { id: brief.accountId },
     });
 
-    const openai = await this.getOpenAIClient();
-    let model = this.configService.get<string>('ai.openaiModel') || 'gpt-4o';
-    const isGpt5 = model.startsWith('gpt-5');
+    const openai = await this.openaiProvider.getClient();
+    const { model, isGpt5, maxTokens } = await this.openaiProvider.getModelConfig();
 
     const systemPrompt = `Sei un esperto di landing page, CRO (Conversion Rate Optimization) e SEO per Google Ads.
 
@@ -384,7 +366,7 @@ Genera il brief strutturato per la landing page ottimizzata.`;
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      ...(isGpt5 ? { max_completion_tokens: 4096 } : { max_tokens: 4096 }),
+      ...(isGpt5 ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
       temperature: 0.4,
       response_format: { type: 'json_object' },
     });

@@ -2,7 +2,10 @@
 
 #############################################################
 #  KW GADS Audit - Deploy Script
-#  Versione: 2.11.0
+#  Versione: 2.12.0
+#
+#  Step: 1.Version → 2.TechDocs → 3.Changelog → 4.GuidaUtente
+#        → 5.Git → 6.VPS Pull → 7.Build → 8.PM2 → 9.Health
 #
 #  Uso:
 #    ./deploy.sh "feat: descrizione"
@@ -18,7 +21,7 @@ set -e
 # ═══════════════════════════════════════════════════════════
 
 APP_NAME="KW GADS Audit"
-APP_VERSION="2.12.0"
+APP_VERSION="2.12.1"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VPS_HOST="root@185.192.97.108"
 VPS_PATH="/var/www/gads-audit-2"
@@ -169,10 +172,40 @@ fi
 APP_VERSION="$NEW_VERSION"
 
 # ═══════════════════════════════════════════════════════════
-# 2. CHANGELOG (automatico)
+# 2. TECHNICAL DOCS
 # ═══════════════════════════════════════════════════════════
 
-print_step "2" "Changelog"
+print_step "2" "Technical docs"
+
+TECH_CL="${SCRIPT_DIR}/docs/TECHNICAL-CHANGELOG.md"
+
+if $DRY_RUN; then
+    print_dry "Entry: | ${NEW_VERSION} | ${TODAY_ISO} | ${COMMIT_MSG} |"
+else
+    if [ -f "$TECH_CL" ]; then
+        TECH_ROW="| ${NEW_VERSION} | ${TODAY_ISO} | ${COMMIT_MSG} |"
+        TEMP_TECH="${TECH_CL}.tmp"
+        awk -v row="$TECH_ROW" '
+            /^\|----------\|/ && !found {
+                print
+                print row
+                found=1
+                next
+            }
+            { print }
+        ' "$TECH_CL" > "$TEMP_TECH"
+        mv "$TEMP_TECH" "$TECH_CL"
+    else
+        printf "# Technical Changelog - KW GADS Audit\n\nLog tecnico delle modifiche al software, auto-generato dal deploy script.\n\n---\n\n| Versione | Data | Commit |\n|----------|------|--------|\n| ${NEW_VERSION} | ${TODAY_ISO} | ${COMMIT_MSG} |\n\n---\n\n*Auto-generato da deploy.sh*\n" > "$TECH_CL"
+    fi
+    print_success "Technical changelog: ${NEW_VERSION}"
+fi
+
+# ═══════════════════════════════════════════════════════════
+# 3. CHANGELOG
+# ═══════════════════════════════════════════════════════════
+
+print_step "3" "Changelog"
 
 if $DRY_RUN; then
     print_dry "Entry [${NEW_VERSION}] - ${SECTION}: ${CLEAN_MSG}"
@@ -200,36 +233,56 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════
-# 3. DOCS (footer versione)
+# 4. GUIDA UTENTE + DOCS FOOTER
 # ═══════════════════════════════════════════════════════════
 
-print_step "3" "Docs"
+print_step "4" "Guida Utente + docs footer"
 
 if ! $DRY_RUN; then
-    # GUIDA-UTENTE.md
-    [ -f "${SCRIPT_DIR}/docs/GUIDA-UTENTE.md" ] && \
-        do_sed "s/\*Ultimo aggiornamento: .* | Versione app: .*\*/*Ultimo aggiornamento: ${TODAY_IT} | Versione app: ${NEW_VERSION}*/" "${SCRIPT_DIR}/docs/GUIDA-UTENTE.md"
+    # Auto-append alla tabella Cronologia Aggiornamenti in GUIDA-UTENTE.md
+    GUIDA="${SCRIPT_DIR}/docs/GUIDA-UTENTE.md"
+    if [ -f "$GUIDA" ] && grep -q "Cronologia Aggiornamenti" "$GUIDA"; then
+        GUIDA_ROW="| ${NEW_VERSION} | ${TODAY_IT} | ${CLEAN_MSG} |"
+        TEMP_GUIDA="${GUIDA}.tmp"
+        awk -v row="$GUIDA_ROW" '
+            /^\|----------\|/ && !found {
+                print
+                print row
+                found=1
+                next
+            }
+            { print }
+        ' "$GUIDA" > "$TEMP_GUIDA"
+        mv "$TEMP_GUIDA" "$GUIDA"
+        print_success "Cronologia aggiornamenti: ${NEW_VERSION}"
+    fi
+
+    # Footer versione GUIDA-UTENTE.md
+    [ -f "$GUIDA" ] && \
+        do_sed "s/\*Ultimo aggiornamento: .* | Versione app: .*\*/*Ultimo aggiornamento: ${TODAY_IT} | Versione app: ${NEW_VERSION}*/" "$GUIDA"
+
     # INFRASTRUCTURE.md
     [ -f "${SCRIPT_DIR}/docs/INFRASTRUCTURE.md" ] && grep -q "Ultimo aggiornamento" "${SCRIPT_DIR}/docs/INFRASTRUCTURE.md" && \
         do_sed "s/\*\*Ultimo aggiornamento\*\*: .* (v[0-9]*\.[0-9]*\.[0-9]*)/**Ultimo aggiornamento**: ${TODAY_IT} (v${NEW_VERSION})/" "${SCRIPT_DIR}/docs/INFRASTRUCTURE.md"
-    # Altri docs
+
+    # Altri docs (esclusi quelli gestiti sopra)
     for doc_file in "${SCRIPT_DIR}"/docs/*.md; do
         [ -f "$doc_file" ] || continue
         basename_doc=$(basename "$doc_file")
-        [[ "$basename_doc" == "GUIDA-UTENTE.md" || "$basename_doc" == "INFRASTRUCTURE.md" ]] && continue
+        [[ "$basename_doc" == "GUIDA-UTENTE.md" || "$basename_doc" == "INFRASTRUCTURE.md" || "$basename_doc" == "TECHNICAL-CHANGELOG.md" ]] && continue
         grep -q "Ultimo aggiornamento.*v[0-9]" "$doc_file" && \
             do_sed "s/\*\*Ultimo aggiornamento\*\*: .* (v[0-9]*\.[0-9]*\.[0-9]*)/**Ultimo aggiornamento**: ${TODAY_IT} (v${NEW_VERSION})/" "$doc_file"
     done
     print_success "Docs aggiornati"
 else
-    print_dry "Footer docs → v${NEW_VERSION}"
+    print_dry "Guida utente + footer docs → v${NEW_VERSION}"
 fi
 
 # ═══════════════════════════════════════════════════════════
-# 4. GIT (verifica + commit + tag + push)
+# 5. GIT (commit + tag + push)
 # ═══════════════════════════════════════════════════════════
 
-print_step "4" "Git commit"
+print_step "5" "Git commit + push"
 
 cd "${SCRIPT_DIR}"
 BRANCH_CURRENT=$(git branch --show-current)
@@ -241,23 +294,13 @@ fi
 FULL_COMMIT_MSG="v${NEW_VERSION}: ${COMMIT_MSG}"
 
 if $DRY_RUN; then
-    print_dry "git commit -m \"${FULL_COMMIT_MSG}\""
+    print_dry "git commit -m \"${FULL_COMMIT_MSG}\" && git push"
 else
     git add .
     git commit -m "$FULL_COMMIT_MSG" || print_warn "Niente da committare"
     COMMIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "n/a")
-    print_success "${FULL_COMMIT_MSG} (${COMMIT_HASH})"
-fi
+    print_success "Commit: ${FULL_COMMIT_MSG} (${COMMIT_HASH})"
 
-# ═══════════════════════════════════════════════════════════
-# 5. GIT TAG + PUSH
-# ═══════════════════════════════════════════════════════════
-
-print_step "5" "Tag + Push"
-
-if $DRY_RUN; then
-    print_dry "git tag v${NEW_VERSION} && git push origin ${BRANCH} --tags"
-else
     if ! $NO_TAG; then
         TAG_NAME="v${NEW_VERSION}"
         if ! git tag -l | grep -q "^${TAG_NAME}$"; then
@@ -265,6 +308,7 @@ else
             print_success "Tag ${TAG_NAME}"
         fi
     fi
+
     git push origin $BRANCH
     ! $NO_TAG && git push origin --tags
     print_success "Push completato"
