@@ -623,10 +623,39 @@ export class IntegrationsService {
     data: Record<string, unknown>[],
     entityType: string,
   ): Promise<void> {
+    // Pre-process: deduplicate rows with same entityId+date (e.g. same search term across campaigns)
+    // by aggregating their metrics. This prevents PostgreSQL "ON CONFLICT cannot affect row a second time" errors.
+    const deduped = new Map<string, Record<string, unknown>>();
+    for (const row of data) {
+      const eid = String(row.entity_id || row.entityId || row.campaign_id || row.campaignId || row.ad_group_id || row.adGroupId || row.keyword_id || row.keywordId || row.ad_id || row.adId || '');
+      const date = String(row.date || row.segments_date || row.segmentsDate || '');
+      const key = `${eid}__${date}`;
+
+      const existing = deduped.get(key);
+      if (existing) {
+        // Aggregate: sum additive metrics
+        existing.impressions = (Number(existing.impressions) || 0) + (Number(row.impressions) || 0);
+        existing.clicks = (Number(existing.clicks) || 0) + (Number(row.clicks) || 0);
+        existing.cost_micros = (Number(existing.cost_micros ?? existing.costMicros) || 0) + (Number(row.cost_micros ?? row.costMicros) || 0);
+        existing.conversions = (Number(existing.conversions) || 0) + (Number(row.conversions) || 0);
+        existing.conversions_value = (Number(existing.conversions_value ?? existing.conversionsValue) || 0) + (Number(row.conversions_value ?? row.conversionsValue) || 0);
+        // Recalculate CTR and CPC from aggregated values
+        existing.ctr = (existing.impressions as number) > 0
+          ? (existing.clicks as number) / (existing.impressions as number)
+          : 0;
+        existing.average_cpc_micros = (existing.clicks as number) > 0
+          ? Math.round((existing.cost_micros as number) / (existing.clicks as number))
+          : 0;
+      } else {
+        deduped.set(key, { ...row, entity_id: eid });
+      }
+    }
+    const dedupedData = Array.from(deduped.values());
+
     // Batch insert for performance
     const batchSize = 100;
-    for (let i = 0; i < data.length; i += batchSize) {
-      const batch = data.slice(i, i + batchSize);
+    for (let i = 0; i < dedupedData.length; i += batchSize) {
+      const batch = dedupedData.slice(i, i + batchSize);
       const values = batch.map(row => ({
         accountId,
         runId,

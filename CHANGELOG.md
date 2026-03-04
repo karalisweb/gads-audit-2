@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.14.2] - 2026-03-04
+
+### Corretto
+- Daily_search_terms dedup + HMAC guard GET body mismatch
+
+---
+
+
 ## [2.14.1] - 2026-03-04
 
 ### Aggiunto

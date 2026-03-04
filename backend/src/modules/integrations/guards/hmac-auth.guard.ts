@@ -53,8 +53,8 @@ export class HmacAuthGuard implements CanActivate {
     }
 
     // Get raw body for signature verification
-    // For GET requests, body is empty, so use '{}'
-    let rawBody = '{}';
+    // For GET requests, body is empty string (scripts sign timestamp + '')
+    let rawBody = '';
     if (request.method !== 'GET') {
       rawBody = request.rawBody || JSON.stringify(request.body || {});
     }
