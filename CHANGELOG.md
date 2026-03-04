@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.13.2] - 2026-03-04
+
+### Corretto
+- Add PeriodSelector to AuditLayout header on all audit pages
+
+---
+
+
 ## [2.13.1] - 2026-03-04
 
 ### Corretto

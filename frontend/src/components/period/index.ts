@@ -1,1 +1,2 @@
-export { PeriodSelector } from './PeriodSelector';
+export { PeriodSelector, getDefaultPeriod } from './PeriodSelector';
+export type { PeriodSelection } from './PeriodSelector';

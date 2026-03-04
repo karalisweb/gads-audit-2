@@ -106,7 +106,7 @@ export function LoginPage() {
         </Card>
 
         <p className="text-center text-xs text-muted-foreground mt-8">
-          v2.13.1
+          v2.13.2
         </p>
       </div>
     </div>

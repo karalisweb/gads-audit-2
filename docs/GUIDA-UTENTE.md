@@ -234,6 +234,7 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 | Versione | Data | Descrizione |
 |----------|------|-------------|
+| 2.13.2 | 4 Marzo 2026 | Add PeriodSelector to AuditLayout header on all audit pages |
 | 2.13.1 | 4 Marzo 2026 | Remove old PeriodSelector from AuditLayout |
 | 2.13.0 | 4 Marzo 2026 | Account strategy + daily metrics + period filter |
 | 2.12.1 | 4 Marzo 2026 | Code cleanup, shared OpenAI provider, deploy script improvements |
@@ -244,4 +245,4 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 ---
 
-*Ultimo aggiornamento: 4 Marzo 2026 | Versione app: 2.13.1*
+*Ultimo aggiornamento: 4 Marzo 2026 | Versione app: 2.13.2*

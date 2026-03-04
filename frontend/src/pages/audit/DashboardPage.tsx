@@ -1,9 +1,9 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useOutletContext } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getKpis, getIssueSummary, getPerformanceTrend, getHealthScore, getPeriodMetrics, type IssueSummary, type KpiSnapshot, type HealthScoreResult, type PeriodMetricsResponse } from '@/api/audit';
-import { PeriodSelector, getDefaultPeriod, type PeriodSelection } from '@/components/period/PeriodSelector';
+import type { AuditLayoutContext } from '@/components/Layout/AuditLayout';
 import { getAnalysisHistory, getAcceptanceRate, analyzeAllModules, type AIAnalysisLog, type AcceptanceRate } from '@/api/ai';
 import { getModificationSummary } from '@/api/modifications';
 import { formatCurrency, formatNumber, formatPercent, formatRoas } from '@/lib/format';
@@ -25,6 +25,7 @@ import {
 
 export function DashboardPage() {
   const { accountId } = useParams<{ accountId: string }>();
+  const { period } = useOutletContext<AuditLayoutContext>();
   const [kpis, setKpis] = useState<KpiData | null>(null);
   const [issueSummary, setIssueSummary] = useState<IssueSummary | null>(null);
   const [trend, setTrend] = useState<KpiSnapshot[]>([]);
@@ -36,7 +37,6 @@ export function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Period metrics state
-  const [period, setPeriod] = useState<PeriodSelection>(getDefaultPeriod(7));
   const [periodMetrics, setPeriodMetrics] = useState<PeriodMetricsResponse | null>(null);
 
   const loadPeriodMetrics = useCallback(async (p: PeriodSelection) => {
@@ -132,7 +132,6 @@ export function DashboardPage() {
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h2 className="text-xl font-bold text-foreground">Dashboard</h2>
-        <PeriodSelector value={period} onChange={setPeriod} compact />
       </div>
 
       {/* Period Metrics Banner */}

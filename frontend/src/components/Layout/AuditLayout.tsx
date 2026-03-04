@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import { getAccount, getLatestRun } from '@/api/audit';
 import type { GoogleAdsAccount, ImportRun } from '@/types/audit';
 import { cn } from '@/lib/utils';
+import { PeriodSelector, getDefaultPeriod } from '@/components/period';
+import type { PeriodSelection } from '@/components/period';
 import { MobileBottomNav } from './MobileBottomNav';
 import { Sidebar } from './Sidebar';
 import { useAuthStore } from '@/stores/auth.store';
@@ -70,6 +72,7 @@ export function AuditLayout() {
   const { toggleSidebar } = useUIStore();
   const [account, setAccount] = useState<GoogleAdsAccount | null>(null);
   const [latestRun, setLatestRun] = useState<ImportRun | null>(null);
+  const [period, setPeriod] = useState<PeriodSelection>(getDefaultPeriod(7));
 
   useEffect(() => {
     if (!accountId) return;
@@ -146,6 +149,10 @@ export function AuditLayout() {
           </div>
         </div>
 
+        {/* Period Selector su mobile */}
+        <div className="px-4 pb-3">
+          <PeriodSelector value={period} onChange={setPeriod} compact />
+        </div>
       </header>
 
       {/* Desktop Header */}
@@ -182,6 +189,7 @@ export function AuditLayout() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <PeriodSelector value={period} onChange={setPeriod} compact />
               <button
                 onClick={() => navigate('/dashboard')}
                 className="flex-shrink-0 p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
@@ -222,11 +230,19 @@ export function AuditLayout() {
 
       {/* Content */}
       <main className="p-3 sm:p-6">
-        <Outlet context={{ account, latestRun }} />
+        <Outlet context={{ account, latestRun, period, setPeriod }} />
       </main>
 
       {/* Mobile Bottom Navigation */}
       <MobileBottomNav variant="audit" />
     </div>
   );
+}
+
+// Context type for child routes
+export interface AuditLayoutContext {
+  account: GoogleAdsAccount | null;
+  latestRun: ImportRun | null;
+  period: PeriodSelection;
+  setPeriod: (p: PeriodSelection) => void;
 }

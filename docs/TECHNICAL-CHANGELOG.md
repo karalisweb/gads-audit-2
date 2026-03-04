@@ -6,6 +6,7 @@ Log tecnico delle modifiche al software, auto-generato dal deploy script.
 
 | Versione | Data | Commit |
 |----------|------|--------|
+| 2.13.2 | 2026-03-04 | fix: add PeriodSelector to AuditLayout header on all audit pages |
 | 2.13.1 | 2026-03-04 | fix: remove old PeriodSelector from AuditLayout |
 | 2.13.0 | 2026-03-04 | feat: account strategy + daily metrics + period filter |
 | 2.12.1 | 2026-03-04 | refactor: code cleanup, shared OpenAI provider, deploy script improvements |
