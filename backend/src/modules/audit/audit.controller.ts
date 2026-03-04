@@ -125,8 +125,9 @@ export class AuditController {
     @Query('entityType') entityType: string,
     @Query('dateFrom') dateFrom: string,
     @Query('dateTo') dateTo: string,
+    @Query('compare') compare?: string,
   ) {
-    return this.auditService.getPeriodEntityMetrics(accountId, entityType, dateFrom, dateTo);
+    return this.auditService.getPeriodEntityMetrics(accountId, entityType, dateFrom, dateTo, compare === 'true');
   }
 
   @Get('accounts/:accountId/health-score')

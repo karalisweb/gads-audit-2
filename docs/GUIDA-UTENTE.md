@@ -234,6 +234,7 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 | Versione | Data | Descrizione |
 |----------|------|-------------|
+| 2.14.1 | 4 Marzo 2026 | Add compare mode to entity tables with % change badges |
 | 2.14.0 | 4 Marzo 2026 | Period filter on all entity tables (campaigns, ad groups, keywords, ads, search terms) |
 | 2.13.4 | 4 Marzo 2026 | Performance section uses period-filtered data from daily_metrics |
 | 2.13.3 | 4 Marzo 2026 | Add missing PeriodSelection import in DashboardPage |
@@ -248,4 +249,4 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 ---
 
-*Ultimo aggiornamento: 4 Marzo 2026 | Versione app: 2.14.0*
+*Ultimo aggiornamento: 4 Marzo 2026 | Versione app: 2.14.1*

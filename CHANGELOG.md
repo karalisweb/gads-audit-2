@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.14.1] - 2026-03-04
+
+### Aggiunto
+- Add compare mode to entity tables with % change badges
+
+---
+
+
 ## [2.14.0] - 2026-03-04
 
 ### Aggiunto

@@ -413,12 +413,60 @@ export class AuditService {
     entityType: string,
     dateFrom: string,
     dateTo: string,
+    compare = false,
   ) {
     const allowedTypes = ['campaign', 'ad_group', 'keyword', 'ad', 'search_term'];
     if (!allowedTypes.includes(entityType)) {
       throw new NotFoundException(`Invalid entity type: ${entityType}`);
     }
 
+    const metricsMap = await this.fetchEntityMetricsMap(accountId, entityType, dateFrom, dateTo);
+
+    if (!compare) {
+      return { entityType, dateFrom, dateTo, metrics: metricsMap, changes: null, hasData: Object.keys(metricsMap).length > 0 };
+    }
+
+    // Calculate previous period
+    const from = new Date(dateFrom);
+    const to = new Date(dateTo);
+    const durationMs = to.getTime() - from.getTime();
+    const prevTo = new Date(from.getTime() - 86400000);
+    const prevFrom = new Date(prevTo.getTime() - durationMs);
+    const prevDateFrom = prevFrom.toISOString().split('T')[0];
+    const prevDateTo = prevTo.toISOString().split('T')[0];
+
+    const prevMetricsMap = await this.fetchEntityMetricsMap(accountId, entityType, prevDateFrom, prevDateTo);
+
+    // Calculate per-entity changes
+    const pctChange = (curr: number, prev: number) => {
+      if (prev === 0) return curr > 0 ? 100 : 0;
+      return Math.round(((curr - prev) / prev) * 10000) / 100;
+    };
+
+    const changesMap: Record<string, Record<string, number>> = {};
+    const allEntityIds = new Set([...Object.keys(metricsMap), ...Object.keys(prevMetricsMap)]);
+
+    for (const entityId of allEntityIds) {
+      const curr = metricsMap[entityId];
+      const prev = prevMetricsMap[entityId];
+      if (!curr || !prev) continue; // skip entities that exist only in one period
+
+      changesMap[entityId] = {
+        impressions: pctChange(curr.impressions, prev.impressions),
+        clicks: pctChange(curr.clicks, prev.clicks),
+        cost: pctChange(curr.cost, prev.cost),
+        conversions: pctChange(curr.conversions, prev.conversions),
+        ctr: pctChange(curr.ctr, prev.ctr),
+        cpc: pctChange(curr.cpc, prev.cpc),
+        cpa: pctChange(curr.cpa, prev.cpa),
+        roas: pctChange(curr.roas, prev.roas),
+      };
+    }
+
+    return { entityType, dateFrom, dateTo, metrics: metricsMap, changes: changesMap, hasData: Object.keys(metricsMap).length > 0 };
+  }
+
+  private async fetchEntityMetricsMap(accountId: string, entityType: string, dateFrom: string, dateTo: string) {
     const results = await this.dailyMetricRepository
       .createQueryBuilder('dm')
       .select('dm.entity_id', 'entityId')
@@ -433,18 +481,10 @@ export class AuditService {
       .groupBy('dm.entity_id')
       .getRawMany();
 
-    // Build entityId -> metrics map
     const metricsMap: Record<string, {
-      impressions: number;
-      clicks: number;
-      cost: number;
-      conversions: number;
-      conversionsValue: number;
-      ctr: number;
-      cpc: number;
-      cpa: number;
-      roas: number;
-      conversionRate: number;
+      impressions: number; clicks: number; cost: number;
+      conversions: number; conversionsValue: number;
+      ctr: number; cpc: number; cpa: number; roas: number; conversionRate: number;
     }> = {};
 
     for (const r of results) {
@@ -469,7 +509,7 @@ export class AuditService {
       };
     }
 
-    return { entityType, dateFrom, dateTo, metrics: metricsMap, hasData: results.length > 0 };
+    return metricsMap;
   }
 
   private async aggregateDailyMetrics(accountId: string, dateFrom: string, dateTo: string) {

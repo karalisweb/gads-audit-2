@@ -5,8 +5,7 @@ import type { AuditLayoutContext } from '@/components/Layout/AuditLayout';
 
 /**
  * Hook that fetches period-filtered entity metrics from daily_metrics.
- * Returns a metrics map (entityId -> metrics) that can be used to overlay
- * period-filtered data on entity tables.
+ * Returns a metrics map (entityId -> metrics) and optionally comparison changes.
  */
 export function usePeriodEntityMetrics(entityType: string) {
   const { accountId } = useParams<{ accountId: string }>();
@@ -23,6 +22,7 @@ export function usePeriodEntityMetrics(entityType: string) {
         entityType,
         period.dateFrom,
         period.dateTo,
+        period.compare,
       );
       setData(result);
     } catch {
@@ -30,7 +30,7 @@ export function usePeriodEntityMetrics(entityType: string) {
     } finally {
       setIsLoading(false);
     }
-  }, [accountId, entityType, period.dateFrom, period.dateTo]);
+  }, [accountId, entityType, period.dateFrom, period.dateTo, period.compare]);
 
   useEffect(() => {
     load();
@@ -48,10 +48,24 @@ export function usePeriodEntityMetrics(entityType: string) {
     [data],
   );
 
+  /**
+   * Get comparison % changes for a specific entity.
+   * Returns null if compare is off or no data available.
+   */
+  const getEntityChanges = useCallback(
+    (entityId: string): Record<string, number> | null => {
+      if (!data?.changes || !data.changes[entityId]) return null;
+      return data.changes[entityId];
+    },
+    [data],
+  );
+
   return {
     periodData: data,
     hasData: data?.hasData ?? false,
+    hasChanges: !!data?.changes,
     isLoading,
     getEntityMetrics,
+    getEntityChanges,
   };
 }

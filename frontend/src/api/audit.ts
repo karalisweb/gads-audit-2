@@ -390,6 +390,7 @@ export interface PeriodEntityMetricsResponse {
   dateFrom: string;
   dateTo: string;
   metrics: Record<string, EntityMetrics>;
+  changes: Record<string, Record<string, number>> | null;
   hasData: boolean;
 }
 
@@ -398,9 +399,10 @@ export async function getPeriodEntityMetrics(
   entityType: string,
   dateFrom: string,
   dateTo: string,
+  compare = false,
 ): Promise<PeriodEntityMetricsResponse> {
   return apiClient.get<PeriodEntityMetricsResponse>(
     `/audit/accounts/${accountId}/period-entity-metrics`,
-    { entityType, dateFrom, dateTo },
+    { entityType, dateFrom, dateTo, compare },
   );
 }

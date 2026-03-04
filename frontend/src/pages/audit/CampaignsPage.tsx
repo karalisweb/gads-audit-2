@@ -222,7 +222,7 @@ export function CampaignsPage() {
   const [searchInput, setSearchInput] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [openCards, setOpenCards] = useState<Set<string>>(new Set());
-  const { hasData: hasPeriodData, getEntityMetrics } = usePeriodEntityMetrics('campaign');
+  const { hasData: hasPeriodData, getEntityMetrics, getEntityChanges, hasChanges } = usePeriodEntityMetrics('campaign');
 
   const loadData = useCallback(async () => {
     if (!accountId) return;
@@ -299,32 +299,104 @@ export function CampaignsPage() {
     {
       accessorKey: 'impressions',
       header: 'Impr.',
-      cell: ({ row }) => formatNumber(row.original.impressions),
+      cell: ({ row }) => {
+        const changes = hasChanges ? getEntityChanges(row.original.campaignId) : null;
+        return (
+          <span className="whitespace-nowrap">
+            {formatNumber(row.original.impressions)}
+            {changes && changes.impressions !== undefined && changes.impressions !== 0 && (
+              <span className={`ml-1 text-[10px] font-medium ${changes.impressions > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                {changes.impressions > 0 ? '+' : ''}{changes.impressions.toFixed(0)}%
+              </span>
+            )}
+          </span>
+        );
+      },
     },
     {
       accessorKey: 'clicks',
       header: 'Click',
-      cell: ({ row }) => formatNumber(row.original.clicks),
+      cell: ({ row }) => {
+        const changes = hasChanges ? getEntityChanges(row.original.campaignId) : null;
+        return (
+          <span className="whitespace-nowrap">
+            {formatNumber(row.original.clicks)}
+            {changes && changes.clicks !== undefined && changes.clicks !== 0 && (
+              <span className={`ml-1 text-[10px] font-medium ${changes.clicks > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                {changes.clicks > 0 ? '+' : ''}{changes.clicks.toFixed(0)}%
+              </span>
+            )}
+          </span>
+        );
+      },
     },
     {
       accessorKey: 'ctr',
       header: 'CTR',
-      cell: ({ row }) => formatCtr(row.original.ctr),
+      cell: ({ row }) => {
+        const changes = hasChanges ? getEntityChanges(row.original.campaignId) : null;
+        return (
+          <span className="whitespace-nowrap">
+            {formatCtr(row.original.ctr)}
+            {changes && changes.ctr !== undefined && changes.ctr !== 0 && (
+              <span className={`ml-1 text-[10px] font-medium ${changes.ctr > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                {changes.ctr > 0 ? '+' : ''}{changes.ctr.toFixed(0)}%
+              </span>
+            )}
+          </span>
+        );
+      },
     },
     {
       accessorKey: 'costMicros',
       header: 'Costo',
-      cell: ({ row }) => formatCurrency(row.original.costMicros),
+      cell: ({ row }) => {
+        const changes = hasChanges ? getEntityChanges(row.original.campaignId) : null;
+        return (
+          <span className="whitespace-nowrap">
+            {formatCurrency(row.original.costMicros)}
+            {changes && changes.cost !== undefined && changes.cost !== 0 && (
+              <span className={`ml-1 text-[10px] font-medium ${changes.cost > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                {changes.cost > 0 ? '+' : ''}{changes.cost.toFixed(0)}%
+              </span>
+            )}
+          </span>
+        );
+      },
     },
     {
       accessorKey: 'averageCpcMicros',
       header: 'CPC',
-      cell: ({ row }) => formatCurrency(row.original.averageCpcMicros),
+      cell: ({ row }) => {
+        const changes = hasChanges ? getEntityChanges(row.original.campaignId) : null;
+        return (
+          <span className="whitespace-nowrap">
+            {formatCurrency(row.original.averageCpcMicros)}
+            {changes && changes.cpc !== undefined && changes.cpc !== 0 && (
+              <span className={`ml-1 text-[10px] font-medium ${changes.cpc > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                {changes.cpc > 0 ? '+' : ''}{changes.cpc.toFixed(0)}%
+              </span>
+            )}
+          </span>
+        );
+      },
     },
     {
       accessorKey: 'conversions',
       header: 'Conv.',
-      cell: ({ row }) => formatNumber(row.original.conversions),
+      cell: ({ row }) => {
+        const changes = hasChanges ? getEntityChanges(row.original.campaignId) : null;
+        return (
+          <span className="whitespace-nowrap">
+            {formatNumber(row.original.conversions)}
+            {changes && changes.conversions !== undefined && changes.conversions !== 0 && (
+              <span className={`ml-1 text-[10px] font-medium ${changes.conversions > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                {changes.conversions > 0 ? '+' : ''}{changes.conversions.toFixed(0)}%
+              </span>
+            )}
+          </span>
+        );
+      },
     },
     {
       id: 'cpa',
@@ -332,7 +404,17 @@ export function CampaignsPage() {
       cell: ({ row }) => {
         const cost = parseFloat(row.original.costMicros) || 0;
         const conv = parseFloat(row.original.conversions) || 0;
-        return conv > 0 ? formatCurrency(cost / conv) : '-';
+        const changes = hasChanges ? getEntityChanges(row.original.campaignId) : null;
+        return (
+          <span className="whitespace-nowrap">
+            {conv > 0 ? formatCurrency(cost / conv) : '-'}
+            {changes && changes.cpa !== undefined && changes.cpa !== 0 && (
+              <span className={`ml-1 text-[10px] font-medium ${changes.cpa > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                {changes.cpa > 0 ? '+' : ''}{changes.cpa.toFixed(0)}%
+              </span>
+            )}
+          </span>
+        );
       },
     },
     {
@@ -341,7 +423,17 @@ export function CampaignsPage() {
       cell: ({ row }) => {
         const value = parseFloat(row.original.conversionsValue) || 0;
         const cost = parseFloat(row.original.costMicros) || 0;
-        return cost > 0 ? `${((value * 1000000) / cost).toFixed(2)}` : '-';
+        const changes = hasChanges ? getEntityChanges(row.original.campaignId) : null;
+        return (
+          <span className="whitespace-nowrap">
+            {cost > 0 ? `${((value * 1000000) / cost).toFixed(2)}` : '-'}
+            {changes && changes.roas !== undefined && changes.roas !== 0 && (
+              <span className={`ml-1 text-[10px] font-medium ${changes.roas > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                {changes.roas > 0 ? '+' : ''}{changes.roas.toFixed(0)}%
+              </span>
+            )}
+          </span>
+        );
       },
     },
     {

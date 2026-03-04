@@ -39,7 +39,9 @@ import type { SearchTerm, Campaign, AdGroup, PaginatedResponse, SearchTermFilter
 
 // Column definitions for table view
 const createColumns = (
-  onAddNegative: (term: SearchTerm, level: 'campaign' | 'adgroup', matchType: string) => void
+  onAddNegative: (term: SearchTerm, level: 'campaign' | 'adgroup', matchType: string) => void,
+  hasChanges?: boolean,
+  getEntityChanges?: (id: string) => Record<string, number> | null,
 ): ColumnDef<SearchTerm>[] => [
   {
     accessorKey: 'searchTerm',
@@ -81,22 +83,70 @@ const createColumns = (
   {
     accessorKey: 'impressions',
     header: 'Impr.',
-    cell: ({ row }) => formatNumber(row.original.impressions),
+    cell: ({ row }) => {
+      const changes = hasChanges && getEntityChanges ? getEntityChanges(row.original.searchTerm) : null;
+      return (
+        <span className="whitespace-nowrap">
+          {formatNumber(row.original.impressions)}
+          {changes && changes.impressions !== undefined && changes.impressions !== 0 && (
+            <span className={`ml-1 text-[10px] font-medium ${changes.impressions > 0 ? 'text-green-500' : 'text-red-500'}`}>
+              {changes.impressions > 0 ? '+' : ''}{changes.impressions.toFixed(0)}%
+            </span>
+          )}
+        </span>
+      );
+    },
   },
   {
     accessorKey: 'clicks',
     header: 'Click',
-    cell: ({ row }) => formatNumber(row.original.clicks),
+    cell: ({ row }) => {
+      const changes = hasChanges && getEntityChanges ? getEntityChanges(row.original.searchTerm) : null;
+      return (
+        <span className="whitespace-nowrap">
+          {formatNumber(row.original.clicks)}
+          {changes && changes.clicks !== undefined && changes.clicks !== 0 && (
+            <span className={`ml-1 text-[10px] font-medium ${changes.clicks > 0 ? 'text-green-500' : 'text-red-500'}`}>
+              {changes.clicks > 0 ? '+' : ''}{changes.clicks.toFixed(0)}%
+            </span>
+          )}
+        </span>
+      );
+    },
   },
   {
     accessorKey: 'ctr',
     header: 'CTR',
-    cell: ({ row }) => formatCtr(row.original.ctr),
+    cell: ({ row }) => {
+      const changes = hasChanges && getEntityChanges ? getEntityChanges(row.original.searchTerm) : null;
+      return (
+        <span className="whitespace-nowrap">
+          {formatCtr(row.original.ctr)}
+          {changes && changes.ctr !== undefined && changes.ctr !== 0 && (
+            <span className={`ml-1 text-[10px] font-medium ${changes.ctr > 0 ? 'text-green-500' : 'text-red-500'}`}>
+              {changes.ctr > 0 ? '+' : ''}{changes.ctr.toFixed(0)}%
+            </span>
+          )}
+        </span>
+      );
+    },
   },
   {
     accessorKey: 'costMicros',
     header: 'Costo',
-    cell: ({ row }) => formatCurrency(row.original.costMicros),
+    cell: ({ row }) => {
+      const changes = hasChanges && getEntityChanges ? getEntityChanges(row.original.searchTerm) : null;
+      return (
+        <span className="whitespace-nowrap">
+          {formatCurrency(row.original.costMicros)}
+          {changes && changes.cost !== undefined && changes.cost !== 0 && (
+            <span className={`ml-1 text-[10px] font-medium ${changes.cost > 0 ? 'text-red-500' : 'text-green-500'}`}>
+              {changes.cost > 0 ? '+' : ''}{changes.cost.toFixed(0)}%
+            </span>
+          )}
+        </span>
+      );
+    },
   },
   {
     id: 'cpc',
@@ -104,7 +154,17 @@ const createColumns = (
     cell: ({ row }) => {
       const cost = parseFloat(row.original.costMicros) || 0;
       const clicks = parseFloat(row.original.clicks) || 0;
-      return clicks > 0 ? formatCurrency(cost / clicks) : '-';
+      const changes = hasChanges && getEntityChanges ? getEntityChanges(row.original.searchTerm) : null;
+      return (
+        <span className="whitespace-nowrap">
+          {clicks > 0 ? formatCurrency(cost / clicks) : '-'}
+          {changes && changes.cpc !== undefined && changes.cpc !== 0 && (
+            <span className={`ml-1 text-[10px] font-medium ${changes.cpc > 0 ? 'text-red-500' : 'text-green-500'}`}>
+              {changes.cpc > 0 ? '+' : ''}{changes.cpc.toFixed(0)}%
+            </span>
+          )}
+        </span>
+      );
     },
   },
   {
@@ -114,9 +174,15 @@ const createColumns = (
       const conv = parseFloat(row.original.conversions) || 0;
       const cost = parseFloat(row.original.costMicros) || 0;
       const noConversions = conv === 0 && cost > 0;
+      const changes = hasChanges && getEntityChanges ? getEntityChanges(row.original.searchTerm) : null;
       return (
-        <span className={noConversions ? 'text-orange-600 font-medium' : ''}>
+        <span className={`whitespace-nowrap ${noConversions ? 'text-orange-600 font-medium' : ''}`}>
           {formatNumber(row.original.conversions)}
+          {changes && changes.conversions !== undefined && changes.conversions !== 0 && (
+            <span className={`ml-1 text-[10px] font-medium ${changes.conversions > 0 ? 'text-green-500' : 'text-red-500'}`}>
+              {changes.conversions > 0 ? '+' : ''}{changes.conversions.toFixed(0)}%
+            </span>
+          )}
         </span>
       );
     },
@@ -132,7 +198,17 @@ const createColumns = (
     cell: ({ row }) => {
       const cost = parseFloat(row.original.costMicros) || 0;
       const conv = parseFloat(row.original.conversions) || 0;
-      return conv > 0 ? formatCurrency(cost / conv) : '-';
+      const changes = hasChanges && getEntityChanges ? getEntityChanges(row.original.searchTerm) : null;
+      return (
+        <span className="whitespace-nowrap">
+          {conv > 0 ? formatCurrency(cost / conv) : '-'}
+          {changes && changes.cpa !== undefined && changes.cpa !== 0 && (
+            <span className={`ml-1 text-[10px] font-medium ${changes.cpa > 0 ? 'text-red-500' : 'text-green-500'}`}>
+              {changes.cpa > 0 ? '+' : ''}{changes.cpa.toFixed(0)}%
+            </span>
+          )}
+        </span>
+      );
     },
   },
   {
@@ -141,7 +217,17 @@ const createColumns = (
     cell: ({ row }) => {
       const value = parseFloat(row.original.conversionsValue) || 0;
       const cost = parseFloat(row.original.costMicros) || 0;
-      return cost > 0 ? `${((value * 1000000) / cost).toFixed(2)}` : '-';
+      const changes = hasChanges && getEntityChanges ? getEntityChanges(row.original.searchTerm) : null;
+      return (
+        <span className="whitespace-nowrap">
+          {cost > 0 ? `${((value * 1000000) / cost).toFixed(2)}` : '-'}
+          {changes && changes.roas !== undefined && changes.roas !== 0 && (
+            <span className={`ml-1 text-[10px] font-medium ${changes.roas > 0 ? 'text-green-500' : 'text-red-500'}`}>
+              {changes.roas > 0 ? '+' : ''}{changes.roas.toFixed(0)}%
+            </span>
+          )}
+        </span>
+      );
     },
   },
   {
@@ -329,7 +415,7 @@ export function SearchTermsPage() {
 
   // Expanded card state for mobile
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
-  const { hasData: hasPeriodData, getEntityMetrics } = usePeriodEntityMetrics('search_term');
+  const { hasData: hasPeriodData, getEntityMetrics, getEntityChanges, hasChanges } = usePeriodEntityMetrics('search_term');
 
   // Campaign/AdGroup filter options
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -357,7 +443,7 @@ export function SearchTermsPage() {
   }, []);
 
   // Create columns with the dialog opener
-  const columns = createColumns(handleOpenNegativeDialog);
+  const columns = createColumns(handleOpenNegativeDialog, hasChanges, getEntityChanges);
 
   // Load campaigns for filter
   useEffect(() => {
