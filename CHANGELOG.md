@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.13.1] - 2026-03-04
+
+### Corretto
+- Remove old PeriodSelector from AuditLayout
+
+---
+
+
 ## [2.13.0] - 2026-03-04
 
 ### Aggiunto
