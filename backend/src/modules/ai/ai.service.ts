@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import OpenAI from 'openai';
+import { GoogleGenAI } from '@google/genai';
 import {
   Campaign,
   AdGroup,
@@ -81,20 +82,31 @@ export class AIService {
     private auditIssueRepository: Repository<AuditIssue>,
   ) {}
 
+  private async getActiveProvider(): Promise<string> {
+    const provider = await this.settingsService.getAIProvider();
+    return provider || this.configService.get<string>('ai.aiProvider') || 'openai';
+  }
+
   private async getOpenAIClient(): Promise<OpenAI> {
-    // First try to get from database settings
     let apiKey = await this.settingsService.getOpenAIApiKey();
-    
-    // Fallback to config/env
     if (!apiKey) {
       apiKey = this.configService.get<string>('ai.openaiApiKey') ?? null;
     }
-
     if (!apiKey) {
       throw new BadRequestException('OpenAI API key not configured. Please configure it in Settings > AI.');
     }
-
     return new OpenAI({ apiKey });
+  }
+
+  private async getGeminiClient(): Promise<GoogleGenAI> {
+    let apiKey = await this.settingsService.getGeminiApiKey();
+    if (!apiKey) {
+      apiKey = this.configService.get<string>('ai.geminiApiKey') ?? null;
+    }
+    if (!apiKey) {
+      throw new BadRequestException('Gemini API key not configured. Please configure it in Settings > AI.');
+    }
+    return new GoogleGenAI({ apiKey });
   }
 
   async analyzeModule(
@@ -102,8 +114,6 @@ export class AIService {
     moduleId: number,
     filters?: Record<string, any>,
   ): Promise<AIAnalysisResponse> {
-    const openai = await this.getOpenAIClient();
-
     if (!SUPPORTED_MODULES.includes(moduleId)) {
       throw new BadRequestException(`Module ${moduleId} is not supported for AI analysis`);
     }
@@ -157,9 +167,8 @@ export class AIService {
       userPrompt,
     ].filter(Boolean).join('\n\n');
 
-    // Call OpenAI
-    const recommendations = await this.callOpenAI(
-      openai,
+    // Call LLM (OpenAI or Gemini based on active provider)
+    const recommendations = await this.callLLM(
       enrichedSystemPrompt,
       enrichedUserPrompt,
     );
@@ -1036,22 +1045,66 @@ Adatta le tue raccomandazioni in base a queste preferenze. Non insistere su cate
     return Object.values(byAdGroup);
   }
 
-  private async callOpenAI(
-    openai: OpenAI,
+  // =========================================================================
+  // LLM DISPATCHER (OpenAI / Gemini)
+  // =========================================================================
+
+  private parseRecommendations(parsed: any): { summary: string; recommendations: AIRecommendation[] } {
+    const recommendations: AIRecommendation[] = (parsed.recommendations || []).map(
+      (rec: any, index: number) => ({
+        id: rec.id || `rec_${index + 1}`,
+        priority: rec.priority || 'medium',
+        entityType: rec.entityType || 'unknown',
+        entityId: rec.entityId || '',
+        entityName: rec.entityName || '',
+        action: rec.action || '',
+        currentValue: rec.currentValue,
+        suggestedValue: rec.suggestedValue,
+        rationale: rec.rationale || '',
+        expectedImpact: rec.expectedImpact,
+        campaignId: rec.campaignId || undefined,
+        adGroupId: rec.adGroupId || undefined,
+      }),
+    );
+    return { summary: parsed.summary || 'Analysis completed', recommendations };
+  }
+
+  private async callLLM(
     systemPrompt: string,
     userPrompt: string,
   ): Promise<{ summary: string; recommendations: AIRecommendation[] }> {
-    // Get model from settings or fallback
+    const provider = await this.getActiveProvider();
+    if (provider === 'gemini') {
+      return this.callGeminiJSON(systemPrompt, userPrompt);
+    }
+    return this.callOpenAIJSON(systemPrompt, userPrompt);
+  }
+
+  private async callLLMText(
+    systemPrompt: string,
+    userPrompt: string,
+    maxTokens?: number,
+  ): Promise<string> {
+    const provider = await this.getActiveProvider();
+    if (provider === 'gemini') {
+      return this.callGeminiText(systemPrompt, userPrompt, maxTokens);
+    }
+    return this.callOpenAIText(systemPrompt, userPrompt, maxTokens);
+  }
+
+  private async callOpenAIJSON(
+    systemPrompt: string,
+    userPrompt: string,
+  ): Promise<{ summary: string; recommendations: AIRecommendation[] }> {
+    const openai = await this.getOpenAIClient();
     let model = await this.settingsService.getOpenAIModel();
     if (!model) {
-      model = this.configService.get<string>('ai.openaiModel') || 'gpt-4o';
+      model = this.configService.get<string>('ai.openaiModel') || 'gpt-5.2';
     }
     const maxTokens = this.configService.get<number>('ai.maxTokens') || 4096;
 
     try {
       this.logger.log(`Calling OpenAI model: ${model}`);
-
-      // GPT-5.x models use max_completion_tokens instead of max_tokens
       const isGpt5 = model.startsWith('gpt-5');
 
       const response = await openai.chat.completions.create({
@@ -1061,7 +1114,7 @@ Adatta le tue raccomandazioni in base a queste preferenze. Non insistere su cate
           { role: 'user', content: userPrompt },
         ],
         ...(isGpt5 ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
-        temperature: 0.3, // Lower temperature for more consistent analysis
+        temperature: 0.3,
         response_format: { type: 'json_object' },
       });
 
@@ -1070,34 +1123,107 @@ Adatta le tue raccomandazioni in base a queste preferenze. Non insistere su cate
         throw new Error('Empty response from OpenAI');
       }
 
-      const parsed = JSON.parse(content);
-
-      // Validate and normalize recommendations
-      const recommendations: AIRecommendation[] = (parsed.recommendations || []).map(
-        (rec: any, index: number) => ({
-          id: rec.id || `rec_${index + 1}`,
-          priority: rec.priority || 'medium',
-          entityType: rec.entityType || 'unknown',
-          entityId: rec.entityId || '',
-          entityName: rec.entityName || '',
-          action: rec.action || '',
-          currentValue: rec.currentValue,
-          suggestedValue: rec.suggestedValue,
-          rationale: rec.rationale || '',
-          expectedImpact: rec.expectedImpact,
-          campaignId: rec.campaignId || undefined,
-          adGroupId: rec.adGroupId || undefined,
-        }),
-      );
-
-      return {
-        summary: parsed.summary || 'Analysis completed',
-        recommendations,
-      };
+      return this.parseRecommendations(JSON.parse(content));
     } catch (error) {
       this.logger.error('OpenAI API error:', error);
       throw new BadRequestException(`AI analysis failed: ${error.message}`);
     }
+  }
+
+  private async callGeminiJSON(
+    systemPrompt: string,
+    userPrompt: string,
+  ): Promise<{ summary: string; recommendations: AIRecommendation[] }> {
+    const gemini = await this.getGeminiClient();
+    let model = await this.settingsService.getGeminiModel();
+    if (!model) {
+      model = this.configService.get<string>('ai.geminiModel') || 'gemini-3-flash-preview';
+    }
+    const maxTokens = this.configService.get<number>('ai.maxTokens') || 4096;
+
+    try {
+      this.logger.log(`Calling Gemini model: ${model}`);
+
+      const response = await gemini.models.generateContent({
+        model,
+        contents: userPrompt,
+        config: {
+          systemInstruction: systemPrompt,
+          temperature: 0.3,
+          maxOutputTokens: maxTokens,
+          responseMimeType: 'application/json',
+        },
+      });
+
+      const content = response.text;
+      if (!content) {
+        throw new Error('Empty response from Gemini');
+      }
+
+      return this.parseRecommendations(JSON.parse(content));
+    } catch (error) {
+      this.logger.error('Gemini API error:', error);
+      throw new BadRequestException(`AI analysis failed: ${error.message}`);
+    }
+  }
+
+  private async callOpenAIText(
+    systemPrompt: string,
+    userPrompt: string,
+    maxTokensOverride?: number,
+  ): Promise<string> {
+    const openai = await this.getOpenAIClient();
+    let model = await this.settingsService.getOpenAIModel();
+    if (!model) {
+      model = this.configService.get<string>('ai.openaiModel') || 'gpt-5.2';
+    }
+    const maxTokens = maxTokensOverride || 8192;
+    const isGpt5 = model.startsWith('gpt-5');
+
+    const response = await openai.chat.completions.create({
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      ...(isGpt5 ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
+      temperature: 0.3,
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('Empty response from OpenAI');
+    }
+    return content;
+  }
+
+  private async callGeminiText(
+    systemPrompt: string,
+    userPrompt: string,
+    maxTokensOverride?: number,
+  ): Promise<string> {
+    const gemini = await this.getGeminiClient();
+    let model = await this.settingsService.getGeminiModel();
+    if (!model) {
+      model = this.configService.get<string>('ai.geminiModel') || 'gemini-3-flash-preview';
+    }
+    const maxTokens = maxTokensOverride || 8192;
+
+    const response = await gemini.models.generateContent({
+      model,
+      contents: userPrompt,
+      config: {
+        systemInstruction: systemPrompt,
+        temperature: 0.3,
+        maxOutputTokens: maxTokens,
+      },
+    });
+
+    const content = response.text;
+    if (!content) {
+      throw new Error('Empty response from Gemini');
+    }
+    return content;
   }
 
   // Get supported modules list
@@ -1377,8 +1503,7 @@ REGOLE:
 - Se i dati sono insufficienti per un giudizio, specificalo
 - Usa **grassetto** per enfatizzare i punti importanti`;
 
-      const openai = await this.getOpenAIClient();
-      const content = await this.callOpenAIText(openai, systemPrompt, dataContext);
+      const content = await this.callLLMText(systemPrompt, dataContext);
 
       const durationMs = Date.now() - startedAt;
 
@@ -1434,7 +1559,6 @@ REGOLE:
       take: 20,
     });
 
-    // Build chat messages for OpenAI
     const systemPrompt = `Sei un esperto Google Ads Specialist senior. Hai generato il seguente report di audit per un account Google Ads. Rispondi alle domande dell'utente basandoti sul report e sulla tua esperienza.
 
 REPORT DI AUDIT:
@@ -1446,34 +1570,63 @@ REGOLE:
 - Se la domanda non è coperta dal report, rispondi comunque basandoti sulla tua esperienza
 - Mantieni un tono professionale ma accessibile`;
 
-    const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
-      { role: 'system', content: systemPrompt },
-    ];
-
-    // Add recent message history (exclude the just-saved user message, we add it at the end)
+    // Build conversation history for context
+    const historyMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
     for (const msg of recentMessages) {
       if (msg.id === userMsg.id) continue;
-      messages.push({ role: msg.role as 'user' | 'assistant', content: msg.content });
+      historyMessages.push({ role: msg.role as 'user' | 'assistant', content: msg.content });
     }
 
-    // Add current user message
-    messages.push({ role: 'user', content: userMessage });
+    const provider = await this.getActiveProvider();
+    let assistantContent: string;
 
-    const openai = await this.getOpenAIClient();
-    let model = await this.settingsService.getOpenAIModel();
-    if (!model) {
-      model = this.configService.get<string>('ai.openaiModel') || 'gpt-4o';
+    if (provider === 'gemini') {
+      const gemini = await this.getGeminiClient();
+      let model = await this.settingsService.getGeminiModel();
+      if (!model) {
+        model = this.configService.get<string>('ai.geminiModel') || 'gemini-3-flash-preview';
+      }
+
+      const history = historyMessages.map(m => ({
+        role: m.role === 'assistant' ? 'model' as const : 'user' as const,
+        parts: [{ text: m.content }],
+      }));
+
+      const chat = gemini.chats.create({
+        model,
+        config: {
+          systemInstruction: systemPrompt,
+          temperature: 0.4,
+          maxOutputTokens: 4096,
+        },
+        history,
+      });
+
+      const response = await chat.sendMessage({ message: userMessage });
+      assistantContent = response.text || 'Mi dispiace, non sono riuscito a generare una risposta.';
+    } else {
+      const openai = await this.getOpenAIClient();
+      let model = await this.settingsService.getOpenAIModel();
+      if (!model) {
+        model = this.configService.get<string>('ai.openaiModel') || 'gpt-5.2';
+      }
+
+      const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+        { role: 'system', content: systemPrompt },
+        ...historyMessages,
+        { role: 'user', content: userMessage },
+      ];
+
+      const isGpt5 = model.startsWith('gpt-5');
+      const response = await openai.chat.completions.create({
+        model,
+        messages,
+        ...(isGpt5 ? { max_completion_tokens: 4096 } : { max_tokens: 4096 }),
+        temperature: 0.4,
+      });
+
+      assistantContent = response.choices[0]?.message?.content || 'Mi dispiace, non sono riuscito a generare una risposta.';
     }
-
-    const isGpt5 = model.startsWith('gpt-5');
-    const response = await openai.chat.completions.create({
-      model,
-      messages,
-      ...(isGpt5 ? { max_completion_tokens: 4096 } : { max_tokens: 4096 }),
-      temperature: 0.4,
-    });
-
-    const assistantContent = response.choices[0]?.message?.content || 'Mi dispiace, non sono riuscito a generare una risposta.';
 
     // Save assistant message
     const assistantMsg = this.auditReportMessageRepository.create({
@@ -1496,33 +1649,4 @@ REGOLE:
     });
   }
 
-  private async callOpenAIText(
-    openai: OpenAI,
-    systemPrompt: string,
-    userPrompt: string,
-  ): Promise<string> {
-    let model = await this.settingsService.getOpenAIModel();
-    if (!model) {
-      model = this.configService.get<string>('ai.openaiModel') || 'gpt-4o';
-    }
-
-    const isGpt5 = model.startsWith('gpt-5');
-
-    const response = await openai.chat.completions.create({
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      ...(isGpt5 ? { max_completion_tokens: 8192 } : { max_tokens: 8192 }),
-      temperature: 0.3,
-    });
-
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('Empty response from OpenAI');
-    }
-
-    return content;
-  }
 }

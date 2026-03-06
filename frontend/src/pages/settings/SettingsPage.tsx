@@ -20,9 +20,13 @@ const DAY_NAMES: Record<number, string> = {
 const WEEK_DAYS = [1, 2, 3, 4, 5, 6, 0]; // Lun-Dom
 
 interface AISettings {
+  provider: string;
   hasApiKey: boolean;
   apiKeyLast4?: string;
   model: string;
+  hasGeminiApiKey: boolean;
+  geminiApiKeyLast4?: string;
+  geminiModel: string;
 }
 
 export function SettingsPage() {
@@ -50,9 +54,13 @@ export function SettingsPage() {
 
   // AI state
   const [aiSettings, setAiSettings] = useState<AISettings | null>(null);
+  const [aiProvider, setAiProvider] = useState('openai');
   const [aiApiKey, setAiApiKey] = useState('');
   const [aiModel, setAiModel] = useState('gpt-5.2');
+  const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [geminiModel, setGeminiModel] = useState('gemini-3-flash-preview');
   const [showApiKey, setShowApiKey] = useState(false);
+  const [showGeminiApiKey, setShowGeminiApiKey] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiSuccess, setAiSuccess] = useState('');
   const [aiError, setAiError] = useState('');
@@ -80,7 +88,9 @@ export function SettingsPage() {
     try {
       const settings = await apiClient.get<AISettings>('/settings/ai');
       setAiSettings(settings);
+      setAiProvider(settings.provider || 'openai');
       setAiModel(settings.model || 'gpt-5.2');
+      setGeminiModel(settings.geminiModel || 'gemini-3-flash-preview');
     } catch (err) {
       console.error('Failed to load AI settings:', err);
     }
@@ -171,16 +181,24 @@ export function SettingsPage() {
     setAiSuccess('');
 
     try {
-      const payload: { openaiApiKey?: string; openaiModel?: string } = {};
-      
+      const payload: { aiProvider?: string; openaiApiKey?: string; openaiModel?: string; geminiApiKey?: string; geminiModel?: string } = {};
+
+      payload.aiProvider = aiProvider;
+
       if (aiApiKey) {
         payload.openaiApiKey = aiApiKey;
       }
       payload.openaiModel = aiModel;
 
+      if (geminiApiKey) {
+        payload.geminiApiKey = geminiApiKey;
+      }
+      payload.geminiModel = geminiModel;
+
       const response = await apiClient.patch<AISettings>('/settings/ai', payload);
       setAiSettings(response);
       setAiApiKey('');
+      setGeminiApiKey('');
       setAiSuccess('Impostazioni AI salvate con successo');
     } catch (err) {
       const apiError = err as ApiError;
@@ -190,17 +208,19 @@ export function SettingsPage() {
     }
   };
 
-  const handleClearApiKey = async () => {
-    if (!confirm('Sei sicuro di voler rimuovere la chiave API OpenAI?')) return;
-    
+  const handleClearApiKey = async (provider: 'openai' | 'gemini') => {
+    const label = provider === 'openai' ? 'OpenAI' : 'Gemini';
+    if (!confirm(`Sei sicuro di voler rimuovere la chiave API ${label}?`)) return;
+
     setAiLoading(true);
     setAiError('');
     setAiSuccess('');
 
     try {
-      const response = await apiClient.patch<AISettings>('/settings/ai', { openaiApiKey: '' });
+      const payload = provider === 'openai' ? { openaiApiKey: '' } : { geminiApiKey: '' };
+      const response = await apiClient.patch<AISettings>('/settings/ai', payload);
       setAiSettings(response);
-      setAiSuccess('Chiave API rimossa con successo');
+      setAiSuccess(`Chiave API ${label} rimossa con successo`);
     } catch (err) {
       const apiError = err as ApiError;
       setAiError(apiError.message || 'Errore durante la rimozione della chiave API');
@@ -516,34 +536,55 @@ export function SettingsPage() {
                 </div>
               )}
 
-              {/* Current API Key Status */}
-              <Card className="bg-card/50 border-border">
-                <CardContent className="p-4">
+              <form onSubmit={handleAISubmit} className="space-y-6">
+                {/* Provider Selector */}
+                <div className="space-y-2">
+                  <Label htmlFor="provider" className="text-foreground">Provider AI</Label>
+                  <select
+                    id="provider"
+                    value={aiProvider}
+                    onChange={(e) => setAiProvider(e.target.value)}
+                    className="w-full h-10 px-3 rounded-md border border-border bg-input text-foreground"
+                  >
+                    <option value="openai">OpenAI (GPT)</option>
+                    <option value="gemini">Google Gemini</option>
+                  </select>
+                  <p className="text-xs text-muted-foreground">
+                    Provider attivo: <span className="font-medium">{aiSettings?.provider === 'gemini' ? 'Google Gemini' : 'OpenAI'}</span>
+                  </p>
+                </div>
+
+                {/* OpenAI Section */}
+                <div className={`space-y-4 p-4 rounded-lg border ${aiProvider === 'openai' ? 'border-primary/50 bg-primary/5' : 'border-border bg-card/30 opacity-60'}`}>
+                  <h4 className="font-medium text-foreground flex items-center gap-2">
+                    OpenAI
+                    {aiProvider === 'openai' && <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">Attivo</span>}
+                  </h4>
+
+                  {/* OpenAI API Key Status */}
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                       aiSettings?.hasApiKey ? 'bg-success/20' : 'bg-destructive/20'
                     }`}>
                       {aiSettings?.hasApiKey ? (
-                        <Check className="h-5 w-5 text-success" />
+                        <Check className="h-4 w-4 text-success" />
                       ) : (
-                        <Bot className="h-5 w-5 text-destructive" />
+                        <Bot className="h-4 w-4 text-destructive" />
                       )}
                     </div>
                     <div className="flex-1">
-                      <p className="font-medium text-foreground">
-                        {aiSettings?.hasApiKey ? 'API Key Configurata' : 'API Key Non Configurata'}
-                      </p>
                       <p className="text-sm text-muted-foreground">
                         {aiSettings?.hasApiKey
                           ? `Chiave attiva: ${aiSettings.apiKeyLast4}`
-                          : 'Inserisci una chiave API OpenAI per abilitare l\'analisi AI'}
+                          : 'Nessuna chiave API configurata'}
                       </p>
                     </div>
                     {aiSettings?.hasApiKey && (
                       <Button
+                        type="button"
                         variant="outline"
                         size="sm"
-                        onClick={handleClearApiKey}
+                        onClick={() => handleClearApiKey('openai')}
                         disabled={aiLoading}
                         className="text-destructive hover:text-destructive"
                       >
@@ -551,64 +592,136 @@ export function SettingsPage() {
                       </Button>
                     )}
                   </div>
-                </CardContent>
-              </Card>
 
-              <form onSubmit={handleAISubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="apiKey" className="text-foreground">
-                    {aiSettings?.hasApiKey ? 'Nuova Chiave API OpenAI' : 'Chiave API OpenAI'}
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      id="apiKey"
-                      type={showApiKey ? 'text' : 'password'}
-                      value={aiApiKey}
-                      onChange={(e) => setAiApiKey(e.target.value)}
-                      placeholder="sk-proj-..."
-                      className="bg-input border-border text-foreground pr-10"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowApiKey(!showApiKey)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
+                  <div className="space-y-2">
+                    <Label htmlFor="apiKey" className="text-foreground">
+                      {aiSettings?.hasApiKey ? 'Nuova Chiave API' : 'Chiave API OpenAI'}
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="apiKey"
+                        type={showApiKey ? 'text' : 'password'}
+                        value={aiApiKey}
+                        onChange={(e) => setAiApiKey(e.target.value)}
+                        placeholder="sk-proj-..."
+                        className="bg-input border-border text-foreground pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowApiKey(!showApiKey)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Ottieni la chiave da{' '}
+                      <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                        platform.openai.com
+                      </a>
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Puoi ottenere la chiave API da{' '}
-                    <a
-                      href="https://platform.openai.com/api-keys"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline"
+
+                  <div className="space-y-2">
+                    <Label htmlFor="model" className="text-foreground">Modello</Label>
+                    <select
+                      id="model"
+                      value={aiModel}
+                      onChange={(e) => setAiModel(e.target.value)}
+                      className="w-full h-10 px-3 rounded-md border border-border bg-input text-foreground"
                     >
-                      platform.openai.com/api-keys
-                    </a>
-                  </p>
+                      <option value="gpt-5.2">GPT-5.2 (Raccomandato)</option>
+                      <option value="gpt-5.1">GPT-5.1</option>
+                      <option value="gpt-5.0">GPT-5.0</option>
+                      <option value="gpt-4o">GPT-4o</option>
+                      <option value="gpt-4o-mini">GPT-4o Mini (Economico)</option>
+                      <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                    </select>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="model" className="text-foreground">Modello OpenAI</Label>
-                  <select
-                    id="model"
-                    value={aiModel}
-                    onChange={(e) => setAiModel(e.target.value)}
-                    className="w-full h-10 px-3 rounded-md border border-border bg-input text-foreground"
-                  >
-                    <option value="gpt-5.2">GPT-5.2 (Raccomandato)</option>
-                    <option value="gpt-5.1">GPT-5.1</option>
-                    <option value="gpt-5.0">GPT-5.0</option>
-                    <option value="gpt-4o">GPT-4o</option>
-                    <option value="gpt-4o-mini">GPT-4o Mini (Economico)</option>
-                    <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                    <option value="gpt-4">GPT-4</option>
-                    <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-                  </select>
-                  <p className="text-xs text-muted-foreground">
-                    Modello attuale: <span className="font-medium">{aiSettings?.model || 'Non configurato'}</span>
-                  </p>
+                {/* Gemini Section */}
+                <div className={`space-y-4 p-4 rounded-lg border ${aiProvider === 'gemini' ? 'border-primary/50 bg-primary/5' : 'border-border bg-card/30 opacity-60'}`}>
+                  <h4 className="font-medium text-foreground flex items-center gap-2">
+                    Google Gemini
+                    {aiProvider === 'gemini' && <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">Attivo</span>}
+                  </h4>
+
+                  {/* Gemini API Key Status */}
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      aiSettings?.hasGeminiApiKey ? 'bg-success/20' : 'bg-destructive/20'
+                    }`}>
+                      {aiSettings?.hasGeminiApiKey ? (
+                        <Check className="h-4 w-4 text-success" />
+                      ) : (
+                        <Bot className="h-4 w-4 text-destructive" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm text-muted-foreground">
+                        {aiSettings?.hasGeminiApiKey
+                          ? `Chiave attiva: ${aiSettings.geminiApiKeyLast4}`
+                          : 'Nessuna chiave API configurata'}
+                      </p>
+                    </div>
+                    {aiSettings?.hasGeminiApiKey && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleClearApiKey('gemini')}
+                        disabled={aiLoading}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        Rimuovi
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="geminiApiKey" className="text-foreground">
+                      {aiSettings?.hasGeminiApiKey ? 'Nuova Chiave API' : 'Chiave API Gemini'}
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="geminiApiKey"
+                        type={showGeminiApiKey ? 'text' : 'password'}
+                        value={geminiApiKey}
+                        onChange={(e) => setGeminiApiKey(e.target.value)}
+                        placeholder="AIza..."
+                        className="bg-input border-border text-foreground pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowGeminiApiKey(!showGeminiApiKey)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showGeminiApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Ottieni la chiave da{' '}
+                      <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                        Google AI Studio
+                      </a>
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="geminiModel" className="text-foreground">Modello</Label>
+                    <select
+                      id="geminiModel"
+                      value={geminiModel}
+                      onChange={(e) => setGeminiModel(e.target.value)}
+                      className="w-full h-10 px-3 rounded-md border border-border bg-input text-foreground"
+                    >
+                      <option value="gemini-3-flash-preview">Gemini 3 Flash (Raccomandato)</option>
+                      <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                      <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                      <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                    </select>
+                  </div>
                 </div>
 
                 <Button
@@ -628,8 +741,8 @@ export function SettingsPage() {
                     <div className="text-sm">
                       <p className="font-medium text-blue-500 mb-1">Informazioni sulla sicurezza</p>
                       <p className="text-muted-foreground">
-                        La chiave API viene crittografata prima di essere salvata nel database. 
-                        Non viene mai mostrata in chiaro dopo il salvataggio.
+                        Le chiavi API vengono crittografate prima di essere salvate nel database.
+                        Non vengono mai mostrate in chiaro dopo il salvataggio.
                       </p>
                     </div>
                   </div>

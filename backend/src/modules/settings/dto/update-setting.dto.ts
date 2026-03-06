@@ -17,15 +17,31 @@ export class UpdateSettingDto {
 export class AISettingsDto {
   @IsString()
   @IsOptional()
+  aiProvider?: string;
+
+  @IsString()
+  @IsOptional()
   openaiApiKey?: string;
 
   @IsString()
   @IsOptional()
   openaiModel?: string;
+
+  @IsString()
+  @IsOptional()
+  geminiApiKey?: string;
+
+  @IsString()
+  @IsOptional()
+  geminiModel?: string;
 }
 
 export class AISettingsResponseDto {
+  provider: string;
   hasApiKey: boolean;
   apiKeyLast4?: string;
   model: string;
+  hasGeminiApiKey: boolean;
+  geminiApiKeyLast4?: string;
+  geminiModel: string;
 }

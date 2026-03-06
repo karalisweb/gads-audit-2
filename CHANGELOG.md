@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.14.7] - 2026-03-06
+
+### Aggiunto
+- Integrate Gemini 3 Flash as alternative AI provider
+
+---
+
+
 ## [2.14.6] - 2026-03-04
 
 ### Corretto

@@ -1,10 +1,11 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import {
   LandingPageBrief,
   LandingPageBriefStatus,
   Keyword,
+  Ad,
   GoogleAdsAccount,
   ImportRun,
   ImportStatus,
@@ -21,6 +22,8 @@ export class LandingPagesService {
     private readonly briefRepository: Repository<LandingPageBrief>,
     @InjectRepository(Keyword)
     private readonly keywordRepository: Repository<Keyword>,
+    @InjectRepository(Ad)
+    private readonly adRepository: Repository<Ad>,
     @InjectRepository(GoogleAdsAccount)
     private readonly accountRepository: Repository<GoogleAdsAccount>,
     @InjectRepository(ImportRun)
@@ -133,8 +136,8 @@ export class LandingPagesService {
       throw new BadRequestException('No import data available for this account');
     }
 
-    // Get all active keywords with metrics
-    const keywords = await this.keywordRepository
+    // Get all active keywords (including those without finalUrl — we'll fallback to ad URL)
+    const allKeywords = await this.keywordRepository
       .createQueryBuilder('kw')
       .innerJoin(
         'campaigns',
@@ -151,14 +154,43 @@ export class LandingPagesService {
       .where('kw.accountId = :accountId', { accountId })
       .andWhere('kw.runId = :runId', { runId })
       .andWhere('kw.status = :kwStatus', { kwStatus: 'ENABLED' })
-      .andWhere('kw.finalUrl IS NOT NULL')
-      .andWhere("kw.finalUrl != ''")
       .getMany();
 
-    const totalKeywordCount = keywords.length;
+    const totalKeywordCount = allKeywords.length;
+
+    if (allKeywords.length === 0) {
+      return { clusters: [], excludedKeywordCount: 0, totalKeywordCount: 0 };
+    }
+
+    // For keywords without finalUrl, fallback to the ad's finalUrl in the same ad group
+    const kwWithoutUrl = allKeywords.filter((kw) => !kw.finalUrl);
+    const adGroupUrlMap = new Map<string, string>();
+
+    if (kwWithoutUrl.length > 0) {
+      const adGroupIds = [...new Set(kwWithoutUrl.map((kw) => kw.adGroupId))];
+      const ads = await this.adRepository.find({
+        where: { accountId, runId, adGroupId: In(adGroupIds), status: 'ENABLED' },
+        select: ['adGroupId', 'finalUrls'],
+      });
+      for (const ad of ads) {
+        if (!adGroupUrlMap.has(ad.adGroupId) && ad.finalUrls?.length > 0) {
+          adGroupUrlMap.set(ad.adGroupId, ad.finalUrls[0]);
+        }
+      }
+    }
+
+    // Enrich keywords with fallback URL and filter out those still without any URL
+    const keywords = allKeywords
+      .map((kw) => {
+        if (!kw.finalUrl && adGroupUrlMap.has(kw.adGroupId)) {
+          return { ...kw, finalUrl: adGroupUrlMap.get(kw.adGroupId)! };
+        }
+        return kw;
+      })
+      .filter((kw) => !!kw.finalUrl);
 
     if (keywords.length === 0) {
-      return { clusters: [], excludedKeywordCount: 0, totalKeywordCount: 0 };
+      return { clusters: [], excludedKeywordCount: 0, totalKeywordCount };
     }
 
     // Exclude keywords already assigned to existing briefs for this account

@@ -1,6 +1,6 @@
 {
   "name": "backend",
-  "version": "2.14.6",
+  "version": "2.14.7",
   "description": "",
   "author": "",
   "private": true,
@@ -25,6 +25,7 @@
     "migration:create": "typeorm migration:create"
   },
   "dependencies": {
+    "@google/genai": "^1.44.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",

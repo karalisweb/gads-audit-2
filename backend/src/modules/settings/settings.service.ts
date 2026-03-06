@@ -71,20 +71,30 @@ export class SettingsService {
   }
 
   async getAISettings(): Promise<AISettingsResponseDto> {
+    const provider = await this.getSetting('ai_provider');
     const apiKey = await this.getSetting('openai_api_key');
     const model = await this.getSetting('openai_model');
+    const geminiApiKey = await this.getSetting('gemini_api_key');
+    const geminiModel = await this.getSetting('gemini_model');
 
     return {
+      provider: provider || 'openai',
       hasApiKey: !!apiKey && apiKey.length > 0,
       apiKeyLast4: apiKey ? '****' + apiKey.slice(-4) : undefined,
-      model: model || 'gpt-4o',
+      model: model || 'gpt-5.2',
+      hasGeminiApiKey: !!geminiApiKey && geminiApiKey.length > 0,
+      geminiApiKeyLast4: geminiApiKey ? '****' + geminiApiKey.slice(-4) : undefined,
+      geminiModel: geminiModel || 'gemini-3-flash-preview',
     };
   }
 
   async updateAISettings(dto: AISettingsDto): Promise<AISettingsResponseDto> {
+    if (dto.aiProvider !== undefined) {
+      await this.setSetting('ai_provider', dto.aiProvider, false);
+    }
+
     if (dto.openaiApiKey !== undefined) {
       if (dto.openaiApiKey === '') {
-        // Clear the API key
         await this.settingRepository.delete({ key: 'openai_api_key' });
       } else {
         await this.setSetting('openai_api_key', dto.openaiApiKey, true);
@@ -93,6 +103,18 @@ export class SettingsService {
 
     if (dto.openaiModel !== undefined) {
       await this.setSetting('openai_model', dto.openaiModel, false);
+    }
+
+    if (dto.geminiApiKey !== undefined) {
+      if (dto.geminiApiKey === '') {
+        await this.settingRepository.delete({ key: 'gemini_api_key' });
+      } else {
+        await this.setSetting('gemini_api_key', dto.geminiApiKey, true);
+      }
+    }
+
+    if (dto.geminiModel !== undefined) {
+      await this.setSetting('gemini_model', dto.geminiModel, false);
     }
 
     this.logger.log('AI settings updated');
@@ -106,7 +128,21 @@ export class SettingsService {
 
   async getOpenAIModel(): Promise<string> {
     const model = await this.getSetting('openai_model');
-    return model || 'gpt-4o';
+    return model || 'gpt-5.2';
+  }
+
+  async getAIProvider(): Promise<string> {
+    const provider = await this.getSetting('ai_provider');
+    return provider || 'openai';
+  }
+
+  async getGeminiApiKey(): Promise<string | null> {
+    return this.getSetting('gemini_api_key');
+  }
+
+  async getGeminiModel(): Promise<string> {
+    const model = await this.getSetting('gemini_model');
+    return model || 'gemini-3-flash-preview';
   }
 
   // Schedule: email recipients (per-account scheduling is on the account entity)

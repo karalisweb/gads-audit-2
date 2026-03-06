@@ -7,6 +7,7 @@ import { AIModule } from '../ai/ai.module';
 import {
   LandingPageBrief,
   Keyword,
+  Ad,
   GoogleAdsAccount,
   ImportRun,
 } from '../../entities';
@@ -16,6 +17,7 @@ import {
     TypeOrmModule.forFeature([
       LandingPageBrief,
       Keyword,
+      Ad,
       GoogleAdsAccount,
       ImportRun,
     ]),
