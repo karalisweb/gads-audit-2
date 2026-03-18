@@ -9,17 +9,18 @@ export class EmailService {
   private transporter: Transporter;
 
   constructor(private readonly configService: ConfigService) {
+    const isDev = this.configService.get('NODE_ENV') === 'development';
     this.transporter = nodemailer.createTransport({
       host: this.configService.get('SMTP_HOST', 'mail.karalisweb.net'),
       port: this.configService.get('SMTP_PORT', 25),
-      secure: false, // TLS
+      secure: false,
       auth: {
-        user: this.configService.get('SMTP_USER', 'alessio@karalisweb.net'),
+        user: this.configService.get('SMTP_USER'),
         pass: this.configService.get('SMTP_PASSWORD'),
       },
-      tls: {
-        rejectUnauthorized: false,
-      },
+      ...(isDev && {
+        tls: { rejectUnauthorized: false },
+      }),
     });
   }
 

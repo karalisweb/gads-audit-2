@@ -221,6 +221,12 @@ export function AIRecommendations({ analysis, onApproveSelected, onClose, isCrea
         <div className="border-t border-border px-5 py-3 flex items-center justify-between bg-background">
           <p className="text-xs text-muted-foreground">
             Analisi del {new Date(analysis.analyzedAt).toLocaleString('it-IT')}
+            {analysis.aiProvider && (
+              <span className="ml-2">
+                · Eseguita da <span className="font-medium text-foreground">{analysis.aiProvider === 'gemini' ? 'Google Gemini' : 'OpenAI'}</span>
+                {analysis.aiModel && <span className="text-muted-foreground"> ({analysis.aiModel})</span>}
+              </span>
+            )}
           </p>
           <div className="flex gap-3">
             <Button variant="outline" size="sm" onClick={onClose}>

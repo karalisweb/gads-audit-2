@@ -183,6 +183,8 @@ export class AIService {
         totalRecords: stats.totalRecords,
         analyzedRecords: stats.analyzedRecords,
       },
+      aiProvider: recommendations.aiProvider,
+      aiModel: recommendations.aiModel,
     };
   }
 
@@ -1072,12 +1074,22 @@ Adatta le tue raccomandazioni in base a queste preferenze. Non insistere su cate
   private async callLLM(
     systemPrompt: string,
     userPrompt: string,
-  ): Promise<{ summary: string; recommendations: AIRecommendation[] }> {
+  ): Promise<{ summary: string; recommendations: AIRecommendation[]; aiProvider: string; aiModel: string }> {
     const provider = await this.getActiveProvider();
     if (provider === 'gemini') {
-      return this.callGeminiJSON(systemPrompt, userPrompt);
+      let model = await this.settingsService.getGeminiModel();
+      if (!model) {
+        model = this.configService.get<string>('ai.geminiModel') || 'gemini-3-flash-preview';
+      }
+      const result = await this.callGeminiJSON(systemPrompt, userPrompt);
+      return { ...result, aiProvider: 'gemini', aiModel: model };
     }
-    return this.callOpenAIJSON(systemPrompt, userPrompt);
+    let model = await this.settingsService.getOpenAIModel();
+    if (!model) {
+      model = this.configService.get<string>('ai.openaiModel') || 'gpt-4o';
+    }
+    const result = await this.callOpenAIJSON(systemPrompt, userPrompt);
+    return { ...result, aiProvider: 'openai', aiModel: model };
   }
 
   private async callLLMText(

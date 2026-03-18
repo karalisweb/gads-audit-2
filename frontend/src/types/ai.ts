@@ -23,6 +23,8 @@ export interface AIAnalysisResponse {
     totalRecords: number;
     analyzedRecords: number;
   };
+  aiProvider: string;
+  aiModel: string;
 }
 
 export interface SupportedModule {

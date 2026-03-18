@@ -12,6 +12,7 @@ import {
   Clock,
   AlertCircle,
 } from 'lucide-react';
+import DOMPurify from 'dompurify';
 import {
   generateReport,
   getLatestReport,
@@ -41,7 +42,11 @@ function renderMarkdown(md: string): string {
     // Wrap consecutive <li> in <ul>
     .replace(/(<li[^>]*>.*?<\/li>\n?)+/g, (match) => `<ul class="mb-3 space-y-1">${match}</ul>`);
 
-  return html;
+  // Sanitize to prevent XSS injection
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['h1', 'h2', 'h3', 'p', 'strong', 'em', 'ul', 'ol', 'li', 'br'],
+    ALLOWED_ATTR: ['class'],
+  });
 }
 
 function timeAgo(dateString: string): string {

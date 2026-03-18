@@ -10,6 +10,7 @@ import {
   Patch,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { AuthService } from './auth.service';
 import { RolesGuard } from './guards/roles.guard';
@@ -35,7 +36,8 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
-  @UseGuards(AuthGuard('local'))
+  @UseGuards(ThrottlerGuard, AuthGuard('local'))
+  @Throttle({ default: { ttl: 60000, limit: 5 } }) // 5 tentativi per minuto per IP
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Req() req: RequestWithUser) {
@@ -45,6 +47,8 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { ttl: 60000, limit: 5 } }) // 5 tentativi per minuto per IP
   @Post('verify-2fa')
   @HttpCode(HttpStatus.OK)
   async verifyTwoFactor(
@@ -62,6 +66,8 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { ttl: 60000, limit: 3 } }) // 3 richieste per minuto per IP
   @Post('request-password-reset')
   @HttpCode(HttpStatus.OK)
   async requestPasswordReset(@Body() dto: RequestPasswordResetDto) {
@@ -70,6 +76,8 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { ttl: 60000, limit: 5 } }) // 5 tentativi per minuto per IP
   @Post('verify-password-reset')
   @HttpCode(HttpStatus.OK)
   async verifyPasswordReset(@Body() dto: VerifyPasswordResetDto) {

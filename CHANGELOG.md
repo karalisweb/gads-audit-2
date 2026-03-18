@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.14.8] - 2026-03-18
+
+### Corretto
+- Security hardening (JWT, XSS, rate limiting, TLS, encryption) + test suite + docs
+
+---
+
+
 ## [2.14.7] - 2026-03-06
 
 ### Aggiunto

@@ -17,6 +17,8 @@ import {
   DevicePerformance,
   AuditIssue,
   User,
+  RunKpiSnapshot,
+  DailyMetric,
 } from '../../entities';
 
 // Mock query builder per testare la logica SQL
@@ -28,11 +30,15 @@ const createMockQueryBuilder = () => ({
   take: jest.fn().mockReturnThis(),
   getCount: jest.fn().mockResolvedValue(0),
   getMany: jest.fn().mockResolvedValue([]),
+  getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
   select: jest.fn().mockReturnThis(),
   addSelect: jest.fn().mockReturnThis(),
   groupBy: jest.fn().mockReturnThis(),
   getRawOne: jest.fn().mockResolvedValue({}),
   getRawMany: jest.fn().mockResolvedValue([]),
+  innerJoin: jest.fn().mockReturnThis(),
+  leftJoin: jest.fn().mockReturnThis(),
+  leftJoinAndSelect: jest.fn().mockReturnThis(),
 });
 
 const createMockRepository = () => ({
@@ -67,6 +73,8 @@ describe('AuditService - Negative Keywords Exclusion', () => {
         { provide: getRepositoryToken(DevicePerformance), useValue: createMockRepository() },
         { provide: getRepositoryToken(AuditIssue), useValue: createMockRepository() },
         { provide: getRepositoryToken(User), useValue: createMockRepository() },
+        { provide: getRepositoryToken(RunKpiSnapshot), useValue: createMockRepository() },
+        { provide: getRepositoryToken(DailyMetric), useValue: createMockRepository() },
       ],
     }).compile();
 

@@ -6,6 +6,7 @@ Log tecnico delle modifiche al software, auto-generato dal deploy script.
 
 | Versione | Data | Commit |
 |----------|------|--------|
+| 2.14.8 | 2026-03-18 | fix: security hardening (JWT, XSS, rate limiting, TLS, encryption) + test suite + docs |
 | 2.14.7 | 2026-03-06 | feat: integrate Gemini 3 Flash as alternative AI provider |
 | 2.14.6 | 2026-03-04 | fix: LP Planner excludes already-briefed keywords, persists clusters, prevents cannibalization |
 | 2.14.5 | 2026-03-04 | fix: auto-reload on chunk loading failure after deploys |

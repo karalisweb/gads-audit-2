@@ -350,15 +350,20 @@ export class AuthService {
   }
 
   async refreshTokens(refreshToken: string): Promise<TokenPair> {
+    // Only load non-revoked, non-expired tokens (much smaller set than all tokens)
     const tokens = await this.refreshTokenRepository.find({
-      where: { revokedAt: IsNull() },
+      where: {
+        revokedAt: IsNull(),
+        expiresAt: MoreThan(new Date()),
+      },
       relations: ['user'],
+      order: { createdAt: 'DESC' },
+      take: 50, // Safety cap - no user should have 50+ active tokens
     });
 
     let validToken: RefreshToken | null = null;
 
     for (const token of tokens) {
-      if (token.expiresAt < new Date()) continue;
       const isMatch = await bcrypt.compare(refreshToken, token.tokenHash);
       if (isMatch) {
         validToken = token;

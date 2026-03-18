@@ -34,6 +34,8 @@ export class AIAnalysisResponse {
     totalRecords: number;
     analyzedRecords: number;
   };
+  aiProvider: string;
+  aiModel: string;
 }
 
 export class ApproveRecommendationsDto {

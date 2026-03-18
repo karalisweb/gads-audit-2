@@ -234,6 +234,7 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 | Versione | Data | Descrizione |
 |----------|------|-------------|
+| 2.14.8 | 18 Marzo 2026 | Security hardening (JWT, XSS, rate limiting, TLS, encryption) + test suite + docs |
 | 2.14.7 | 6 Marzo 2026 | Integrate Gemini 3 Flash as alternative AI provider |
 | 2.14.6 | 4 Marzo 2026 | LP Planner excludes already-briefed keywords, persists clusters, prevents cannibalization |
 | 2.14.5 | 4 Marzo 2026 | Auto-reload on chunk loading failure after deploys |
@@ -255,4 +256,4 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 ---
 
-*Ultimo aggiornamento: 6 Marzo 2026 | Versione app: 2.14.7*
+*Ultimo aggiornamento: 18 Marzo 2026 | Versione app: 2.14.8*
