@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.15.1] - 2026-03-26
+
+### Corretto
+- Improved report UX - clear new report flow, history pills, compare banner
+
+---
+
+
 ## [2.15.0] - 2026-03-26
 
 ### Aggiunto

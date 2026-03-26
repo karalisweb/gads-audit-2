@@ -11,10 +11,10 @@ import {
   User,
   Clock,
   AlertCircle,
-  History,
   Columns2,
   X,
-  ChevronRight,
+  Sparkles,
+  Plus,
 } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import {
@@ -30,26 +30,17 @@ import type { AuditReport, ReportMessage } from '@/api/ai-report';
 
 function renderMarkdown(md: string): string {
   let html = md
-    // Headings
     .replace(/^### (.+)$/gm, '<h3 class="text-base font-semibold mt-4 mb-2">$1</h3>')
     .replace(/^## (.+)$/gm, '<h2 class="text-lg font-bold mt-6 mb-3 pb-2 border-b border-border">$1</h2>')
     .replace(/^# (.+)$/gm, '<h1 class="text-xl font-bold mt-6 mb-3">$1</h1>')
-    // Bold
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    // Italic
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    // Unordered lists
     .replace(/^- (.+)$/gm, '<li class="ml-4 list-disc">$1</li>')
-    // Ordered lists
     .replace(/^\d+\. (.+)$/gm, '<li class="ml-4 list-decimal">$1</li>')
-    // Paragraphs (lines that are not already HTML)
     .replace(/^(?!<[hlu]|<li)(.+)$/gm, '<p class="mb-2">$1</p>')
-    // Clean up empty paragraphs
     .replace(/<p class="mb-2"><\/p>/g, '')
-    // Wrap consecutive <li> in <ul>
     .replace(/(<li[^>]*>.*?<\/li>\n?)+/g, (match) => `<ul class="mb-3 space-y-1">${match}</ul>`);
 
-  // Sanitize to prevent XSS injection
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS: ['h1', 'h2', 'h3', 'p', 'strong', 'em', 'ul', 'ol', 'li', 'br'],
     ALLOWED_ATTR: ['class'],
@@ -109,12 +100,15 @@ export function AuditReportPage() {
 
   // History state
   const [historyReports, setHistoryReports] = useState<AuditReport[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
 
   // Comparison state
   const [compareReport, setCompareReport] = useState<AuditReport | null>(null);
   const [showCompare, setShowCompare] = useState(false);
+
+  // "Just generated" banner
+  const [justGenerated, setJustGenerated] = useState(false);
+  const [previousReportForCompare, setPreviousReportForCompare] = useState<AuditReport | null>(null);
 
   const loadData = useCallback(async () => {
     if (!accountId) return;
@@ -151,20 +145,24 @@ export function AuditReportPage() {
   const handleGenerate = async () => {
     if (!accountId) return;
     setIsGenerating(true);
+    setJustGenerated(false);
+    setShowCompare(false);
+    setCompareReport(null);
     try {
-      const newReport = await generateReport(accountId);
-      // If there was a previous report, offer comparison
       const previousReport = report;
+      const newReport = await generateReport(accountId);
       setReport(newReport);
       setMessages([]);
       setSelectedReportId(newReport.id);
       // Refresh history
       const history = await getReportHistory(accountId, 1, 50);
       setHistoryReports(history?.reports || []);
-      // Auto-offer comparison with previous
+      // Show "just generated" banner with compare option
+      setJustGenerated(true);
       if (previousReport && previousReport.id !== newReport.id) {
-        setCompareReport(previousReport);
-        setShowCompare(true);
+        setPreviousReportForCompare(previousReport);
+      } else {
+        setPreviousReportForCompare(null);
       }
     } catch (err) {
       console.error('Failed to generate report:', err);
@@ -175,6 +173,10 @@ export function AuditReportPage() {
 
   const handleSelectReport = async (reportId: string) => {
     if (!accountId || reportId === selectedReportId) return;
+    setJustGenerated(false);
+    setPreviousReportForCompare(null);
+    setShowCompare(false);
+    setCompareReport(null);
     try {
       const [rpt, msgs] = await Promise.all([
         getReportById(accountId, reportId),
@@ -184,8 +186,6 @@ export function AuditReportPage() {
         setReport(rpt);
         setSelectedReportId(rpt.id);
         setMessages(msgs || []);
-        setShowCompare(false);
-        setCompareReport(null);
       }
     } catch (err) {
       console.error('Failed to load report:', err);
@@ -199,6 +199,7 @@ export function AuditReportPage() {
       if (rpt) {
         setCompareReport(rpt);
         setShowCompare(true);
+        setJustGenerated(false);
       }
     } catch (err) {
       console.error('Failed to load comparison report:', err);
@@ -213,7 +214,6 @@ export function AuditReportPage() {
     setChatInput('');
     setIsSending(true);
 
-    // Optimistically add user message
     const tempUserMsg: ReportMessage = {
       id: `temp-${Date.now()}`,
       reportId: report?.id || '',
@@ -226,7 +226,6 @@ export function AuditReportPage() {
     try {
       const assistantMsg = await sendChatMessage(accountId, userMessage, selectedReportId || undefined);
       setMessages((prev) => {
-        // Replace temp message with real one and add assistant response
         const withoutTemp = prev.filter((m) => m.id !== tempUserMsg.id);
         return [
           ...withoutTemp,
@@ -241,6 +240,9 @@ export function AuditReportPage() {
       setIsSending(false);
     }
   };
+
+  // Check if viewing the latest report
+  const isViewingLatest = historyReports.length > 0 && selectedReportId === historyReports[0]?.id;
 
   if (isLoading) {
     return (
@@ -257,93 +259,123 @@ export function AuditReportPage() {
         <div>
           <h2 className="text-2xl font-bold">Report AI</h2>
           <p className="text-muted-foreground">
-            Analisi completa dell'account con possibilità di fare domande
+            Analisi strategica dell'account con consulente AI
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {historyReports.length > 1 && (
+        <Button onClick={handleGenerate} disabled={isGenerating}>
+          {isGenerating ? (
+            <>
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              Generazione in corso...
+            </>
+          ) : report ? (
+            <>
+              <Plus className="h-4 w-4 mr-2" />
+              Genera Nuovo Report
+            </>
+          ) : (
+            <>
+              <Sparkles className="h-4 w-4 mr-2" />
+              Genera Report
+            </>
+          )}
+        </Button>
+      </div>
+
+      {/* History bar - always visible when there are multiple reports */}
+      {historyReports.length > 1 && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          {historyReports.map((hr, index) => (
+            <button
+              key={hr.id}
+              onClick={() => handleSelectReport(hr.id)}
+              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-colors border ${
+                hr.id === selectedReportId
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-card hover:bg-muted/80 text-foreground border-border'
+              }`}
+            >
+              {index === 0 && (
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  hr.id === selectedReportId ? 'bg-primary-foreground' : 'bg-green-500'
+                }`} />
+              )}
+              <span>{formatDate(hr.generatedAt)}</span>
+              <ProviderBadge provider={hr.aiProvider} />
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* "Just generated" banner */}
+      {justGenerated && report && (
+        <div className="bg-green-500/10 border border-green-500/30 rounded-lg px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-green-600" />
+            <span className="text-sm font-medium text-green-700">
+              Nuovo report generato!
+            </span>
+            {report.durationMs && (
+              <span className="text-xs text-green-600/70">
+                ({(report.durationMs / 1000).toFixed(1)}s)
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {previousReportForCompare && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs border-green-500/30 text-green-700 hover:bg-green-500/10"
+                onClick={() => {
+                  setCompareReport(previousReportForCompare);
+                  setShowCompare(true);
+                  setJustGenerated(false);
+                }}
+              >
+                <Columns2 className="h-3 w-3 mr-1" />
+                Confronta con il precedente
+              </Button>
+            )}
+            <button
+              onClick={() => setJustGenerated(false)}
+              className="text-green-600/50 hover:text-green-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Viewing old report indicator */}
+      {report && !isViewingLatest && historyReports.length > 1 && !showCompare && (
+        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 text-yellow-600" />
+            <span className="text-sm text-yellow-700">
+              Stai visualizzando un report del <strong>{formatDate(report.generatedAt)}</strong>
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setShowHistory(!showHistory)}
+              className="h-7 text-xs border-yellow-500/30 text-yellow-700 hover:bg-yellow-500/10"
+              onClick={() => handleSelectReport(historyReports[0].id)}
             >
-              <History className="h-4 w-4 mr-1" />
-              Storico ({historyReports.length})
+              Vai al più recente
             </Button>
-          )}
-          <Button onClick={handleGenerate} disabled={isGenerating}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
-            {isGenerating
-              ? 'Generazione in corso...'
-              : report
-                ? 'Aggiorna Report'
-                : 'Genera Report'}
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs border-yellow-500/30 text-yellow-700 hover:bg-yellow-500/10"
+              onClick={() => handleCompareWith(report.id)}
+            >
+              <Columns2 className="h-3 w-3 mr-1" />
+              Confronta con l'attuale
+            </Button>
+          </div>
         </div>
-      </div>
-
-      {/* History Panel */}
-      {showHistory && historyReports.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <History className="h-4 w-4" />
-                Storico Report
-              </CardTitle>
-              <Button variant="ghost" size="sm" onClick={() => setShowHistory(false)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-1 max-h-[300px] overflow-y-auto">
-              {historyReports.map((hr) => (
-                <div
-                  key={hr.id}
-                  className={`flex items-center justify-between p-2.5 rounded-lg cursor-pointer transition-colors ${
-                    hr.id === selectedReportId
-                      ? 'bg-primary/10 border border-primary/30'
-                      : 'hover:bg-muted/50'
-                  }`}
-                  onClick={() => handleSelectReport(hr.id)}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex flex-col min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium truncate">
-                          {formatDate(hr.generatedAt)}
-                        </span>
-                        <ProviderBadge provider={hr.aiProvider} />
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {hr.durationMs ? `${(hr.durationMs / 1000).toFixed(1)}s` : ''}
-                        {hr.aiModel ? ` · ${hr.aiModel}` : ''}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {hr.id !== selectedReportId && report && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCompareWith(hr.id);
-                        }}
-                      >
-                        <Columns2 className="h-3 w-3 mr-1" />
-                        Confronta
-                      </Button>
-                    )}
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
       )}
 
       {/* No report state */}
@@ -357,7 +389,7 @@ export function AuditReportPage() {
               con punti di forza, aree di miglioramento e suggerimenti pratici.
             </p>
             <Button onClick={handleGenerate}>
-              <BookOpen className="h-4 w-4 mr-2" />
+              <Sparkles className="h-4 w-4 mr-2" />
               Genera Report
             </Button>
           </CardContent>
@@ -369,7 +401,7 @@ export function AuditReportPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <RefreshCw className="h-10 w-10 animate-spin text-primary mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Generazione report in corso...</h3>
+            <h3 className="text-lg font-semibold mb-2">Generazione nuovo report in corso...</h3>
             <p className="text-muted-foreground">
               L'AI sta analizzando i dati del tuo account. Potrebbe richiedere 20-30 secondi.
             </p>
@@ -397,30 +429,39 @@ export function AuditReportPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-4">
-              {/* Older report */}
-              <div>
-                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
-                  <span className="text-xs font-medium text-muted-foreground">PRECEDENTE</span>
-                  <span className="text-xs text-muted-foreground">{formatDate(compareReport.generatedAt)}</span>
-                  <ProviderBadge provider={compareReport.aiProvider} />
-                </div>
-                <div
-                  className="text-xs leading-relaxed max-h-[500px] overflow-y-auto pr-2"
-                  dangerouslySetInnerHTML={{ __html: renderMarkdown(compareReport.content || '') }}
-                />
-              </div>
-              {/* Current report */}
-              <div>
-                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
-                  <span className="text-xs font-medium text-primary">ATTUALE</span>
-                  <span className="text-xs text-muted-foreground">{formatDate(report.generatedAt)}</span>
-                  <ProviderBadge provider={report.aiProvider} />
-                </div>
-                <div
-                  className="text-xs leading-relaxed max-h-[500px] overflow-y-auto pr-2"
-                  dangerouslySetInnerHTML={{ __html: renderMarkdown(report.content || '') }}
-                />
-              </div>
+              {/* Determine which is older */}
+              {(() => {
+                const reportDate = new Date(report.generatedAt).getTime();
+                const compareDate = new Date(compareReport.generatedAt).getTime();
+                const older = reportDate < compareDate ? report : compareReport;
+                const newer = reportDate < compareDate ? compareReport : report;
+                return (
+                  <>
+                    <div>
+                      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+                        <span className="text-xs font-medium text-muted-foreground">PRECEDENTE</span>
+                        <span className="text-xs text-muted-foreground">{formatDate(older.generatedAt)}</span>
+                        <ProviderBadge provider={older.aiProvider} />
+                      </div>
+                      <div
+                        className="text-xs leading-relaxed max-h-[500px] overflow-y-auto pr-2"
+                        dangerouslySetInnerHTML={{ __html: renderMarkdown(older.content || '') }}
+                      />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-primary/30">
+                        <span className="text-xs font-medium text-primary">NUOVO</span>
+                        <span className="text-xs text-muted-foreground">{formatDate(newer.generatedAt)}</span>
+                        <ProviderBadge provider={newer.aiProvider} />
+                      </div>
+                      <div
+                        className="text-xs leading-relaxed max-h-[500px] overflow-y-auto pr-2"
+                        dangerouslySetInnerHTML={{ __html: renderMarkdown(newer.content || '') }}
+                      />
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </CardContent>
         </Card>
@@ -434,6 +475,11 @@ export function AuditReportPage() {
               <CardTitle className="flex items-center gap-2">
                 <BookOpen className="h-5 w-5" />
                 Report Audit
+                {isViewingLatest && historyReports.length > 1 && (
+                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-green-500/20 text-green-600">
+                    Ultimo
+                  </span>
+                )}
               </CardTitle>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <ProviderBadge provider={report.aiProvider} />
