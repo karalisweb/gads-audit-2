@@ -34,6 +34,14 @@ export class AISettingsDto {
   @IsString()
   @IsOptional()
   geminiModel?: string;
+
+  @IsString()
+  @IsOptional()
+  claudeApiKey?: string;
+
+  @IsString()
+  @IsOptional()
+  claudeModel?: string;
 }
 
 export class AISettingsResponseDto {
@@ -44,4 +52,7 @@ export class AISettingsResponseDto {
   hasGeminiApiKey: boolean;
   geminiApiKeyLast4?: string;
   geminiModel: string;
+  hasClaudeApiKey: boolean;
+  claudeApiKeyLast4?: string;
+  claudeModel: string;
 }

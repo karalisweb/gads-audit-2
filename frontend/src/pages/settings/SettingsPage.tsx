@@ -27,6 +27,9 @@ interface AISettings {
   hasGeminiApiKey: boolean;
   geminiApiKeyLast4?: string;
   geminiModel: string;
+  hasClaudeApiKey: boolean;
+  claudeApiKeyLast4?: string;
+  claudeModel: string;
 }
 
 export function SettingsPage() {
@@ -59,8 +62,11 @@ export function SettingsPage() {
   const [aiModel, setAiModel] = useState('gpt-5.2');
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [geminiModel, setGeminiModel] = useState('gemini-3-flash-preview');
+  const [claudeApiKey, setClaudeApiKey] = useState('');
+  const [claudeModel, setClaudeModel] = useState('claude-sonnet-4-20250514');
   const [showApiKey, setShowApiKey] = useState(false);
   const [showGeminiApiKey, setShowGeminiApiKey] = useState(false);
+  const [showClaudeApiKey, setShowClaudeApiKey] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiSuccess, setAiSuccess] = useState('');
   const [aiError, setAiError] = useState('');
@@ -91,6 +97,7 @@ export function SettingsPage() {
       setAiProvider(settings.provider || 'openai');
       setAiModel(settings.model || 'gpt-5.2');
       setGeminiModel(settings.geminiModel || 'gemini-3-flash-preview');
+      setClaudeModel(settings.claudeModel || 'claude-sonnet-4-20250514');
     } catch (err) {
       console.error('Failed to load AI settings:', err);
     }
@@ -181,7 +188,7 @@ export function SettingsPage() {
     setAiSuccess('');
 
     try {
-      const payload: { aiProvider?: string; openaiApiKey?: string; openaiModel?: string; geminiApiKey?: string; geminiModel?: string } = {};
+      const payload: { aiProvider?: string; openaiApiKey?: string; openaiModel?: string; geminiApiKey?: string; geminiModel?: string; claudeApiKey?: string; claudeModel?: string } = {};
 
       payload.aiProvider = aiProvider;
 
@@ -195,10 +202,16 @@ export function SettingsPage() {
       }
       payload.geminiModel = geminiModel;
 
+      if (claudeApiKey) {
+        payload.claudeApiKey = claudeApiKey;
+      }
+      payload.claudeModel = claudeModel;
+
       const response = await apiClient.patch<AISettings>('/settings/ai', payload);
       setAiSettings(response);
       setAiApiKey('');
       setGeminiApiKey('');
+      setClaudeApiKey('');
       setAiSuccess('Impostazioni AI salvate con successo');
     } catch (err) {
       const apiError = err as ApiError;
@@ -208,8 +221,9 @@ export function SettingsPage() {
     }
   };
 
-  const handleClearApiKey = async (provider: 'openai' | 'gemini') => {
-    const label = provider === 'openai' ? 'OpenAI' : 'Gemini';
+  const handleClearApiKey = async (provider: 'openai' | 'gemini' | 'claude') => {
+    const labels: Record<string, string> = { openai: 'OpenAI', gemini: 'Gemini', claude: 'Claude' };
+    const label = labels[provider] || provider;
     if (!confirm(`Sei sicuro di voler rimuovere la chiave API ${label}?`)) return;
 
     setAiLoading(true);
@@ -217,7 +231,12 @@ export function SettingsPage() {
     setAiSuccess('');
 
     try {
-      const payload = provider === 'openai' ? { openaiApiKey: '' } : { geminiApiKey: '' };
+      const payloadMap: Record<string, Record<string, string>> = {
+        openai: { openaiApiKey: '' },
+        gemini: { geminiApiKey: '' },
+        claude: { claudeApiKey: '' },
+      };
+      const payload = payloadMap[provider];
       const response = await apiClient.patch<AISettings>('/settings/ai', payload);
       setAiSettings(response);
       setAiSuccess(`Chiave API ${label} rimossa con successo`);
@@ -520,7 +539,7 @@ export function SettingsPage() {
               <div>
                 <h3 className="text-lg font-semibold text-foreground mb-2">Configurazione AI</h3>
                 <p className="text-muted-foreground text-sm mb-4">
-                  Configura la chiave API OpenAI per abilitare l'analisi AI delle campagne Google Ads.
+                  Configura i provider AI per l'analisi delle campagne Google Ads. Puoi configurare più provider e scegliere quale usare.
                 </p>
               </div>
 
@@ -548,9 +567,10 @@ export function SettingsPage() {
                   >
                     <option value="openai">OpenAI (GPT)</option>
                     <option value="gemini">Google Gemini</option>
+                    <option value="claude">Anthropic Claude</option>
                   </select>
                   <p className="text-xs text-muted-foreground">
-                    Provider attivo: <span className="font-medium">{aiSettings?.provider === 'gemini' ? 'Google Gemini' : 'OpenAI'}</span>
+                    Provider attivo: <span className="font-medium">{aiSettings?.provider === 'claude' ? 'Anthropic Claude' : aiSettings?.provider === 'gemini' ? 'Google Gemini' : 'OpenAI'}</span>
                   </p>
                 </div>
 
@@ -720,6 +740,90 @@ export function SettingsPage() {
                       <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
                       <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
                       <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Claude Section */}
+                <div className={`space-y-4 p-4 rounded-lg border ${aiProvider === 'claude' ? 'border-primary/50 bg-primary/5' : 'border-border bg-card/30 opacity-60'}`}>
+                  <h4 className="font-medium text-foreground flex items-center gap-2">
+                    Anthropic Claude
+                    {aiProvider === 'claude' && <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">Attivo</span>}
+                  </h4>
+
+                  {/* Claude API Key Status */}
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      aiSettings?.hasClaudeApiKey ? 'bg-success/20' : 'bg-destructive/20'
+                    }`}>
+                      {aiSettings?.hasClaudeApiKey ? (
+                        <Check className="h-4 w-4 text-success" />
+                      ) : (
+                        <Bot className="h-4 w-4 text-destructive" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm text-muted-foreground">
+                        {aiSettings?.hasClaudeApiKey
+                          ? `Chiave attiva: ${aiSettings.claudeApiKeyLast4}`
+                          : 'Nessuna chiave API configurata'}
+                      </p>
+                    </div>
+                    {aiSettings?.hasClaudeApiKey && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleClearApiKey('claude')}
+                        disabled={aiLoading}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        Rimuovi
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="claudeApiKey" className="text-foreground">
+                      {aiSettings?.hasClaudeApiKey ? 'Nuova Chiave API' : 'Chiave API Claude'}
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="claudeApiKey"
+                        type={showClaudeApiKey ? 'text' : 'password'}
+                        value={claudeApiKey}
+                        onChange={(e) => setClaudeApiKey(e.target.value)}
+                        placeholder="sk-ant-..."
+                        className="bg-input border-border text-foreground pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowClaudeApiKey(!showClaudeApiKey)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showClaudeApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Ottieni la chiave da{' '}
+                      <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                        Anthropic Console
+                      </a>
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="claudeModel" className="text-foreground">Modello</Label>
+                    <select
+                      id="claudeModel"
+                      value={claudeModel}
+                      onChange={(e) => setClaudeModel(e.target.value)}
+                      className="w-full h-10 px-3 rounded-md border border-border bg-input text-foreground"
+                    >
+                      <option value="claude-sonnet-4-20250514">Claude Sonnet 4 (Raccomandato)</option>
+                      <option value="claude-opus-4-0-20250415">Claude Opus 4</option>
+                      <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                      <option value="claude-3-5-haiku-20241022">Claude 3.5 Haiku (Economico)</option>
                     </select>
                   </div>
                 </div>

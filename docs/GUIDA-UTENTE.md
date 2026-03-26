@@ -234,6 +234,7 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 | Versione | Data | Descrizione |
 |----------|------|-------------|
+| 2.15.0 | 26 Marzo 2026 | 3 AI providers (OpenAI, Gemini, Claude) + report history with comparison + strategic per-report chat |
 | 2.14.8 | 18 Marzo 2026 | Security hardening (JWT, XSS, rate limiting, TLS, encryption) + test suite + docs |
 | 2.14.7 | 6 Marzo 2026 | Integrate Gemini 3 Flash as alternative AI provider |
 | 2.14.6 | 4 Marzo 2026 | LP Planner excludes already-briefed keywords, persists clusters, prevents cannibalization |
@@ -256,4 +257,4 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 ---
 
-*Ultimo aggiornamento: 18 Marzo 2026 | Versione app: 2.14.8*
+*Ultimo aggiornamento: 26 Marzo 2026 | Versione app: 2.15.0*

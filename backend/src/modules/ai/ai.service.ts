@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import OpenAI from 'openai';
 import { GoogleGenAI } from '@google/genai';
+import Anthropic from '@anthropic-ai/sdk';
 import {
   Campaign,
   AdGroup,
@@ -107,6 +108,17 @@ export class AIService {
       throw new BadRequestException('Gemini API key not configured. Please configure it in Settings > AI.');
     }
     return new GoogleGenAI({ apiKey });
+  }
+
+  private async getClaudeClient(): Promise<Anthropic> {
+    let apiKey = await this.settingsService.getClaudeApiKey();
+    if (!apiKey) {
+      apiKey = this.configService.get<string>('ai.claudeApiKey') ?? null;
+    }
+    if (!apiKey) {
+      throw new BadRequestException('Claude API key not configured. Please configure it in Settings > AI.');
+    }
+    return new Anthropic({ apiKey });
   }
 
   async analyzeModule(
@@ -1084,6 +1096,14 @@ Adatta le tue raccomandazioni in base a queste preferenze. Non insistere su cate
       const result = await this.callGeminiJSON(systemPrompt, userPrompt);
       return { ...result, aiProvider: 'gemini', aiModel: model };
     }
+    if (provider === 'claude') {
+      let model = await this.settingsService.getClaudeModel();
+      if (!model) {
+        model = this.configService.get<string>('ai.claudeModel') || 'claude-sonnet-4-20250514';
+      }
+      const result = await this.callClaudeJSON(systemPrompt, userPrompt);
+      return { ...result, aiProvider: 'claude', aiModel: model };
+    }
     let model = await this.settingsService.getOpenAIModel();
     if (!model) {
       model = this.configService.get<string>('ai.openaiModel') || 'gpt-4o';
@@ -1100,6 +1120,9 @@ Adatta le tue raccomandazioni in base a queste preferenze. Non insistere su cate
     const provider = await this.getActiveProvider();
     if (provider === 'gemini') {
       return this.callGeminiText(systemPrompt, userPrompt, maxTokens);
+    }
+    if (provider === 'claude') {
+      return this.callClaudeText(systemPrompt, userPrompt, maxTokens);
     }
     return this.callOpenAIText(systemPrompt, userPrompt, maxTokens);
   }
@@ -1234,6 +1257,67 @@ Adatta le tue raccomandazioni in base a queste preferenze. Non insistere su cate
     const content = response.text;
     if (!content) {
       throw new Error('Empty response from Gemini');
+    }
+    return content;
+  }
+
+  private async callClaudeJSON(
+    systemPrompt: string,
+    userPrompt: string,
+  ): Promise<{ summary: string; recommendations: AIRecommendation[] }> {
+    const claude = await this.getClaudeClient();
+    let model = await this.settingsService.getClaudeModel();
+    if (!model) {
+      model = this.configService.get<string>('ai.claudeModel') || 'claude-sonnet-4-20250514';
+    }
+    const maxTokens = this.configService.get<number>('ai.maxTokens') || 4096;
+
+    try {
+      this.logger.log(`Calling Claude model: ${model}`);
+      const response = await claude.messages.create({
+        model,
+        max_tokens: maxTokens,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt + '\n\nRispondi SOLO con JSON valido, senza markdown code fences.' }],
+        temperature: 0.3,
+      });
+
+      let content = response.content[0]?.type === 'text' ? response.content[0].text : null;
+      if (!content) {
+        throw new Error('Empty response from Claude');
+      }
+      // Strip markdown code fences if present
+      content = content.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+      return this.parseRecommendations(JSON.parse(content));
+    } catch (error) {
+      this.logger.error('Claude API error:', error);
+      throw new BadRequestException(`AI analysis failed: ${error.message}`);
+    }
+  }
+
+  private async callClaudeText(
+    systemPrompt: string,
+    userPrompt: string,
+    maxTokensOverride?: number,
+  ): Promise<string> {
+    const claude = await this.getClaudeClient();
+    let model = await this.settingsService.getClaudeModel();
+    if (!model) {
+      model = this.configService.get<string>('ai.claudeModel') || 'claude-sonnet-4-20250514';
+    }
+    const maxTokens = maxTokensOverride || 8192;
+
+    const response = await claude.messages.create({
+      model,
+      max_tokens: maxTokens,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
+      temperature: 0.3,
+    });
+
+    const content = response.content[0]?.type === 'text' ? response.content[0].text : null;
+    if (!content) {
+      throw new Error('Empty response from Claude');
     }
     return content;
   }
@@ -1515,6 +1599,17 @@ REGOLE:
 - Se i dati sono insufficienti per un giudizio, specificalo
 - Usa **grassetto** per enfatizzare i punti importanti`;
 
+      // Read provider/model before calling LLM
+      const activeProvider = await this.getActiveProvider();
+      let activeModel: string;
+      if (activeProvider === 'claude') {
+        activeModel = await this.settingsService.getClaudeModel();
+      } else if (activeProvider === 'gemini') {
+        activeModel = await this.settingsService.getGeminiModel();
+      } else {
+        activeModel = await this.settingsService.getOpenAIModel();
+      }
+
       const content = await this.callLLMText(systemPrompt, dataContext);
 
       const durationMs = Date.now() - startedAt;
@@ -1522,6 +1617,8 @@ REGOLE:
       report.content = content;
       report.status = ReportStatus.COMPLETED;
       report.durationMs = durationMs;
+      report.aiProvider = activeProvider;
+      report.aiModel = activeModel;
       report.metadata = {
         campaignCount: campaigns.length,
         issueCount: auditIssues.length,
@@ -1550,8 +1647,16 @@ REGOLE:
   async chatWithReport(
     accountId: string,
     userMessage: string,
+    reportId?: string,
   ): Promise<AuditReportMessage> {
-    const report = await this.getLatestReport(accountId);
+    let report: AuditReport | null;
+    if (reportId) {
+      report = await this.auditReportRepository.findOne({
+        where: { id: reportId, accountId, status: ReportStatus.COMPLETED },
+      });
+    } else {
+      report = await this.getLatestReport(accountId);
+    }
     if (!report) {
       throw new BadRequestException('Nessun report disponibile. Genera prima un report.');
     }
@@ -1571,16 +1676,25 @@ REGOLE:
       take: 20,
     });
 
-    const systemPrompt = `Sei un esperto Google Ads Specialist senior. Hai generato il seguente report di audit per un account Google Ads. Rispondi alle domande dell'utente basandoti sul report e sulla tua esperienza.
+    const systemPrompt = `Sei un consulente strategico Google Ads di fiducia con oltre 15 anni di esperienza nella gestione di account pubblicitari. L'utente è il tuo partner di lavoro: parlate insieme di strategia, ragionate sui dati e prendete decisioni.
 
-REPORT DI AUDIT:
+Il tuo stile:
+- Parla come un collega esperto, non come un chatbot. Sii diretto e sincero.
+- Ragiona ad alta voce: condividi il tuo processo di pensiero, non solo le conclusioni.
+- Se hai un'opinione forte, dilla. Se qualcosa non funziona, dillo chiaramente.
+- Quando proponi cambiamenti, spiega il ragionamento strategico e l'impatto atteso.
+- Fai domande provocatorie per stimolare la riflessione ("Hai considerato che...?", "E se provassimo...?").
+- Se l'utente propone un'idea, valutala onestamente: se è buona dillo, se ha problemi spiega quali.
+
+REPORT DI AUDIT (contesto di riferimento):
 ${(report.content || '').substring(0, 8000)}
 
 REGOLE:
 - Rispondi in italiano
-- Sii specifico e pratico
-- Se la domanda non è coperta dal report, rispondi comunque basandoti sulla tua esperienza
-- Mantieni un tono professionale ma accessibile`;
+- Sii specifico, pratico e strategico
+- Se la domanda non è coperta dal report, rispondi basandoti sulla tua esperienza
+- Proponi attivamente idee e strategie, non limitarti a rispondere
+- Usa dati concreti dal report quando disponibili`;
 
     // Build conversation history for context
     const historyMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
@@ -1616,6 +1730,29 @@ REGOLE:
 
       const response = await chat.sendMessage({ message: userMessage });
       assistantContent = response.text || 'Mi dispiace, non sono riuscito a generare una risposta.';
+    } else if (provider === 'claude') {
+      const claude = await this.getClaudeClient();
+      let model = await this.settingsService.getClaudeModel();
+      if (!model) {
+        model = this.configService.get<string>('ai.claudeModel') || 'claude-sonnet-4-20250514';
+      }
+
+      const claudeMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [
+        ...historyMessages,
+        { role: 'user', content: userMessage },
+      ];
+
+      const response = await claude.messages.create({
+        model,
+        max_tokens: 4096,
+        system: systemPrompt,
+        messages: claudeMessages,
+        temperature: 0.4,
+      });
+
+      assistantContent = response.content[0]?.type === 'text'
+        ? response.content[0].text
+        : 'Mi dispiace, non sono riuscito a generare una risposta.';
     } else {
       const openai = await this.getOpenAIClient();
       let model = await this.settingsService.getOpenAIModel();
@@ -1657,6 +1794,34 @@ REGOLE:
 
     return this.auditReportMessageRepository.find({
       where: { reportId: report.id },
+      order: { createdAt: 'ASC' },
+    });
+  }
+
+  // =========================================================================
+  // REPORT HISTORY
+  // =========================================================================
+
+  async getReportHistory(accountId: string, page = 1, limit = 20) {
+    const [reports, total] = await this.auditReportRepository.findAndCount({
+      where: { accountId, status: ReportStatus.COMPLETED },
+      order: { generatedAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+      select: ['id', 'accountId', 'status', 'generatedAt', 'durationMs', 'aiProvider', 'aiModel', 'metadata', 'createdAt'],
+    });
+    return { reports, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
+  async getReportById(accountId: string, reportId: string): Promise<AuditReport | null> {
+    return this.auditReportRepository.findOne({
+      where: { id: reportId, accountId, status: ReportStatus.COMPLETED },
+    });
+  }
+
+  async getReportMessagesById(reportId: string): Promise<AuditReportMessage[]> {
+    return this.auditReportMessageRepository.find({
+      where: { reportId },
       order: { createdAt: 'ASC' },
     });
   }

@@ -5,6 +5,7 @@ import { AIService } from './ai.service';
 import { AISchedulerService } from './ai-scheduler.service';
 import { OpenAIProvider } from './openai.provider';
 import { GeminiProvider } from './gemini.provider';
+import { ClaudeProvider } from './claude.provider';
 import { ModificationsModule } from '../modifications/modifications.module';
 import { AuditModule } from '../audit/audit.module';
 import {
@@ -52,7 +53,7 @@ import {
     AuditModule,
   ],
   controllers: [AIController],
-  providers: [AIService, AISchedulerService, OpenAIProvider, GeminiProvider],
-  exports: [AIService, OpenAIProvider, GeminiProvider],
+  providers: [AIService, AISchedulerService, OpenAIProvider, GeminiProvider, ClaudeProvider],
+  exports: [AIService, OpenAIProvider, GeminiProvider, ClaudeProvider],
 })
 export class AIModule {}

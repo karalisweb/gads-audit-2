@@ -98,8 +98,9 @@ export class AIController {
   async chatWithReport(
     @Param('accountId', ParseUUIDPipe) accountId: string,
     @Body('message') message: string,
+    @Body('reportId') reportId?: string,
   ) {
-    return this.aiService.chatWithReport(accountId, message);
+    return this.aiService.chatWithReport(accountId, message, reportId);
   }
 
   @Get('report/:accountId/messages')
@@ -107,5 +108,38 @@ export class AIController {
     @Param('accountId', ParseUUIDPipe) accountId: string,
   ) {
     return this.aiService.getReportMessages(accountId);
+  }
+
+  // =========================================================================
+  // REPORT HISTORY
+  // =========================================================================
+
+  @Get('reports/:accountId')
+  async getReportHistory(
+    @Param('accountId', ParseUUIDPipe) accountId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.aiService.getReportHistory(
+      accountId,
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 20,
+    );
+  }
+
+  @Get('reports/:accountId/:reportId')
+  async getReportById(
+    @Param('accountId', ParseUUIDPipe) accountId: string,
+    @Param('reportId', ParseUUIDPipe) reportId: string,
+  ) {
+    return this.aiService.getReportById(accountId, reportId);
+  }
+
+  @Get('reports/:accountId/:reportId/messages')
+  async getReportMessagesById(
+    @Param('accountId', ParseUUIDPipe) accountId: string,
+    @Param('reportId', ParseUUIDPipe) reportId: string,
+  ) {
+    return this.aiService.getReportMessagesById(reportId);
   }
 }

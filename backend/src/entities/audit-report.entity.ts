@@ -46,6 +46,12 @@ export class AuditReport {
   @Column({ name: 'duration_ms', type: 'int', nullable: true })
   durationMs: number | null;
 
+  @Column({ name: 'ai_provider', type: 'varchar', length: 20, nullable: true })
+  aiProvider: string | null;
+
+  @Column({ name: 'ai_model', type: 'varchar', length: 50, nullable: true })
+  aiModel: string | null;
+
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
 

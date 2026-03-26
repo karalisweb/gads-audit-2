@@ -81,6 +81,8 @@ export class SettingsService {
     const model = await this.getSetting('openai_model');
     const geminiApiKey = await this.getSetting('gemini_api_key');
     const geminiModel = await this.getSetting('gemini_model');
+    const claudeApiKey = await this.getSetting('claude_api_key');
+    const claudeModel = await this.getSetting('claude_model');
 
     return {
       provider: provider || 'openai',
@@ -90,6 +92,9 @@ export class SettingsService {
       hasGeminiApiKey: !!geminiApiKey && geminiApiKey.length > 0,
       geminiApiKeyLast4: geminiApiKey ? '****' + geminiApiKey.slice(-4) : undefined,
       geminiModel: geminiModel || 'gemini-3-flash-preview',
+      hasClaudeApiKey: !!claudeApiKey && claudeApiKey.length > 0,
+      claudeApiKeyLast4: claudeApiKey ? '****' + claudeApiKey.slice(-4) : undefined,
+      claudeModel: claudeModel || 'claude-sonnet-4-20250514',
     };
   }
 
@@ -122,6 +127,18 @@ export class SettingsService {
       await this.setSetting('gemini_model', dto.geminiModel, false);
     }
 
+    if (dto.claudeApiKey !== undefined) {
+      if (dto.claudeApiKey === '') {
+        await this.settingRepository.delete({ key: 'claude_api_key' });
+      } else {
+        await this.setSetting('claude_api_key', dto.claudeApiKey, true);
+      }
+    }
+
+    if (dto.claudeModel !== undefined) {
+      await this.setSetting('claude_model', dto.claudeModel, false);
+    }
+
     this.logger.log('AI settings updated');
     return this.getAISettings();
   }
@@ -148,6 +165,15 @@ export class SettingsService {
   async getGeminiModel(): Promise<string> {
     const model = await this.getSetting('gemini_model');
     return model || 'gemini-3-flash-preview';
+  }
+
+  async getClaudeApiKey(): Promise<string | null> {
+    return this.getSetting('claude_api_key');
+  }
+
+  async getClaudeModel(): Promise<string> {
+    const model = await this.getSetting('claude_model');
+    return model || 'claude-sonnet-4-20250514';
   }
 
   // Schedule: email recipients (per-account scheduling is on the account entity)

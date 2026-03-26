@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.15.0] - 2026-03-26
+
+### Aggiunto
+- 3 AI providers (OpenAI, Gemini, Claude) + report history with comparison + strategic per-report chat
+
+---
+
+
 ## [2.14.8] - 2026-03-18
 
 ### Corretto
