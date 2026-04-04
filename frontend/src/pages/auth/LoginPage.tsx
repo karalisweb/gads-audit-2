@@ -39,9 +39,9 @@ export function LoginPage() {
           {/* Logo Karalisweb */}
           <div className="flex items-center justify-center mb-8">
             <img
-              src="/logo-karalisweb.svg"
+              src="/logo-karalisweb.png"
               alt="Karalisweb"
-              className="h-10"
+              className="h-12"
             />
           </div>
 
