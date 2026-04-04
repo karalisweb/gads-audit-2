@@ -5,6 +5,19 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.16.0] - 2026-04-04
+
+### Aggiunto
+- Redesign pagina login stile PMI: layout stretto con box in evidenza e ombra
+- Logo Karalisweb SVG dedicato (decorativo con tagline)
+- Card login con shadow prominente e bordo sottile
+
+### Modificato
+- Larghezza max card login ridotta a 380px (stile PMI narrow)
+- Spaziatura e padding ottimizzati per layout verticale allungato
+
+---
+
 ## [2.15.1] - 2026-03-26
 
 ### Corretto

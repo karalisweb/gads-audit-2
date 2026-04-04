@@ -3,9 +3,10 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuthStore } from '@/stores/auth.store';
 import type { ApiError } from '@/types';
+
+const APP_VERSION = 'v2.16.0';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -33,81 +34,80 @@ export function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="w-full max-w-md">
-        {/* Logo e Titolo App */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-semibold text-gradient-brand">
+      <div className="w-full max-w-[380px]">
+        <div className="login-card-shadow bg-card border border-border/40 rounded-2xl px-8 py-10">
+          {/* Logo Karalisweb */}
+          <div className="flex items-center justify-center mb-8">
+            <img
+              src="/logo-karalisweb.svg"
+              alt="Karalisweb"
+              className="h-10"
+            />
+          </div>
+
+          {/* Nome App con gradiente */}
+          <h1 className="text-center text-[22px] font-bold login-title-gradient mb-1">
             KW GADS Audit
           </h1>
-          <p className="text-muted-foreground text-sm mt-2">Google Ads Audit Tool</p>
-        </div>
+          <p className="text-center text-muted-foreground text-xs mb-10">
+            Google Ads Audit Tool &nbsp;|&nbsp; {APP_VERSION}
+          </p>
 
-        <Card className="bg-card border-border shadow-[0_8px_24px_rgba(0,0,0,0.5)]">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-xl font-bold text-center text-foreground">
-              Accedi
-            </CardTitle>
-            <CardDescription className="text-center text-muted-foreground">
-              Inserisci le tue credenziali per continuare
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <div className="bg-destructive/10 border border-destructive/30 text-destructive px-4 py-3 rounded-lg text-sm">
-                  {error}
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-foreground">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="name@karalisweb.net"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  autoComplete="email"
-                  className="bg-input border-border text-foreground placeholder:text-muted-foreground"
-                />
+          {/* Form Login */}
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {error && (
+              <div className="bg-destructive/10 border border-destructive/30 text-destructive px-4 py-3 rounded-lg text-sm">
+                {error}
               </div>
+            )}
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password" className="text-foreground">Password</Label>
-                  <Link
-                    to="/auth/forgot-password"
-                    className="text-xs text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    Password dimenticata?
-                  </Link>
-                </div>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  autoComplete="current-password"
-                  className="bg-input border-border text-foreground"
-                />
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="text-foreground text-sm">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="nome@karalisweb.net"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+                className="bg-input border-border text-foreground placeholder:text-muted-foreground h-11 rounded-lg"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password" className="text-foreground text-sm">Password</Label>
+                <Link
+                  to="/auth/forgot-password"
+                  className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                >
+                  Password dimenticata?
+                </Link>
               </div>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                className="bg-input border-border text-foreground h-11 rounded-lg"
+              />
+            </div>
 
+            <div className="pt-2">
               <Button
                 type="submit"
-                className="w-full btn-gradient text-white font-medium transition-all duration-200"
+                className="w-full btn-gradient text-white font-semibold h-11 rounded-lg transition-all duration-200 cursor-pointer"
                 disabled={isLoading}
               >
                 {isLoading ? 'Accesso in corso...' : 'Accedi'}
               </Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        <p className="text-center text-xs text-muted-foreground mt-8">
-          v2.15.1
-        </p>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

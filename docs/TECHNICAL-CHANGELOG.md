@@ -6,6 +6,7 @@ Log tecnico delle modifiche al software, auto-generato dal deploy script.
 
 | Versione | Data | Commit |
 |----------|------|--------|
+| 2.16.0 | 2026-04-04 | feat: login page redesign (PMI style) + Karalisweb logo SVG |
 | 2.15.1 | 2026-03-26 | fix: improved report UX - clear new report flow, history pills, compare banner |
 | 2.15.0 | 2026-03-26 | feat: 3 AI providers (OpenAI, Gemini, Claude) + report history with comparison + strategic per-report chat |
 | 2.14.8 | 2026-03-18 | fix: security hardening (JWT, XSS, rate limiting, TLS, encryption) + test suite + docs |

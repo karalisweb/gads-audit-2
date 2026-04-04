@@ -158,6 +158,14 @@
     @apply bg-gradient-to-r from-orange-500 to-yellow-400 bg-clip-text text-transparent;
   }
 
+  /* Gradiente titolo login: arancione caldo */
+  .login-title-gradient {
+    background: linear-gradient(135deg, #e6a020, #ff8f65);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
   .card-highlight {
     @apply border-primary/50 shadow-[0_0_15px_rgba(212,167,38,0.1)];
   }
@@ -192,6 +200,14 @@
   .nav-item-active {
     background: rgba(255, 107, 53, 0.1);
     color: #d4a726;
+  }
+
+  /* Login card shadow (stile PMI) */
+  .login-card-shadow {
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.35),
+      0 1px 4px rgba(0, 0, 0, 0.2),
+      0 0 0 1px rgba(212, 167, 38, 0.06);
   }
 
   /* Focus glow arancione per input */
