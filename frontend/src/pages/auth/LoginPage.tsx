@@ -41,15 +41,15 @@ export function LoginPage() {
             <img
               src="/logo-karalisweb.png"
               alt="Karalisweb"
-              className="h-12"
+              className="h-20"
             />
           </div>
 
           {/* Nome App con gradiente */}
-          <h1 className="text-center text-[22px] font-bold login-title-gradient mb-1">
+          <h1 className="text-center text-[26px] font-bold login-title-gradient mb-1">
             KW GADS Audit
           </h1>
-          <p className="text-center text-muted-foreground text-xs mb-10">
+          <p className="text-center text-muted-foreground text-sm mb-10">
             Google Ads Audit Tool &nbsp;|&nbsp; {APP_VERSION}
           </p>
 
