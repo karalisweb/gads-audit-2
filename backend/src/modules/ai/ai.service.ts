@@ -1470,7 +1470,7 @@ Adatta le tue raccomandazioni in base a queste preferenze. Non insistere su cate
 
     try {
       // Fetch all data in parallel
-      const [campaigns, conversionActions, auditIssues, adGroupCount, keywordCount, adCount] =
+      const [campaigns, conversionActions, auditIssues, adGroupCount, keywordCount, adCount, searchTerms] =
         await Promise.all([
           this.campaignRepository.find({
             where: { accountId, runId: latestRun.runId },
@@ -1485,7 +1485,20 @@ Adatta le tue raccomandazioni in base a queste preferenze. Non insistere su cate
           this.adGroupRepository.count({ where: { accountId, runId: latestRun.runId } }),
           this.keywordRepository.count({ where: { accountId, runId: latestRun.runId } }),
           this.adRepository.count({ where: { accountId, runId: latestRun.runId } }),
+          this.searchTermRepository.find({
+            where: { accountId, runId: latestRun.runId },
+            order: { costMicros: 'DESC' },
+            take: 500,
+          }),
         ]);
+
+      // Search terms: identify wasted spend (cost but zero conversions)
+      const wastefulTerms = searchTerms
+        .filter((st) => (parseInt(st.costMicros) || 0) > 0 && (parseFloat(st.conversions) || 0) === 0)
+        .sort((a, b) => (parseInt(b.costMicros) || 0) - (parseInt(a.costMicros) || 0));
+      const searchTermsCost = searchTerms.reduce((sum, st) => sum + (parseInt(st.costMicros) || 0), 0);
+      const searchTermsConversions = searchTerms.reduce((sum, st) => sum + (parseFloat(st.conversions) || 0), 0);
+      const wastedCost = wastefulTerms.reduce((sum, st) => sum + (parseInt(st.costMicros) || 0), 0);
 
       // Aggregate KPIs from campaigns
       const enabledCampaigns = campaigns.filter((c) => c.status === 'ENABLED');
@@ -1552,6 +1565,22 @@ ${auditIssues
   .slice(0, 15)
   .map((i) => `- [${i.severity.toUpperCase()}] ${i.title}: ${i.description}`)
   .join('\n')}
+
+TERMINI DI RICERCA (top ${searchTerms.length} per spesa):
+- Spesa totale termini: €${(searchTermsCost / 1_000_000).toFixed(2)}
+- Conversioni totali termini: ${searchTermsConversions.toFixed(1)}
+- Termini con spesa ma ZERO conversioni: ${wastefulTerms.length} (spesa potenzialmente sprecata €${(wastedCost / 1_000_000).toFixed(2)})
+
+TOP TERMINI DA VALUTARE (spesa senza conversioni):
+${wastefulTerms.length > 0
+  ? wastefulTerms
+      .slice(0, 15)
+      .map(
+        (st) =>
+          `- "${st.searchTerm}" (campagna: ${st.campaignName}): €${(parseInt(st.costMicros) / 1_000_000).toFixed(2)} spesa, ${st.clicks} click, ${parseFloat(st.conversions).toFixed(1)} conv`,
+      )
+      .join('\n')
+  : '- Nessun termine con spesa senza conversioni rilevato'}
 `.trim();
 
       // Inject account strategy context into report
@@ -1578,6 +1607,9 @@ Analisi delle metriche principali: impressioni, click, CTR, costo, conversioni, 
 
 ## Configurazione Conversioni
 Stato delle azioni di conversione configurate. Sono correttamente impostate? Ci sono problemi (conversioni nascoste, non primarie, senza valore)? Suggerimenti specifici.
+
+## Analisi Termini di Ricerca
+Analizza i termini di ricerca che attivano gli annunci. Evidenzia gli SPRECHI (termini con spesa e zero conversioni) quantificando l'importo potenzialmente recuperabile. Proponi keyword negative concrete da aggiungere, raggruppandole per pattern comune dove possibile. Segnala eventuali termini ad alto potenziale da promuovere a keyword. Se non ci sono termini problematici, dillo chiaramente.
 
 ## Problemi Critici
 I problemi più gravi che richiedono attenzione immediata. Per ognuno spiega il PERCHÉ è un problema e COSA fare per risolverlo.
@@ -1623,6 +1655,8 @@ REGOLE:
         campaignCount: campaigns.length,
         issueCount: auditIssues.length,
         conversionActionCount: conversionActions.length,
+        searchTermCount: searchTerms.length,
+        wastefulSearchTermCount: wastefulTerms.length,
         runId: latestRun.runId,
       };
       await this.auditReportRepository.save(report);

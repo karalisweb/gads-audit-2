@@ -93,14 +93,15 @@ ssh root@vmi2996361.contaboserver.net "PGPASSWORD=Karalisweb2025 psql -h localho
 ssh root@vmi2996361.contaboserver.net "PGPASSWORD=Karalisweb2025 psql -h localhost -U gadsaudit -d gadsaudit -c \"UPDATE modifications SET status = 'approved', result_message = NULL, result_details = NULL, applied_at = NULL FROM google_ads_accounts a WHERE modifications.account_id = a.id AND a.customer_id = '7050747943' AND modifications.status = 'failed';\""
 ```
 
-## Account Google Ads gestiti (6 attivi)
+## Account Google Ads gestiti (7 attivi)
 | Account | Customer ID | Script download | Script upload |
 |---------|-------------|-----------------|---------------|
-| Arredi 2000 | 5448290625 | `download/google-ads-download-arredi-2000.js` | `upload/google-ads-upload-arredi-2000.js` |
 | Casa Bulldog | - | `download/google-ads-download-casa-bulldog.js` | `upload/google-ads-upload-casa-bulldog.js` |
 | Colombo Palace | - | `download/google-ads-download-colombo-palace.js` | `upload/google-ads-upload-colombo-palace.js` |
+| Economy Transfert | 8099475727 | `download/google-ads-download-economy-transfert.js` | `upload/google-ads-upload-economy-transfert.js` |
 | Massimo Borio | 8164965072 | `download/google-ads-download-massimo-borio.js` | `upload/google-ads-upload-massimo-borio.js` |
 | Officina 3MT | 7050747943 | `download/google-ads-download-officina-3mt.js` | `upload/google-ads-upload-officina-3mt.js` |
+| Prestige NCC | 6448457990 | `download/google-ads-download-prestigencc.js` | `upload/google-ads-upload-prestigencc.js` |
 | Sardegna Trasferimenti | 1094402562 | `download/google-ads-download-sardegna-trasferimenti.js` | `upload/google-ads-upload-sardegna-trasferimenti.js` |
 
 ## Autenticazione API

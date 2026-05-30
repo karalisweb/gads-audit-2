@@ -1,8 +1,8 @@
 /**
  * GADS Audit 2.0 - Google Ads Upload Script
  *
- * ACCOUNT: ARREDI 2000 (5448290625)
- * ULTIMA MODIFICA: 2026-02-12
+ * ACCOUNT: ECONOMY TRANSFERT (8099475727)
+ * ULTIMA MODIFICA: 2026-05-30
  *
  * Questo script legge le modifiche approvate dal backend GADS Audit
  * e le applica all'account Google Ads corrente.
@@ -13,11 +13,11 @@
  */
 
 // ============================================================================
-// CONFIGURAZIONE - ARREDI 2000
+// CONFIGURAZIONE - ECONOMY TRANSFERT
 // ============================================================================
 var CONFIG = {
   API_URL: 'https://gads.karalisdemo.it/api/integrations/google-ads',
-  SHARED_SECRET: 'f869ca5645a16caa222980be34e64661083b738cdfcd60e141cdbb215eceaaaa',
+  SHARED_SECRET: 'db8a4bc7a7846f3782d5cfc403deb57ad5a79eb2930d1081d005845847e56bd8',
   DRY_RUN: false
 };
 // ============================================================================

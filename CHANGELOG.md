@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.17.0] - 2026-05-31
+
+### Aggiunto
+- Analisi termini di ricerca nel report strategico + selezione multipla search terms con creazione negative in blocco
+
+---
+
+
 ## [2.16.0] - 2026-04-04
 
 ### Aggiunto

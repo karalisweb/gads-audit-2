@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Collapsible,
   CollapsibleContent,
@@ -27,7 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { AIAnalysisPanel } from '@/components/ai';
-import { Ban, Plus, X, ChevronDown, ChevronRight, Search, Download } from 'lucide-react';
+import { Ban, Plus, X, ChevronDown, ChevronRight, Search, Download, CheckCheck, Loader2 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { exportToCsv, microsToDecimal, formatPercent } from '@/lib/export-csv';
 import { getSearchTerms, getCampaigns, getAdGroups } from '@/api/audit';
@@ -37,12 +38,41 @@ import { formatCurrency, formatNumber, formatCtr } from '@/lib/format';
 import type { SearchTerm, Campaign, AdGroup, PaginatedResponse, SearchTermFilters } from '@/types/audit';
 // AIRecommendation type no longer needed - AIAnalysisPanel handles the full flow
 
+// Selection helpers passed into the column factory
+interface SelectionApi {
+  isSelected: (id: string) => boolean;
+  toggleRow: (term: SearchTerm) => void;
+  allPageSelected: boolean;
+  somePageSelected: boolean;
+  togglePage: (checked: boolean) => void;
+}
+
 // Column definitions for table view
 const createColumns = (
   onAddNegative: (term: SearchTerm, level: 'campaign' | 'adgroup', matchType: string) => void,
+  selection: SelectionApi,
   hasChanges?: boolean,
   getEntityChanges?: (id: string) => Record<string, number> | null,
 ): ColumnDef<SearchTerm>[] => [
+  {
+    id: 'select',
+    header: () => (
+      <Checkbox
+        aria-label="Seleziona tutti in pagina"
+        checked={selection.allPageSelected ? true : selection.somePageSelected ? 'indeterminate' : false}
+        onCheckedChange={(v) => selection.togglePage(v === true)}
+      />
+    ),
+    cell: ({ row }) => (
+      <Checkbox
+        aria-label="Seleziona termine"
+        checked={selection.isSelected(row.original.id)}
+        onCheckedChange={() => selection.toggleRow(row.original)}
+        onClick={(e) => e.stopPropagation()}
+      />
+    ),
+    enableSorting: false,
+  },
   {
     accessorKey: 'searchTerm',
     header: 'Termine di ricerca',
@@ -253,11 +283,15 @@ function SearchTermCardMobile({
   isOpen,
   onToggle,
   onAddNegative,
+  isSelected,
+  onToggleSelect,
 }: {
   term: SearchTerm;
   isOpen: boolean;
   onToggle: () => void;
   onAddNegative: (term: SearchTerm, level: 'campaign' | 'adgroup', matchType: string) => void;
+  isSelected: boolean;
+  onToggleSelect: () => void;
 }) {
   const cost = parseFloat(term.costMicros) || 0;
   const conv = parseFloat(term.conversions) || 0;
@@ -276,10 +310,13 @@ function SearchTermCardMobile({
 
   return (
     <Collapsible open={isOpen} onOpenChange={onToggle}>
-      <div className={`border rounded-lg bg-card overflow-hidden ${isPotentialNegative ? 'border-orange-300' : ''}`}>
+      <div className={`border rounded-lg bg-card overflow-hidden ${isSelected ? 'border-primary ring-1 ring-primary' : isPotentialNegative ? 'border-orange-300' : ''}`}>
         <CollapsibleTrigger asChild>
           <div className="p-3 cursor-pointer hover:bg-muted/50 transition-colors">
             <div className="flex items-start gap-2">
+              <div className="mt-0.5" onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}>
+                <Checkbox checked={isSelected} aria-label="Seleziona termine" />
+              </div>
               <div className="mt-0.5">
                 {isOpen ? (
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -442,8 +479,121 @@ export function SearchTermsPage() {
     setNegativeDialogOpen(true);
   }, []);
 
+  // ---- Bulk selection state ----
+  const [selected, setSelected] = useState<Map<string, SearchTerm>>(new Map());
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+  const [bulkLevel, setBulkLevel] = useState<'campaign' | 'adgroup'>('campaign');
+  const [bulkMatchType, setBulkMatchType] = useState<string>('PHRASE');
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState(0);
+  const [selectingAll, setSelectingAll] = useState(false);
+
+  const pageIds = useMemo(() => (data?.data ?? []).map((t) => t.id), [data]);
+  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+  const somePageSelected = pageIds.some((id) => selected.has(id));
+
+  const toggleRow = useCallback((term: SearchTerm) => {
+    setSelected((prev) => {
+      const next = new Map(prev);
+      if (next.has(term.id)) next.delete(term.id);
+      else next.set(term.id, term);
+      return next;
+    });
+  }, []);
+
+  const togglePage = useCallback((checked: boolean) => {
+    setSelected((prev) => {
+      const next = new Map(prev);
+      (data?.data ?? []).forEach((t) => {
+        if (checked) next.set(t.id, t);
+        else next.delete(t.id);
+      });
+      return next;
+    });
+  }, [data]);
+
+  const clearSelection = useCallback(() => setSelected(new Map()), []);
+
+  const selectionApi: SelectionApi = {
+    isSelected: (id) => selected.has(id),
+    toggleRow,
+    allPageSelected,
+    somePageSelected: somePageSelected && !allPageSelected,
+    togglePage,
+  };
+
+  // Fetch every page matching the current filters (campaign, ad group, search word)
+  // and add them all to the selection — e.g. "tutti i termini che contengono uber"
+  const selectAllMatching = useCallback(async () => {
+    if (!accountId) return;
+    setSelectingAll(true);
+    try {
+      const next = new Map(selected);
+      const limit = 200;
+      let page = 1;
+      let totalPages = 1;
+      do {
+        const res = await getSearchTerms(accountId, { ...filters, page, limit });
+        res.data.forEach((t) => next.set(t.id, t));
+        totalPages = res.meta.totalPages || 1;
+        page++;
+      } while (page <= totalPages);
+      setSelected(next);
+    } catch (e) {
+      console.error('Select all failed', e);
+      alert('Errore durante la selezione di tutti i risultati');
+    } finally {
+      setSelectingAll(false);
+    }
+  }, [accountId, filters, selected]);
+
+  // Bulk-create negative keyword modifications from the current selection
+  const handleBulkCreateNegatives = useCallback(async () => {
+    if (!accountId || selected.size === 0) return;
+    const terms = Array.from(selected.values());
+    setBulkSubmitting(true);
+    setBulkProgress(0);
+    let ok = 0;
+    let fail = 0;
+    const batchSize = 8;
+    for (let i = 0; i < terms.length; i += batchSize) {
+      const batch = terms.slice(i, i + batchSize);
+      const results = await Promise.allSettled(
+        batch.map((t) =>
+          createModification({
+            accountId,
+            entityType: 'negative_keyword',
+            entityId: bulkLevel === 'campaign' ? t.campaignId : t.adGroupId,
+            entityName: t.searchTerm,
+            modificationType: 'negative_keyword.add',
+            beforeValue: undefined,
+            afterValue: {
+              keyword: t.searchTerm,
+              matchType: bulkMatchType,
+              level: bulkLevel,
+              campaignId: t.campaignId,
+              campaignName: t.campaignName,
+              adGroupId: bulkLevel === 'adgroup' ? t.adGroupId : undefined,
+              adGroupName: bulkLevel === 'adgroup' ? t.adGroupName : undefined,
+            },
+          }),
+        ),
+      );
+      ok += results.filter((r) => r.status === 'fulfilled').length;
+      fail += results.filter((r) => r.status === 'rejected').length;
+      setBulkProgress(Math.min(i + batchSize, terms.length));
+    }
+    setBulkSubmitting(false);
+    setBulkDialogOpen(false);
+    clearSelection();
+    alert(
+      `Create ${ok} keyword negative${fail > 0 ? `, ${fail} fallite` : ''}. ` +
+        'Vai alla pagina Modifiche per approvarle.',
+    );
+  }, [accountId, selected, bulkLevel, bulkMatchType, clearSelection]);
+
   // Create columns with the dialog opener
-  const columns = createColumns(handleOpenNegativeDialog, hasChanges, getEntityChanges);
+  const columns = createColumns(handleOpenNegativeDialog, selectionApi, hasChanges, getEntityChanges);
 
   // Load campaigns for filter
   useEffect(() => {
@@ -674,9 +824,27 @@ export function SearchTermsPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
         <Ban className="h-4 w-4 text-orange-600" />
-        <span>{isMobile ? 'Tocca una card per i dettagli' : 'Clicca l\'icona per aggiungere un termine come keyword negativa'}</span>
+        <span>{isMobile ? 'Seleziona le card e aggiungi negative in blocco' : 'Spunta i termini (o usa «Seleziona tutti») per aggiungere negative in blocco'}</span>
+        {total > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7"
+            onClick={selectAllMatching}
+            disabled={selectingAll}
+          >
+            {selectingAll ? (
+              <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+            ) : (
+              <CheckCheck className="h-3.5 w-3.5 mr-1" />
+            )}
+            {searchInput
+              ? `Seleziona tutti i ${total.toLocaleString()} con «${searchInput}»`
+              : `Seleziona tutti i ${total.toLocaleString()} risultati`}
+          </Button>
+        )}
       </div>
 
       {/* Mobile: Expandable Cards */}
@@ -698,6 +866,8 @@ export function SearchTermsPage() {
                     isOpen={expandedCardId === term.id}
                     onToggle={() => setExpandedCardId(expandedCardId === term.id ? null : term.id)}
                     onAddNegative={handleOpenNegativeDialog}
+                    isSelected={selected.has(term.id)}
+                    onToggleSelect={() => toggleRow(term)}
                   />
                 ))}
                 {tableData.length === 0 && (
@@ -828,6 +998,105 @@ export function SearchTermsPage() {
             <Button onClick={handleCreateNegative} disabled={isSubmitting}>
               <Plus className="h-4 w-4 mr-2" />
               {isSubmitting ? 'Creazione...' : 'Crea Modifica'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sticky bulk action bar */}
+      {selected.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] sm:w-auto">
+          <div className="flex items-center gap-3 rounded-full border bg-background shadow-lg px-4 py-2">
+            <span className="text-sm font-medium whitespace-nowrap">
+              {selected.size} selezionat{selected.size === 1 ? 'o' : 'i'}
+            </span>
+            <Button
+              size="sm"
+              className="rounded-full"
+              onClick={() => setBulkDialogOpen(true)}
+            >
+              <Ban className="h-4 w-4 mr-1.5" />
+              Aggiungi come negative
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="rounded-full h-8 w-8 p-0"
+              onClick={clearSelection}
+              title="Deseleziona tutto"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk negative keyword dialog */}
+      <Dialog open={bulkDialogOpen} onOpenChange={(o) => !bulkSubmitting && setBulkDialogOpen(o)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Aggiungi {selected.size} keyword negative</DialogTitle>
+            <DialogDescription>
+              Verrà creata una modifica "negative_keyword.add" per ciascun termine selezionato.
+              Ogni negativa viene aggiunta alla campagna/ad group del proprio termine.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Livello</label>
+              <Select value={bulkLevel} onValueChange={(v) => setBulkLevel(v as 'campaign' | 'adgroup')}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="campaign">Campagna (del termine)</SelectItem>
+                  <SelectItem value="adgroup">Ad Group (del termine)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Tipo di corrispondenza</label>
+              <Select value={bulkMatchType} onValueChange={setBulkMatchType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="EXACT">Esatta [keyword]</SelectItem>
+                  <SelectItem value="PHRASE">A frase "keyword"</SelectItem>
+                  <SelectItem value="BROAD">Generica</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="bg-muted p-3 rounded-md text-sm">
+              <p>
+                Negative da creare: <strong>{selected.size}</strong>
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Le modifiche restano in stato "pending" finché non le approvi nella pagina Modifiche.
+              </p>
+            </div>
+
+            {bulkSubmitting && (
+              <div className="text-sm text-muted-foreground">
+                Creazione in corso… {bulkProgress}/{selected.size}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkDialogOpen(false)} disabled={bulkSubmitting}>
+              Annulla
+            </Button>
+            <Button onClick={handleBulkCreateNegatives} disabled={bulkSubmitting}>
+              {bulkSubmitting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4 mr-2" />
+              )}
+              {bulkSubmitting ? 'Creazione…' : `Crea ${selected.size} modifiche`}
             </Button>
           </DialogFooter>
         </DialogContent>

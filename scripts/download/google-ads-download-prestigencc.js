@@ -1,8 +1,8 @@
 /**
  * GADS Audit 2.0 - Google Ads Download Script
  *
- * ACCOUNT: ARREDI 2000 (5448290625)
- * ULTIMA MODIFICA: 2026-03-04
+ * ACCOUNT: PRESTIGENCC (6448457990)
+ * ULTIMA MODIFICA: 2026-05-30
  *
  * Questo script estrae dati dall'account Google Ads e li invia all'app di audit
  * tramite HTTPS POST con autenticazione HMAC-SHA256.
@@ -13,11 +13,11 @@
  */
 
 // =============================================================================
-// CONFIGURAZIONE - ARREDI 2000
+// CONFIGURAZIONE - PRESTIGENCC
 // =============================================================================
 var CONFIG = {
   ENDPOINT_URL: 'https://gads.karalisdemo.it/api/integrations/google-ads/ingest',
-  SHARED_SECRET: 'f869ca5645a16caa222980be34e64661083b738cdfcd60e141cdbb215eceaaaa',
+  SHARED_SECRET: 'f74fd0c006e26adf3d88ec613a6c544a98dd85eec0d5c683af09d5a4d45f7278',
   DATE_RANGE: {
     START: getDateNDaysAgo(30),
     END: getDateNDaysAgo(1)
