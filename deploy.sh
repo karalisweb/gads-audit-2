@@ -310,7 +310,10 @@ else
     fi
 
     git push origin $BRANCH
-    ! $NO_TAG && git push origin --tags
+    # Push solo il tag della versione corrente (evita di rifiutare tag vecchi gia presenti sul remote)
+    if ! $NO_TAG; then
+        git push origin "v${NEW_VERSION}" 2>/dev/null || print_warn "Tag v${NEW_VERSION} gia presente sul remote"
+    fi
     print_success "Push completato"
 fi
 
