@@ -526,7 +526,13 @@ export function SearchTermsPage() {
             page,
             limit,
           });
-          res.data.forEach((m) => found.add(normTerm(m.entityName)));
+          // Conta solo le negative ancora "attive" (pending/approved/processing/applied):
+          // rifiutate, annullate o fallite NON ripuliscono il termine.
+          res.data.forEach((m) => {
+            if (m.status !== 'rejected' && m.status !== 'cancelled' && m.status !== 'failed') {
+              found.add(normTerm(m.entityName));
+            }
+          });
           totalPages = res.meta.totalPages || 1;
           page++;
         } while (page <= totalPages);
@@ -809,12 +815,30 @@ export function SearchTermsPage() {
   const pageCount = data?.meta.totalPages || 1;
   const total = data?.meta.total || 0;
 
+  // Termini "puliti": totale meno quelli già spostati nelle negative (attive)
+  const negativizedCount = negativizedTerms.size;
+  const cleanCount = Math.max(0, total - negativizedCount);
+
   const hasActiveFilters = selectedCampaignId || selectedAdGroupId || searchInput;
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-xl sm:text-2xl font-bold">Search Terms</h2>
+        <div className="flex items-baseline gap-2 flex-wrap">
+          <h2 className="text-xl sm:text-2xl font-bold">Search Terms</h2>
+          {total > 0 && (
+            <span
+              className="text-sm text-muted-foreground"
+              title={`${total} termini totali · ${negativizedCount} spostati nelle negative · ${cleanCount} restanti dopo la pulizia`}
+            >
+              <span className="font-semibold text-foreground">{cleanCount.toLocaleString()}</span>
+              {negativizedCount > 0 && (
+                <span className="text-orange-600 font-medium"> ({negativizedCount.toLocaleString()})</span>
+              )}
+              <span className="ml-1">su {total.toLocaleString()}</span>
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           {data && data.data.length > 0 && (
             <Button
