@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.17.1] - 2026-05-31
+
+### Aggiunto
+- Marca i search term già spostati nelle negative nella pagina Search Terms
+
+---
+
+
 ## [2.17.0] - 2026-05-31
 
 ### Aggiunto

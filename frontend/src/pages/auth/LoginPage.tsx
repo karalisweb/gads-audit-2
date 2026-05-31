@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { useAuthStore } from '@/stores/auth.store';
 import type { ApiError } from '@/types';
 
-const APP_VERSION = 'v2.17.0';
+const APP_VERSION = 'v2.17.1';
 
 export function LoginPage() {
   const navigate = useNavigate();

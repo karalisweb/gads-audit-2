@@ -33,7 +33,7 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import { exportToCsv, microsToDecimal, formatPercent } from '@/lib/export-csv';
 import { getSearchTerms, getCampaigns, getAdGroups } from '@/api/audit';
 import { usePeriodEntityMetrics } from '@/hooks/usePeriodEntityMetrics';
-import { createModification } from '@/api/modifications';
+import { createModification, getModifications } from '@/api/modifications';
 import { formatCurrency, formatNumber, formatCtr } from '@/lib/format';
 import type { SearchTerm, Campaign, AdGroup, PaginatedResponse, SearchTermFilters } from '@/types/audit';
 // AIRecommendation type no longer needed - AIAnalysisPanel handles the full flow
@@ -47,12 +47,16 @@ interface SelectionApi {
   togglePage: (checked: boolean) => void;
 }
 
+// Normalize a search term for matching against created negative keywords
+const normTerm = (s: string | null | undefined): string => (s || '').trim().toLowerCase();
+
 // Column definitions for table view
 const createColumns = (
   onAddNegative: (term: SearchTerm, level: 'campaign' | 'adgroup', matchType: string) => void,
   selection: SelectionApi,
   hasChanges?: boolean,
   getEntityChanges?: (id: string) => Record<string, number> | null,
+  isNegativized?: (term: SearchTerm) => boolean,
 ): ColumnDef<SearchTerm>[] => [
   {
     id: 'select',
@@ -76,11 +80,22 @@ const createColumns = (
   {
     accessorKey: 'searchTerm',
     header: 'Termine di ricerca',
-    cell: ({ row }) => (
-      <div className="max-w-[200px]">
-        <p className="font-medium truncate">{row.original.searchTerm}</p>
-      </div>
-    ),
+    cell: ({ row }) => {
+      const negativized = isNegativized ? isNegativized(row.original) : false;
+      return (
+        <div className="max-w-[220px]">
+          <p className={`font-medium truncate ${negativized ? 'text-muted-foreground line-through' : ''}`}>
+            {row.original.searchTerm}
+          </p>
+          {negativized && (
+            <Badge variant="outline" className="mt-0.5 text-[10px] text-orange-600 border-orange-300">
+              <Ban className="h-3 w-3 mr-1" />
+              Negativa creata
+            </Badge>
+          )}
+        </div>
+      );
+    },
   },
   {
     accessorKey: 'keywordText',
@@ -263,17 +278,20 @@ const createColumns = (
   {
     id: 'actions',
     header: '',
-    cell: ({ row }) => (
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-7 w-7 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-        onClick={() => onAddNegative(row.original, 'campaign', 'EXACT')}
-        title="Aggiungi come negativa"
-      >
-        <Ban className="h-4 w-4" />
-      </Button>
-    ),
+    cell: ({ row }) => {
+      const negativized = isNegativized ? isNegativized(row.original) : false;
+      return (
+        <Button
+          variant="ghost"
+          size="sm"
+          className={`h-7 w-7 p-0 ${negativized ? 'text-green-600' : 'text-orange-600 hover:text-orange-700 hover:bg-orange-50'}`}
+          onClick={() => onAddNegative(row.original, 'campaign', 'EXACT')}
+          title={negativized ? 'Negativa già creata (clicca per aggiungerne un\'altra)' : 'Aggiungi come negativa'}
+        >
+          <Ban className="h-4 w-4" />
+        </Button>
+      );
+    },
   },
 ];
 
@@ -285,6 +303,7 @@ function SearchTermCardMobile({
   onAddNegative,
   isSelected,
   onToggleSelect,
+  negativized,
 }: {
   term: SearchTerm;
   isOpen: boolean;
@@ -292,6 +311,7 @@ function SearchTermCardMobile({
   onAddNegative: (term: SearchTerm, level: 'campaign' | 'adgroup', matchType: string) => void;
   isSelected: boolean;
   onToggleSelect: () => void;
+  negativized: boolean;
 }) {
   const cost = parseFloat(term.costMicros) || 0;
   const conv = parseFloat(term.conversions) || 0;
@@ -327,7 +347,13 @@ function SearchTermCardMobile({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <Search className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                  <span className="font-medium text-sm truncate">{term.searchTerm}</span>
+                  <span className={`font-medium text-sm truncate ${negativized ? 'text-muted-foreground line-through' : ''}`}>{term.searchTerm}</span>
+                  {negativized && (
+                    <Badge variant="outline" className="text-[10px] text-orange-600 border-orange-300 flex-shrink-0">
+                      <Ban className="h-3 w-3 mr-1" />
+                      Negativa
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span>{term.matchTypeTriggered || 'N/A'}</span>
@@ -467,6 +493,53 @@ export function SearchTermsPage() {
   const [negativeMatchType, setNegativeMatchType] = useState<string>('EXACT');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Set of search terms (normalized) that already have a negative_keyword.add modification
+  const [negativizedTerms, setNegativizedTerms] = useState<Set<string>>(new Set());
+
+  const markNegativized = useCallback((terms: string[]) => {
+    setNegativizedTerms((prev) => {
+      const next = new Set(prev);
+      terms.forEach((t) => next.add(normTerm(t)));
+      return next;
+    });
+  }, []);
+
+  const isNegativized = useCallback(
+    (term: SearchTerm) => negativizedTerms.has(normTerm(term.searchTerm)),
+    [negativizedTerms],
+  );
+
+  // Load already-created negative keyword modifications so terms stay marked across reloads
+  useEffect(() => {
+    if (!accountId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const found = new Set<string>();
+        const limit = 500;
+        let page = 1;
+        let totalPages = 1;
+        do {
+          const res = await getModifications(accountId, {
+            entityType: 'negative_keyword',
+            modificationType: 'negative_keyword.add',
+            page,
+            limit,
+          });
+          res.data.forEach((m) => found.add(normTerm(m.entityName)));
+          totalPages = res.meta.totalPages || 1;
+          page++;
+        } while (page <= totalPages);
+        if (!cancelled) setNegativizedTerms(found);
+      } catch (e) {
+        console.error('Failed to load existing negative modifications', e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId]);
+
   // Handler for opening negative keyword dialog
   const handleOpenNegativeDialog = useCallback((
     term: SearchTerm,
@@ -581,6 +654,9 @@ export function SearchTermsPage() {
       );
       ok += results.filter((r) => r.status === 'fulfilled').length;
       fail += results.filter((r) => r.status === 'rejected').length;
+      // Mark the terms whose modification was created successfully
+      const created = batch.filter((_, idx) => results[idx].status === 'fulfilled').map((t) => t.searchTerm);
+      if (created.length) markNegativized(created);
       setBulkProgress(Math.min(i + batchSize, terms.length));
     }
     setBulkSubmitting(false);
@@ -593,7 +669,7 @@ export function SearchTermsPage() {
   }, [accountId, selected, bulkLevel, bulkMatchType, clearSelection]);
 
   // Create columns with the dialog opener
-  const columns = createColumns(handleOpenNegativeDialog, selectionApi, hasChanges, getEntityChanges);
+  const columns = createColumns(handleOpenNegativeDialog, selectionApi, hasChanges, getEntityChanges, isNegativized);
 
   // Load campaigns for filter
   useEffect(() => {
@@ -696,6 +772,7 @@ export function SearchTermsPage() {
         },
       });
 
+      markNegativized([selectedTerm.searchTerm]);
       setNegativeDialogOpen(false);
       setSelectedTerm(null);
       alert('Keyword negativa creata! Vai alla pagina Modifiche per approvarla.');
@@ -868,6 +945,7 @@ export function SearchTermsPage() {
                     onAddNegative={handleOpenNegativeDialog}
                     isSelected={selected.has(term.id)}
                     onToggleSelect={() => toggleRow(term)}
+                    negativized={isNegativized(term)}
                   />
                 ))}
                 {tableData.length === 0 && (

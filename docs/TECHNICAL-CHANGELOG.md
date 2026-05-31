@@ -6,6 +6,7 @@ Log tecnico delle modifiche al software, auto-generato dal deploy script.
 
 | Versione | Data | Commit |
 |----------|------|--------|
+| 2.17.1 | 2026-05-31 | feat: marca i search term già spostati nelle negative nella pagina Search Terms |
 | 2.17.0 | 2026-05-31 | feat: analisi termini di ricerca nel report strategico + selezione multipla search terms con creazione negative in blocco |
 | 2.16.0 | 2026-04-04 | feat: login page redesign (PMI style) + Karalisweb logo SVG |
 | 2.15.1 | 2026-03-26 | fix: improved report UX - clear new report flow, history pills, compare banner |
