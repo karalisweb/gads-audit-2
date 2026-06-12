@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.18.4] - 2026-06-12
+
+### Aggiunto
+- I rifiuti ora sono permanenti - una modifica rifiutata non viene riproposta dall'AI finche lo stato attuale del dato resta invariato
+
+---
+
+
 ## [2.18.3] - 2026-06-12
 
 ### Corretto

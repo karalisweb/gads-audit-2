@@ -234,6 +234,7 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 | Versione | Data | Descrizione |
 |----------|------|-------------|
+| 2.18.4 | 12 Giugno 2026 | I rifiuti ora sono permanenti - una modifica rifiutata non viene riproposta dall'AI finche lo stato attuale del dato resta invariato |
 | 2.18.3 | 12 Giugno 2026 | Metriche di periodo gonfiate - daily_metrics deduplicate per (entita,giorno) tenendo l'import piu recente, niente piu somma tra run multipli |
 | 2.18.2 | 12 Giugno 2026 | Card account legate al periodo selezionato con confronto (default 7gg+confronta); Da fare oggi solo modifiche urgenti, rimosse raccomandazioni dalla home |
 | 2.18.1 | 12 Giugno 2026 | Badge conteggio pending nella sidebar agganciato a /accounts dopo rimozione Dashboard |
@@ -266,4 +267,4 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 ---
 
-*Ultimo aggiornamento: 12 Giugno 2026 | Versione app: 2.18.3*
+*Ultimo aggiornamento: 12 Giugno 2026 | Versione app: 2.18.4*

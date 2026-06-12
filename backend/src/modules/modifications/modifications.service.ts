@@ -411,6 +411,34 @@ export class ModificationsService {
           continue;
         }
 
+        // Rispetta i rifiuti: se l'utente ha già rifiutato questa stessa
+        // modifica (stessa entità + tipo) e lo stato attuale del dato non è
+        // cambiato, NON riproporla. Riappare solo se il valore sottostante
+        // è cambiato rispetto a quando era stata rifiutata.
+        const rejected = await this.modificationsRepository.findOne({
+          where: {
+            accountId: mapped.accountId,
+            entityType: mapped.entityType,
+            entityId: mapped.entityId,
+            modificationType: mapped.modificationType,
+            status: ModificationStatus.REJECTED,
+          },
+          order: { updatedAt: 'DESC' },
+        });
+
+        if (
+          rejected &&
+          this.sameCurrentState(rejected.beforeValue, mapped.beforeValue)
+        ) {
+          results.push({
+            recommendationId: rec.id,
+            status: 'skipped',
+            error: 'Rifiutata in precedenza (dato invariato)',
+          });
+          totalSkipped++;
+          continue;
+        }
+
         const modification = this.modificationsRepository.create({
           accountId: mapped.accountId,
           entityType: mapped.entityType,
@@ -460,6 +488,28 @@ export class ModificationsService {
     [ModificationEntityType.NEGATIVE_KEYWORD]: 5,
     [ModificationEntityType.CONVERSION_ACTION]: 6,
   };
+
+  /**
+   * Confronta lo "stato attuale" (beforeValue) di due modifiche per capire se il
+   * dato sottostante è cambiato. Usato per rispettare i rifiuti: un rifiuto vale
+   * finché lo stato attuale resta lo stesso di quando l'utente ha detto "no".
+   */
+  private sameCurrentState(
+    a: Record<string, unknown> | null | undefined,
+    b: Record<string, unknown> | null | undefined,
+  ): boolean {
+    const norm = (v: Record<string, unknown> | null | undefined): string => {
+      if (v == null) return '';
+      // Caso tipico: { value: <valore corrente> } -> confronto numerico se possibile
+      if (typeof v === 'object' && 'value' in v) {
+        const raw = String((v as { value: unknown }).value ?? '');
+        const num = parseFloat(raw.replace(',', '.').replace(/[^0-9.\-]/g, ''));
+        return isNaN(num) ? raw.trim().toLowerCase() : String(num);
+      }
+      return JSON.stringify(v);
+    };
+    return norm(a) === norm(b);
+  }
 
   private mapRecommendationToModification(
     rec: AIRecommendationItem,
