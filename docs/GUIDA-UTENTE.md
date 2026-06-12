@@ -234,6 +234,7 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 | Versione | Data | Descrizione |
 |----------|------|-------------|
+| 2.18.0 | 12 Giugno 2026 | Pagina Account unificata, split modifiche/raccomandazioni, AI ancorata a fattibilita e chat |
 | 2.17.2 | 31 Maggio 2026 | Contatore termini netti e negativizzati nella pagina Search Terms |
 | 2.17.1 | 31 Maggio 2026 | Marca i search term già spostati nelle negative nella pagina Search Terms |
 | 2.17.0 | 31 Maggio 2026 | Analisi termini di ricerca nel report strategico + selezione multipla search terms con creazione negative in blocco |
@@ -262,4 +263,4 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 ---
 
-*Ultimo aggiornamento: 31 Maggio 2026 | Versione app: 2.17.2*
+*Ultimo aggiornamento: 12 Giugno 2026 | Versione app: 2.18.0*

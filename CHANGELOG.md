@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.18.0] - 2026-06-12
+
+### Aggiunto
+- Pagina Account unificata, split modifiche/raccomandazioni, AI ancorata a fattibilita e chat
+
+---
+
+
 ## [2.17.2] - 2026-05-31
 
 ### Aggiunto

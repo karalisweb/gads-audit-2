@@ -6,6 +6,7 @@ Log tecnico delle modifiche al software, auto-generato dal deploy script.
 
 | Versione | Data | Commit |
 |----------|------|--------|
+| 2.18.0 | 2026-06-12 | feat: pagina Account unificata, split modifiche/raccomandazioni, AI ancorata a fattibilita e chat |
 | 2.17.2 | 2026-05-31 | feat: contatore termini netti e negativizzati nella pagina Search Terms |
 | 2.17.1 | 2026-05-31 | feat: marca i search term già spostati nelle negative nella pagina Search Terms |
 | 2.17.0 | 2026-05-31 | feat: analisi termini di ricerca nel report strategico + selezione multipla search terms con creazione negative in blocco |
