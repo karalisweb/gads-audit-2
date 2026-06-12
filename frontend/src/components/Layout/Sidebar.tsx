@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { GadsIcon } from '@/components/icons/GadsIcon';
 
-const APP_VERSION = '2.18.0';
+const APP_VERSION = '2.18.1';
 
 // Zona 2 - Navigazione Principale (base)
 const baseNavItems = [
@@ -132,7 +132,7 @@ export function Sidebar({ mode = 'overlay' }: SidebarProps) {
           </p>
           {mainNavItems.map((item) => {
             const Icon = item.icon;
-            const showBadge = item.path === '/dashboard' && pendingCount > 0;
+            const showBadge = item.path === '/accounts' && pendingCount > 0;
             return (
               <NavLink
                 key={item.path}

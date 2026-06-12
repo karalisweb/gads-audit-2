@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.18.1] - 2026-06-12
+
+### Corretto
+- Badge conteggio pending nella sidebar agganciato a /accounts dopo rimozione Dashboard
+
+---
+
+
 ## [2.18.0] - 2026-06-12
 
 ### Aggiunto
