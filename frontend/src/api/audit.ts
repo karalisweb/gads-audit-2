@@ -371,6 +371,21 @@ export async function getPeriodMetricsAll(
   );
 }
 
+export interface AccountPeriodMetrics extends PeriodMetricsResponse {
+  accountId: string;
+}
+
+export async function getPeriodMetricsByAccount(
+  dateFrom: string,
+  dateTo: string,
+  compare = false,
+): Promise<AccountPeriodMetrics[]> {
+  return apiClient.get<AccountPeriodMetrics[]>(
+    '/audit/period-metrics-by-account',
+    { dateFrom, dateTo, compare },
+  );
+}
+
 // Period entity metrics - per-entity aggregated metrics for a date range
 export interface EntityMetrics {
   impressions: number;

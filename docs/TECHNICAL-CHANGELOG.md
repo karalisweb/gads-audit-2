@@ -6,6 +6,7 @@ Log tecnico delle modifiche al software, auto-generato dal deploy script.
 
 | Versione | Data | Commit |
 |----------|------|--------|
+| 2.18.2 | 2026-06-12 | feat: card account legate al periodo selezionato con confronto (default 7gg+confronta); Da fare oggi solo modifiche urgenti, rimosse raccomandazioni dalla home |
 | 2.18.1 | 2026-06-12 | fix: badge conteggio pending nella sidebar agganciato a /accounts dopo rimozione Dashboard |
 | 2.18.0 | 2026-06-12 | feat: pagina Account unificata, split modifiche/raccomandazioni, AI ancorata a fattibilita e chat |
 | 2.17.2 | 2026-05-31 | feat: contatore termini netti e negativizzati nella pagina Search Terms |

@@ -408,6 +408,27 @@ export class AuditService {
     };
   }
 
+  /**
+   * Metriche di periodo per ogni account attivo (per le card della pagina Account).
+   * Riusa getPeriodMetrics così ogni card può mostrare i valori del periodo
+   * selezionato e il confronto col periodo precedente.
+   */
+  async getPeriodMetricsByAccount(
+    dateFrom: string,
+    dateTo: string,
+    compare = false,
+  ) {
+    const accounts = await this.accountRepository.find({
+      where: { isActive: true },
+    });
+    return Promise.all(
+      accounts.map(async (a) => {
+        const m = await this.getPeriodMetrics(a.id, dateFrom, dateTo, compare);
+        return { accountId: a.id, ...m };
+      }),
+    );
+  }
+
   async getPeriodEntityMetrics(
     accountId: string,
     entityType: string,

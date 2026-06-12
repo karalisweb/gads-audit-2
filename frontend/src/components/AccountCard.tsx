@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Building2, Key, Trash2, Calendar, Wrench, DollarSign, Target, Megaphone, TrendingUp, TrendingDown, AlertTriangle, Bot, Clock, Repeat, Briefcase, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatCurrency, formatNumber } from '@/lib/format';
-import type { AccountWithStats, UpdateAccountScheduleDto, UpdateAccountStrategyDto } from '@/api/audit';
+import type { AccountWithStats, PeriodMetricsResponse, UpdateAccountScheduleDto, UpdateAccountStrategyDto } from '@/api/audit';
 
 const DAYS = [
   { value: 1, label: 'Lun' },
@@ -43,6 +43,7 @@ const PRIMARY_OBJECTIVES = [
 
 interface AccountCardProps {
   account: AccountWithStats;
+  periodMetrics?: PeriodMetricsResponse | null;
   onRevealSecret?: (accountId: string) => void;
   onDelete?: (account: AccountWithStats) => void;
   onScheduleUpdate?: (accountId: string, data: UpdateAccountScheduleDto) => void;
@@ -79,9 +80,26 @@ function HealthScoreBadge({ score }: { score: number }) {
   );
 }
 
-export function AccountCard({ account, onRevealSecret, onDelete, onScheduleUpdate, onStrategyUpdate, showActions = true }: AccountCardProps) {
+export function AccountCard({ account, periodMetrics, onRevealSecret, onDelete, onScheduleUpdate, onStrategyUpdate, showActions = true }: AccountCardProps) {
   const stats = account.stats;
   const trends = account.trends;
+
+  // Se ci sono metriche del periodo selezionato (con dati giornalieri) le card
+  // mostrano quelle + il confronto col periodo precedente; altrimenti fallback
+  // alle statistiche dell'ultimo import (trend vs run precedente).
+  const pm = periodMetrics?.hasDailyData && periodMetrics.current ? periodMetrics.current : null;
+  const pmChanges = pm ? periodMetrics?.changes ?? null : null;
+
+  const dispCost = pm ? pm.cost : stats?.cost ?? null;
+  const dispConv = pm ? pm.conversions : stats?.conversions ?? null;
+  const dispCpa = pm ? pm.cpa : stats?.cpa ?? 0;
+  const dispCtr = pm ? pm.ctr : stats?.ctr ?? 0;
+
+  // Delta da mostrare nei badge: dal confronto di periodo se attivo, altrimenti i trend statici
+  const costDelta = pm ? pmChanges?.cost : trends?.cost;
+  const convDelta = pm ? pmChanges?.conversions : trends?.conversions;
+  const cpaDelta = pm ? pmChanges?.cpa : trends?.cpa;
+  const ctrDelta = pm ? pmChanges?.ctr : trends?.ctr;
   const timeDebounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const strategyDebounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -205,7 +223,9 @@ export function AccountCard({ account, onRevealSecret, onDelete, onScheduleUpdat
           </div>
         </div>
 
-        {/* Stats Grid: Costo, Conv, CPA, CTR, Camp */}
+        {/* Stats Grid: Costo, Conv, CPA, CTR, Camp.
+            I valori riflettono il periodo selezionato (con confronto) se ci sono
+            dati giornalieri, altrimenti l'ultimo import. */}
         <div className="grid grid-cols-3 gap-2 mb-2">
           <div className="bg-muted/50 rounded-lg p-2">
             <div className="flex items-center justify-between mb-0.5">
@@ -213,10 +233,10 @@ export function AccountCard({ account, onRevealSecret, onDelete, onScheduleUpdat
                 <DollarSign className="h-3 w-3" />
                 <span className="text-[10px]">Costo</span>
               </div>
-              {trends && <TrendBadge value={trends.cost} inverted />}
+              {costDelta !== undefined && costDelta !== null && <TrendBadge value={costDelta} inverted />}
             </div>
             <p className="text-sm font-semibold text-foreground">
-              {stats ? formatCurrency(stats.cost * 1000000) : '-'}
+              {dispCost !== null ? formatCurrency(dispCost * 1000000) : '-'}
             </p>
           </div>
           <div className="bg-muted/50 rounded-lg p-2">
@@ -225,10 +245,10 @@ export function AccountCard({ account, onRevealSecret, onDelete, onScheduleUpdat
                 <Target className="h-3 w-3" />
                 <span className="text-[10px]">Conv.</span>
               </div>
-              {trends && <TrendBadge value={trends.conversions} />}
+              {convDelta !== undefined && convDelta !== null && <TrendBadge value={convDelta} />}
             </div>
             <p className="text-sm font-semibold text-foreground">
-              {stats ? formatNumber(stats.conversions) : '-'}
+              {dispConv !== null ? formatNumber(dispConv) : '-'}
             </p>
           </div>
           <div className="bg-muted/50 rounded-lg p-2">
@@ -247,19 +267,19 @@ export function AccountCard({ account, onRevealSecret, onDelete, onScheduleUpdat
           <div className="bg-muted/50 rounded-lg p-2">
             <div className="flex items-center justify-between mb-0.5">
               <span className="text-[10px] text-muted-foreground">CPA</span>
-              {trends && <TrendBadge value={trends.cpa} inverted />}
+              {cpaDelta !== undefined && cpaDelta !== null && <TrendBadge value={cpaDelta} inverted />}
             </div>
             <p className="text-sm font-semibold text-foreground">
-              {stats && stats.cpa > 0 ? `€${stats.cpa.toFixed(2)}` : '-'}
+              {dispCpa > 0 ? `€${dispCpa.toFixed(2)}` : '-'}
             </p>
           </div>
           <div className="bg-muted/50 rounded-lg p-2">
             <div className="flex items-center justify-between mb-0.5">
               <span className="text-[10px] text-muted-foreground">CTR</span>
-              {trends && <TrendBadge value={trends.ctr} />}
+              {ctrDelta !== undefined && ctrDelta !== null && <TrendBadge value={ctrDelta} />}
             </div>
             <p className="text-sm font-semibold text-foreground">
-              {stats && stats.ctr > 0 ? `${stats.ctr.toFixed(2)}%` : '-'}
+              {dispCtr > 0 ? `${dispCtr.toFixed(2)}%` : '-'}
             </p>
           </div>
         </div>

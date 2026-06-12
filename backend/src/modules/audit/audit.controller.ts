@@ -119,6 +119,15 @@ export class AuditController {
     return this.auditService.getPeriodMetricsAll(dateFrom, dateTo, compare === 'true');
   }
 
+  @Get('period-metrics-by-account')
+  async getPeriodMetricsByAccount(
+    @Query('dateFrom') dateFrom: string,
+    @Query('dateTo') dateTo: string,
+    @Query('compare') compare?: string,
+  ) {
+    return this.auditService.getPeriodMetricsByAccount(dateFrom, dateTo, compare === 'true');
+  }
+
   @Get('accounts/:accountId/period-entity-metrics')
   async getPeriodEntityMetrics(
     @Param('accountId', ParseUUIDPipe) accountId: string,

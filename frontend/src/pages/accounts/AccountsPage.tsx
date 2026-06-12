@@ -26,7 +26,6 @@ import {
   Activity,
   Megaphone,
   ClipboardList,
-  Lightbulb,
   ArrowRight,
   Calendar,
   TrendingUp,
@@ -36,6 +35,7 @@ import { apiClient } from '@/api/client';
 import {
   getAccountsWithStats,
   getPeriodMetricsAll,
+  getPeriodMetricsByAccount,
   updateAccountSchedule,
   updateAccountStrategy,
   type AccountWithStats,
@@ -82,8 +82,11 @@ export function AccountsPage() {
   // Centro-azioni + KPI aggregati (ex-Dashboard)
   const [pendingSummary, setPendingSummary] = useState<PendingSummary | null>(null);
   const [nextAnalysis, setNextAnalysis] = useState<NextAnalysisInfo | null>(null);
-  const [period, setPeriod] = useState<PeriodSelection>(getDefaultPeriod(7));
+  // Default: ultimi 7gg con confronto sul periodo precedente attivo
+  const [period, setPeriod] = useState<PeriodSelection>({ ...getDefaultPeriod(7), compare: true });
   const [periodMetrics, setPeriodMetrics] = useState<PeriodMetricsResponse | null>(null);
+  // Metriche di periodo per ogni account (per le card), mappate per accountId
+  const [accountPeriodMetrics, setAccountPeriodMetrics] = useState<Record<string, PeriodMetricsResponse>>({});
 
   // Form state for adding new account
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -133,13 +136,23 @@ export function AccountsPage() {
     }
   };
 
-  // Metriche di periodo (ricaricate al cambio periodo)
+  // Metriche di periodo (ricaricate al cambio periodo): aggregato + per-account
   const loadPeriodMetrics = useCallback(async (p: PeriodSelection) => {
     try {
-      const data = await getPeriodMetricsAll(p.dateFrom, p.dateTo, p.compare);
-      setPeriodMetrics(data);
+      const [all, byAccount] = await Promise.all([
+        getPeriodMetricsAll(p.dateFrom, p.dateTo, p.compare),
+        getPeriodMetricsByAccount(p.dateFrom, p.dateTo, p.compare).catch(() => []),
+      ]);
+      setPeriodMetrics(all);
+      const map: Record<string, PeriodMetricsResponse> = {};
+      for (const m of byAccount) {
+        const { accountId, ...rest } = m;
+        map[accountId] = rest;
+      }
+      setAccountPeriodMetrics(map);
     } catch {
       setPeriodMetrics(null);
+      setAccountPeriodMetrics({});
     }
   }, []);
 
@@ -147,26 +160,13 @@ export function AccountsPage() {
     loadPeriodMetrics(period);
   }, [period, loadPeriodMetrics]);
 
-  // "Da fare oggi": account con modifiche concrete fresche (alto impatto),
-  // ordinati per urgenza. Le modifiche vengono prima delle raccomandazioni.
-  const modificationAccounts = useMemo(
+  // "Da fare oggi": solo gli account con MODIFICHE URGENTI fresche (alto impatto,
+  // applicabili via script). Niente raccomandazioni: poche cose precise da fare.
+  const urgentModificationAccounts = useMemo(
     () =>
       (pendingSummary?.byAccount || [])
-        .filter((a) => a.modificationsCount > 0)
-        .sort(
-          (x, y) =>
-            y.highPriorityModifications - x.highPriorityModifications ||
-            y.modificationsCount - x.modificationsCount,
-        ),
-    [pendingSummary],
-  );
-
-  // Raccomandazioni advisory/manuali: blocco secondario, meno prominente
-  const recommendationAccounts = useMemo(
-    () =>
-      (pendingSummary?.byAccount || [])
-        .filter((a) => a.recommendationsCount > 0)
-        .sort((x, y) => y.recommendationsCount - x.recommendationsCount),
+        .filter((a) => a.highPriorityModifications > 0)
+        .sort((x, y) => y.highPriorityModifications - x.highPriorityModifications),
     [pendingSummary],
   );
 
@@ -360,22 +360,22 @@ export function AccountsPage() {
       </div>
 
       {/* ═══════════════════════════════════════════════════════
-          DA FARE OGGI — MODIFICHE: cambiamenti concreti e applicabili
-          (alto impatto), solo freschi (<=14gg) su account attivi.
-          Le modifiche hanno priorita' sulle raccomandazioni.
+          DA FARE OGGI — solo MODIFICHE URGENTI: cambiamenti concreti,
+          applicabili via script, ad alta priorita' e freschi (<=14gg) su
+          account attivi. Poche cose precise, niente raccomandazioni.
           ═══════════════════════════════════════════════════════ */}
-      {modificationAccounts.length > 0 && (
-        <Card className="mb-4 border-l-4 border-l-yellow-500 bg-card">
+      {urgentModificationAccounts.length > 0 && (
+        <Card className="mb-6 border-l-4 border-l-yellow-500 bg-card">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-3">
               <ClipboardList className="h-5 w-5 text-yellow-600" />
-              <h2 className="font-semibold text-foreground">Da fare oggi · Modifiche</h2>
-              <Badge variant="secondary" className="text-xs">
-                {modificationAccounts.reduce((s, a) => s + a.modificationsCount, 0)} modifiche
+              <h2 className="font-semibold text-foreground">Da fare oggi</h2>
+              <Badge variant="destructive" className="text-xs">
+                {urgentModificationAccounts.reduce((s, a) => s + a.highPriorityModifications, 0)} modifiche urgenti
               </Badge>
             </div>
             <div className="space-y-2">
-              {modificationAccounts.map((account) => (
+              {urgentModificationAccounts.map((account) => (
                 <Link
                   key={account.accountId}
                   to={`/audit/${account.accountId}/modifications`}
@@ -388,53 +388,8 @@ export function AccountsPage() {
                     </span>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    {account.highPriorityModifications > 0 && (
-                      <Badge variant="destructive" className="text-xs">
-                        {account.highPriorityModifications} urgenti
-                      </Badge>
-                    )}
-                    <Badge variant="outline" className="text-xs">
-                      {account.modificationsCount} modifiche
-                    </Badge>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ═══════════════════════════════════════════════════════
-          RACCOMANDAZIONI — suggerimenti advisory/manuali (impatto minore,
-          non automatizzabili). Blocco secondario, meno prominente.
-          ═══════════════════════════════════════════════════════ */}
-      {recommendationAccounts.length > 0 && (
-        <Card className="mb-6 border-l-4 border-l-border bg-card/60">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Lightbulb className="h-5 w-5 text-muted-foreground" />
-              <h2 className="font-medium text-muted-foreground">Raccomandazioni</h2>
-              <Badge variant="secondary" className="text-xs">
-                {recommendationAccounts.reduce((s, a) => s + a.recommendationsCount, 0)} suggerimenti
-              </Badge>
-            </div>
-            <div className="space-y-2">
-              {recommendationAccounts.map((account) => (
-                <Link
-                  key={account.accountId}
-                  to={`/audit/${account.accountId}/modifications`}
-                  className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/40 transition-colors group"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <span className="text-sm text-muted-foreground truncate">
-                      {account.accountName}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <Badge variant="outline" className="text-xs">
-                      {account.recommendationsCount} raccomandazioni
+                    <Badge variant="destructive" className="text-xs">
+                      {account.highPriorityModifications} urgenti
                     </Badge>
                     <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
@@ -697,6 +652,7 @@ export function AccountsPage() {
             <AccountCard
               key={account.id}
               account={account}
+              periodMetrics={accountPeriodMetrics[account.id] ?? null}
               onRevealSecret={handleOpenRevealDialog}
               onDelete={handleOpenDeleteDialog}
               onScheduleUpdate={handleScheduleUpdate}

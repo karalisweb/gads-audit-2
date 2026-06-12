@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.18.2] - 2026-06-12
+
+### Aggiunto
+- Card account legate al periodo selezionato con confronto (default 7gg+confronta); Da fare oggi solo modifiche urgenti, rimosse raccomandazioni dalla home
+
+---
+
+
 ## [2.18.1] - 2026-06-12
 
 ### Corretto
