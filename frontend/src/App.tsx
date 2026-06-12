@@ -49,7 +49,6 @@ function lazyWithRetry<T extends React.ComponentType<unknown>>(
 }
 
 // Lazy loaded pages with auto-reload on chunk failure
-const DashboardPage = lazyWithRetry(() => import('@/pages/dashboard/DashboardPage'), m => m.DashboardPage);
 const AccountsPage = lazyWithRetry(() => import('@/pages/accounts/AccountsPage'), m => m.AccountsPage);
 const ProfilePage = lazyWithRetry(() => import('@/pages/profile/ProfilePage'), m => m.ProfilePage);
 const SettingsPage = lazyWithRetry(() => import('@/pages/settings/SettingsPage'), m => m.SettingsPage);
@@ -102,7 +101,6 @@ function App() {
             {/* Protected routes with sidebar */}
             <Route element={<ProtectedRoute />}>
               <Route element={<MainLayout />}>
-                <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/accounts" element={<AccountsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
@@ -129,8 +127,9 @@ function App() {
               </Route>
             </Route>
 
-            {/* Redirect root to dashboard */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            {/* Redirect root e vecchi bookmark /dashboard alla pagina Account unificata */}
+            <Route path="/" element={<Navigate to="/accounts" replace />} />
+            <Route path="/dashboard" element={<Navigate to="/accounts" replace />} />
 
             {/* 404 */}
             <Route path="*" element={<NotFoundPage />} />

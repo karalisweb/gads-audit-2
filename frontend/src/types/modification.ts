@@ -7,6 +7,8 @@ export type ModificationStatus =
   | 'failed'
   | 'cancelled';
 
+export type ModificationKind = 'modification' | 'recommendation';
+
 export type ModificationEntityType =
   | 'campaign'
   | 'ad_group'
@@ -47,6 +49,7 @@ export interface Modification {
   priority: string | null;
   entityLevel: number | null;
   status: ModificationStatus;
+  kind: ModificationKind;
   rejectionReason: string | null;
   appliedAt: string | null;
   resultMessage: string | null;
@@ -75,6 +78,7 @@ export interface ModificationFilters {
   modificationType?: ModificationType;
   status?: ModificationStatus;
   priority?: string;
+  kind?: ModificationKind;
 }
 
 export type ModificationPriority = 'high' | 'medium' | 'low';

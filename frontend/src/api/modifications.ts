@@ -107,12 +107,17 @@ export async function bulkRejectModifications(
 export interface PendingSummary {
   totalPending: number;
   totalHighPriority: number;
+  totalModifications: number;
+  totalRecommendations: number;
   byAccount: Array<{
     accountId: string;
     accountName: string;
     customerId: string;
     pendingCount: number;
     highPriorityCount: number;
+    modificationsCount: number;
+    recommendationsCount: number;
+    highPriorityModifications: number;
   }>;
 }
 

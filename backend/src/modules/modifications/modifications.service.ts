@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import {
   Modification,
   ModificationStatus,
+  ModificationKind,
   ModificationEntityType,
   ModificationType,
 } from '../../entities/modification.entity';
@@ -79,6 +80,12 @@ export class ModificationsService {
     if (filters.priority) {
       queryBuilder.andWhere('modification.priority = :priority', {
         priority: filters.priority,
+      });
+    }
+
+    if (filters.kind) {
+      queryBuilder.andWhere('modification.kind = :kind', {
+        kind: filters.kind,
       });
     }
 
@@ -416,6 +423,7 @@ export class ModificationsService {
           priority: rec.priority || 'medium',
           entityLevel: ModificationsService.ENTITY_LEVEL_MAP[mapped.entityType] ?? null,
           status: ModificationStatus.PENDING,
+          kind: mapped.kind ?? ModificationKind.MODIFICATION,
           createdById: userId ?? undefined,
         });
 
@@ -466,6 +474,9 @@ export class ModificationsService {
     beforeValue: Record<string, unknown> | null;
     afterValue: Record<string, unknown>;
     notes: string;
+    // Opzionale: i rami advisory/manuali lo impostano a RECOMMENDATION.
+    // Quando assente, l'item e' una modifica concreta (default MODIFICATION).
+    kind?: ModificationKind;
   } | null {
     const notes = [
       `[AI - Priorita: ${rec.priority}]`,
@@ -586,6 +597,7 @@ export class ModificationsService {
               source: 'ai_recommendation',
             },
             notes: `[Negative senza campaignId] ${notes}`,
+            kind: ModificationKind.RECOMMENDATION,
           };
         }
       }
@@ -792,6 +804,7 @@ export class ModificationsService {
             source: 'ai_recommendation',
           },
           notes: `[Bid non numerico] ${notes}`,
+          kind: ModificationKind.RECOMMENDATION,
         };
       }
       const entityType = this.inferEntityType(rec.entityType);
@@ -896,6 +909,7 @@ export class ModificationsService {
           source: 'ai_recommendation',
         },
         notes,
+        kind: ModificationKind.RECOMMENDATION,
       };
     }
 
@@ -945,6 +959,7 @@ export class ModificationsService {
             source: 'ai_recommendation',
           },
           notes,
+          kind: ModificationKind.RECOMMENDATION,
         };
       }
     }
@@ -967,6 +982,7 @@ export class ModificationsService {
           source: 'ai_recommendation',
         },
         notes,
+        kind: ModificationKind.RECOMMENDATION,
       };
     }
 
@@ -1029,6 +1045,7 @@ export class ModificationsService {
           source: 'ai_recommendation',
         },
         notes,
+        kind: ModificationKind.RECOMMENDATION,
       };
     }
 
@@ -1058,6 +1075,7 @@ export class ModificationsService {
           source: 'ai_recommendation',
         },
         notes,
+        kind: ModificationKind.RECOMMENDATION,
       };
     }
 
@@ -1076,6 +1094,7 @@ export class ModificationsService {
           source: 'ai_recommendation',
         },
         notes,
+        kind: ModificationKind.RECOMMENDATION,
       };
     }
 
@@ -1098,6 +1117,7 @@ export class ModificationsService {
           source: 'ai_recommendation',
         },
         notes,
+        kind: ModificationKind.RECOMMENDATION,
       };
     }
 
@@ -1137,6 +1157,7 @@ export class ModificationsService {
           source: 'ai_recommendation',
         },
         notes,
+        kind: ModificationKind.RECOMMENDATION,
       };
     }
 
@@ -1284,12 +1305,19 @@ export class ModificationsService {
   async getPendingSummaryAllAccounts(): Promise<{
     totalPending: number;
     totalHighPriority: number;
+    totalModifications: number;
+    totalRecommendations: number;
     byAccount: Array<{
       accountId: string;
       accountName: string;
       customerId: string;
       pendingCount: number;
       highPriorityCount: number;
+      // Split modifiche (alto impatto, applicabili) vs raccomandazioni (advisory)
+      modificationsCount: number;
+      recommendationsCount: number;
+      // Modifiche ad alta priorita': cio' che spinge il "da fare oggi"
+      highPriorityModifications: number;
     }>;
   }> {
     const result = await this.modificationsRepository
@@ -1303,7 +1331,24 @@ export class ModificationsService {
         "SUM(CASE WHEN m.priority = 'high' THEN 1 ELSE 0 END)",
         'highPriorityCount',
       )
+      .addSelect(
+        "SUM(CASE WHEN m.kind = 'modification' THEN 1 ELSE 0 END)",
+        'modificationsCount',
+      )
+      .addSelect(
+        "SUM(CASE WHEN m.kind = 'recommendation' THEN 1 ELSE 0 END)",
+        'recommendationsCount',
+      )
+      .addSelect(
+        "SUM(CASE WHEN m.kind = 'modification' AND m.priority = 'high' THEN 1 ELSE 0 END)",
+        'highPriorityModifications',
+      )
       .where('m.status = :status', { status: ModificationStatus.PENDING })
+      // Solo account attivi: esclude ex-clienti disattivati (es. Arredi 2000)
+      .andWhere('a.isActive = :active', { active: true })
+      // Solo pending fresche: le piu' vecchie di 14 giorni sono basate su audit
+      // vecchi e non hanno piu' senso da applicare -> escluse dal "da fare"
+      .andWhere("m.created_at >= now() - interval '14 days'")
       .groupBy('a.id')
       .addGroupBy('a.customerName')
       .addGroupBy('a.customerId')
@@ -1316,6 +1361,9 @@ export class ModificationsService {
       customerId: r.customerId,
       pendingCount: parseInt(r.pendingCount, 10),
       highPriorityCount: parseInt(r.highPriorityCount, 10),
+      modificationsCount: parseInt(r.modificationsCount, 10),
+      recommendationsCount: parseInt(r.recommendationsCount, 10),
+      highPriorityModifications: parseInt(r.highPriorityModifications, 10),
     }));
 
     const totalPending = byAccount.reduce((s, r) => s + r.pendingCount, 0);
@@ -1323,8 +1371,22 @@ export class ModificationsService {
       (s, r) => s + r.highPriorityCount,
       0,
     );
+    const totalModifications = byAccount.reduce(
+      (s, r) => s + r.modificationsCount,
+      0,
+    );
+    const totalRecommendations = byAccount.reduce(
+      (s, r) => s + r.recommendationsCount,
+      0,
+    );
 
-    return { totalPending, totalHighPriority, byAccount };
+    return {
+      totalPending,
+      totalHighPriority,
+      totalModifications,
+      totalRecommendations,
+      byAccount,
+    };
   }
 
   // =========================================================================
@@ -1355,6 +1417,7 @@ export class ModificationsService {
       .where('m.status IN (:...statuses)', {
         statuses: ['approved', 'rejected', 'applied', 'failed'],
       })
+      .andWhere('a.isActive = :active', { active: true })
       .orderBy('m.updated_at', 'DESC')
       .limit(limit)
       .getRawMany();
@@ -1369,6 +1432,7 @@ export class ModificationsService {
       .addSelect('a.id', 'accountId')
       .addSelect('a.customerName', 'accountName')
       .where('log.completedAt IS NOT NULL')
+      .andWhere('a.isActive = :active', { active: true })
       .orderBy('log.completedAt', 'DESC')
       .limit(10)
       .getRawMany();

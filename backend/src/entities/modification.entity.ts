@@ -20,6 +20,17 @@ export enum ModificationStatus {
   CANCELLED = 'cancelled',
 }
 
+/**
+ * Distingue le modifiche concrete (applicabili automaticamente via script
+ * Google Ads: budget, stato, offerte, negative, URL...) dalle raccomandazioni
+ * advisory/manuali (es. "migliora pertinenza annuncio", "ottimizza landing"),
+ * che richiedono un intervento umano e non sono automatizzabili.
+ */
+export enum ModificationKind {
+  MODIFICATION = 'modification',
+  RECOMMENDATION = 'recommendation',
+}
+
 export enum ModificationEntityType {
   CAMPAIGN = 'campaign',
   AD_GROUP = 'ad_group',
@@ -117,6 +128,14 @@ export class Modification {
     default: ModificationStatus.PENDING,
   })
   status: ModificationStatus;
+
+  // Modifica concreta (applicabile via script) vs raccomandazione advisory/manuale
+  @Column({
+    type: 'varchar',
+    length: 20,
+    default: ModificationKind.MODIFICATION,
+  })
+  kind: ModificationKind;
 
   @Column({ name: 'rejection_reason', type: 'text', nullable: true })
   rejectionReason: string;

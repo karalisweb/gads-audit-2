@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,10 +15,57 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Search, Building2, Plus, Copy, Check } from 'lucide-react';
+import {
+  Search,
+  Building2,
+  Plus,
+  Copy,
+  Check,
+  DollarSign,
+  Target,
+  Activity,
+  Megaphone,
+  ClipboardList,
+  Lightbulb,
+  ArrowRight,
+  Calendar,
+  TrendingUp,
+  TrendingDown,
+} from 'lucide-react';
 import { apiClient } from '@/api/client';
-import { getAccountsWithStats, updateAccountSchedule, updateAccountStrategy, type AccountWithStats, type UpdateAccountScheduleDto, type UpdateAccountStrategyDto } from '@/api/audit';
+import {
+  getAccountsWithStats,
+  getPeriodMetricsAll,
+  updateAccountSchedule,
+  updateAccountStrategy,
+  type AccountWithStats,
+  type PeriodMetricsResponse,
+  type UpdateAccountScheduleDto,
+  type UpdateAccountStrategyDto,
+} from '@/api/audit';
+import {
+  getPendingSummary,
+  getNextAnalysis,
+  type PendingSummary,
+  type NextAnalysisInfo,
+} from '@/api/modifications';
+import { PeriodSelector, getDefaultPeriod, type PeriodSelection } from '@/components/period/PeriodSelector';
+import { formatCurrency, formatNumber } from '@/lib/format';
 import { AccountCard } from '@/components/AccountCard';
+
+// Badge variazione percentuale periodo (inverted = per metriche dove "meno e' meglio")
+function PeriodChangeBadge({ value, inverted = false }: { value: number | undefined; inverted?: boolean }) {
+  if (!value || value === 0) return null;
+  const isPositive = inverted ? value < 0 : value > 0;
+  const color = isPositive ? 'text-green-600' : 'text-red-600';
+  const Icon = value > 0 ? TrendingUp : TrendingDown;
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium ${color}`}>
+      <Icon className="h-3 w-3" />
+      {Math.abs(value).toFixed(1)}%
+    </span>
+  );
+}
 
 interface CreatedAccount {
   id: string;
@@ -30,6 +78,12 @@ export function AccountsPage() {
   const [accounts, setAccounts] = useState<AccountWithStats[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Centro-azioni + KPI aggregati (ex-Dashboard)
+  const [pendingSummary, setPendingSummary] = useState<PendingSummary | null>(null);
+  const [nextAnalysis, setNextAnalysis] = useState<NextAnalysisInfo | null>(null);
+  const [period, setPeriod] = useState<PeriodSelection>(getDefaultPeriod(7));
+  const [periodMetrics, setPeriodMetrics] = useState<PeriodMetricsResponse | null>(null);
 
   // Form state for adding new account
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -63,8 +117,14 @@ export function AccountsPage() {
   const loadAccounts = async () => {
     setIsLoading(true);
     try {
-      const data = await getAccountsWithStats();
+      const [data, pendingData, analysisData] = await Promise.all([
+        getAccountsWithStats(),
+        getPendingSummary().catch(() => null),
+        getNextAnalysis().catch(() => null),
+      ]);
       setAccounts(data || []);
+      setPendingSummary(pendingData);
+      setNextAnalysis(analysisData);
     } catch (err) {
       console.error('Failed to load accounts:', err);
       setAccounts([]);
@@ -72,6 +132,59 @@ export function AccountsPage() {
       setIsLoading(false);
     }
   };
+
+  // Metriche di periodo (ricaricate al cambio periodo)
+  const loadPeriodMetrics = useCallback(async (p: PeriodSelection) => {
+    try {
+      const data = await getPeriodMetricsAll(p.dateFrom, p.dateTo, p.compare);
+      setPeriodMetrics(data);
+    } catch {
+      setPeriodMetrics(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPeriodMetrics(period);
+  }, [period, loadPeriodMetrics]);
+
+  // "Da fare oggi": account con modifiche concrete fresche (alto impatto),
+  // ordinati per urgenza. Le modifiche vengono prima delle raccomandazioni.
+  const modificationAccounts = useMemo(
+    () =>
+      (pendingSummary?.byAccount || [])
+        .filter((a) => a.modificationsCount > 0)
+        .sort(
+          (x, y) =>
+            y.highPriorityModifications - x.highPriorityModifications ||
+            y.modificationsCount - x.modificationsCount,
+        ),
+    [pendingSummary],
+  );
+
+  // Raccomandazioni advisory/manuali: blocco secondario, meno prominente
+  const recommendationAccounts = useMemo(
+    () =>
+      (pendingSummary?.byAccount || [])
+        .filter((a) => a.recommendationsCount > 0)
+        .sort((x, y) => y.recommendationsCount - x.recommendationsCount),
+    [pendingSummary],
+  );
+
+  // KPI aggregati (spesa, conversioni, campagne, health medio)
+  const summary = useMemo(() => {
+    const accountsWithStats = accounts.filter((a) => a.stats);
+    if (accountsWithStats.length === 0) return null;
+
+    const totalCost = accountsWithStats.reduce((sum, a) => sum + (a.stats?.cost || 0), 0);
+    const totalConversions = accountsWithStats.reduce((sum, a) => sum + (a.stats?.conversions || 0), 0);
+    const totalActiveCampaigns = accountsWithStats.reduce((sum, a) => sum + (a.stats?.activeCampaigns || 0), 0);
+    const healthScores = accounts.filter((a) => a.healthScore !== null).map((a) => a.healthScore!);
+    const avgHealthScore = healthScores.length > 0
+      ? Math.round(healthScores.reduce((sum, s) => sum + s, 0) / healthScores.length)
+      : null;
+
+    return { totalCost, totalConversions, totalActiveCampaigns, avgHealthScore };
+  }, [accounts]);
 
   const filteredAccounts = accounts.filter(
     (account) =>
@@ -233,13 +346,228 @@ export function AccountsPage() {
 
   return (
     <div className="p-3 sm:p-6">
-      {/* Header */}
+      {/* Header + Period Selector */}
       <div className="mb-6">
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Account Google Ads</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Gestisci e monitora i tuoi account pubblicitari
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Account Google Ads</h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              Gestisci e monitora i tuoi account pubblicitari
+            </p>
+          </div>
+          <PeriodSelector value={period} onChange={setPeriod} />
+        </div>
       </div>
+
+      {/* ═══════════════════════════════════════════════════════
+          DA FARE OGGI — MODIFICHE: cambiamenti concreti e applicabili
+          (alto impatto), solo freschi (<=14gg) su account attivi.
+          Le modifiche hanno priorita' sulle raccomandazioni.
+          ═══════════════════════════════════════════════════════ */}
+      {modificationAccounts.length > 0 && (
+        <Card className="mb-4 border-l-4 border-l-yellow-500 bg-card">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <ClipboardList className="h-5 w-5 text-yellow-600" />
+              <h2 className="font-semibold text-foreground">Da fare oggi · Modifiche</h2>
+              <Badge variant="secondary" className="text-xs">
+                {modificationAccounts.reduce((s, a) => s + a.modificationsCount, 0)} modifiche
+              </Badge>
+            </div>
+            <div className="space-y-2">
+              {modificationAccounts.map((account) => (
+                <Link
+                  key={account.accountId}
+                  to={`/audit/${account.accountId}/modifications`}
+                  className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors group"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <span className="text-sm font-medium text-foreground truncate">
+                      {account.accountName}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {account.highPriorityModifications > 0 && (
+                      <Badge variant="destructive" className="text-xs">
+                        {account.highPriorityModifications} urgenti
+                      </Badge>
+                    )}
+                    <Badge variant="outline" className="text-xs">
+                      {account.modificationsCount} modifiche
+                    </Badge>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════
+          RACCOMANDAZIONI — suggerimenti advisory/manuali (impatto minore,
+          non automatizzabili). Blocco secondario, meno prominente.
+          ═══════════════════════════════════════════════════════ */}
+      {recommendationAccounts.length > 0 && (
+        <Card className="mb-6 border-l-4 border-l-border bg-card/60">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Lightbulb className="h-5 w-5 text-muted-foreground" />
+              <h2 className="font-medium text-muted-foreground">Raccomandazioni</h2>
+              <Badge variant="secondary" className="text-xs">
+                {recommendationAccounts.reduce((s, a) => s + a.recommendationsCount, 0)} suggerimenti
+              </Badge>
+            </div>
+            <div className="space-y-2">
+              {recommendationAccounts.map((account) => (
+                <Link
+                  key={account.accountId}
+                  to={`/audit/${account.accountId}/modifications`}
+                  className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/40 transition-colors group"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <span className="text-sm text-muted-foreground truncate">
+                      {account.accountName}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Badge variant="outline" className="text-xs">
+                      {account.recommendationsCount} raccomandazioni
+                    </Badge>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Striscia KPI aggregati */}
+      {summary && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+          {periodMetrics?.hasDailyData && periodMetrics.current ? (
+            <>
+              <Card className="bg-card border-border">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between text-muted-foreground mb-1">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4" />
+                      <span className="text-xs">Spesa Totale</span>
+                    </div>
+                    {periodMetrics.changes && <PeriodChangeBadge value={periodMetrics.changes.cost} inverted />}
+                  </div>
+                  <p className="text-lg font-bold text-foreground">
+                    {formatCurrency(periodMetrics.current.cost * 1000000)}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="bg-card border-border">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between text-muted-foreground mb-1">
+                    <div className="flex items-center gap-2">
+                      <Target className="h-4 w-4" />
+                      <span className="text-xs">Conversioni</span>
+                    </div>
+                    {periodMetrics.changes && <PeriodChangeBadge value={periodMetrics.changes.conversions} />}
+                  </div>
+                  <p className="text-lg font-bold text-foreground">
+                    {formatNumber(periodMetrics.current.conversions)}
+                  </p>
+                </CardContent>
+              </Card>
+            </>
+          ) : (
+            <>
+              <Card className="bg-card border-border">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                    <DollarSign className="h-4 w-4" />
+                    <span className="text-xs">Spesa Totale</span>
+                  </div>
+                  <p className="text-lg font-bold text-foreground">
+                    {formatCurrency(summary.totalCost * 1000000)}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="bg-card border-border">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                    <Target className="h-4 w-4" />
+                    <span className="text-xs">Conversioni Totali</span>
+                  </div>
+                  <p className="text-lg font-bold text-foreground">
+                    {formatNumber(summary.totalConversions)}
+                  </p>
+                </CardContent>
+              </Card>
+            </>
+          )}
+          <Card className="bg-card border-border">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                <Megaphone className="h-4 w-4" />
+                <span className="text-xs">Campagne Attive</span>
+              </div>
+              <p className="text-lg font-bold text-foreground">
+                {summary.totalActiveCampaigns}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="bg-card border-border">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                <Activity className="h-4 w-4" />
+                <span className="text-xs">Health Score Medio</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <p className="text-lg font-bold text-foreground">
+                  {summary.avgHealthScore !== null ? `${summary.avgHealthScore}/100` : '-'}
+                </p>
+                {summary.avgHealthScore !== null && (
+                  <div className={`w-3 h-3 rounded-full ${
+                    summary.avgHealthScore >= 75 ? 'bg-green-500' :
+                    summary.avgHealthScore >= 50 ? 'bg-yellow-500' :
+                    summary.avgHealthScore >= 25 ? 'bg-orange-500' : 'bg-red-500'
+                  }`} />
+                )}
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-card border-border col-span-2 md:col-span-1">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                <Calendar className="h-4 w-4" />
+                <span className="text-xs">Prossima Analisi</span>
+              </div>
+              {nextAnalysis && nextAnalysis.enabled ? (
+                <div>
+                  <p className="text-sm font-bold text-foreground">
+                    {nextAnalysis.nextRunAt
+                      ? new Date(nextAnalysis.nextRunAt).toLocaleDateString('it-IT', {
+                          weekday: 'short',
+                          day: 'numeric',
+                          month: 'short',
+                        })
+                      : '-'}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {nextAnalysis.nextRunAt
+                      ? new Date(nextAnalysis.nextRunAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
+                      : ''}{' '}
+                    {nextAnalysis.nextAccounts.slice(0, 2).join(', ')}
+                    {nextAnalysis.nextAccounts.length > 2 && ` +${nextAnalysis.nextAccounts.length - 2}`}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Non attiva</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Search and Add */}
       <div className="mb-6 flex flex-col sm:flex-row gap-3 sm:items-center">

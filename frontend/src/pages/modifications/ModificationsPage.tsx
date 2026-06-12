@@ -46,7 +46,7 @@ import type {
   ModificationStatus,
   PaginatedResponse,
 } from '@/types';
-import type { ModificationEntityType, ModificationType } from '@/types/modification';
+import type { ModificationEntityType, ModificationType, ModificationKind } from '@/types/modification';
 import {
   getStatusColor,
   getStatusLabel,
@@ -243,6 +243,8 @@ export function ModificationsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [modTypeFilter, setModTypeFilter] = useState<string>('all');
+  // Modifiche (alto impatto, applicabili) vs Raccomandazioni (advisory/manuali)
+  const [kindFilter, setKindFilter] = useState<'all' | 'modification' | 'recommendation'>('all');
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [selectedModId, setSelectedModId] = useState<string | null>(null);
@@ -276,6 +278,10 @@ export function ModificationsPage() {
           modTypeFilter !== 'all'
             ? (modTypeFilter as ModificationType)
             : undefined,
+        kind:
+          kindFilter !== 'all'
+            ? (kindFilter as ModificationKind)
+            : undefined,
       };
       const [modsResult, summaryResult] = await Promise.all([
         getModifications(accountId, appliedFilters),
@@ -288,7 +294,7 @@ export function ModificationsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [accountId, filters, statusFilter, priorityFilter, modTypeFilter]);
+  }, [accountId, filters, statusFilter, priorityFilter, modTypeFilter, kindFilter]);
 
   useEffect(() => {
     fetchData();
@@ -746,6 +752,31 @@ export function ModificationsPage() {
             Nuova Modifica
           </Button>
         </div>
+      </div>
+
+      {/* Tab Modifiche vs Raccomandazioni: le modifiche (alto impatto,
+          applicabili via script) sono prioritarie sulle raccomandazioni advisory */}
+      <div className="inline-flex rounded-lg border bg-card p-1 gap-1">
+        {([
+          { key: 'all', label: 'Tutte' },
+          { key: 'modification', label: 'Modifiche' },
+          { key: 'recommendation', label: 'Raccomandazioni' },
+        ] as const).map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => {
+              setKindFilter(tab.key);
+              setFilters((f) => ({ ...f, page: 1 }));
+            }}
+            className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
+              kindFilter === tab.key
+                ? 'bg-primary text-primary-foreground font-medium'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {/* Summary Cards */}

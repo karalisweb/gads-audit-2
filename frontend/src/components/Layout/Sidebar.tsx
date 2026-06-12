@@ -5,7 +5,6 @@ import { useAuthStore } from '@/stores/auth.store';
 import { useUIStore } from '@/stores/ui.store';
 import { useNotificationsStore } from '@/stores/notifications.store';
 import {
-  LayoutDashboard,
   Building2,
   LogOut,
   User,
@@ -20,7 +19,6 @@ const APP_VERSION = '2.17.2';
 
 // Zona 2 - Navigazione Principale (base)
 const baseNavItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/accounts', label: 'Account', icon: Building2 },
 ];
 

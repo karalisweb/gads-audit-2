@@ -5,7 +5,6 @@ import { MobileBottomNav } from './MobileBottomNav';
 
 // Mappa dei titoli per le pagine desktop
 const pageTitles: Record<string, string> = {
-  '/dashboard': 'Dashboard',
   '/accounts': 'Account',
   '/profile': 'Profilo',
   '/settings': 'Impostazioni',

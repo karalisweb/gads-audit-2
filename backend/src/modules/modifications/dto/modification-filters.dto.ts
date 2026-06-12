@@ -2,6 +2,7 @@ import { IsOptional, IsString, IsNumber, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
 import {
   ModificationStatus,
+  ModificationKind,
   ModificationEntityType,
   ModificationType,
 } from '../../../entities/modification.entity';
@@ -40,4 +41,8 @@ export class ModificationFiltersDto {
   @IsOptional()
   @IsString()
   priority?: string;
+
+  @IsOptional()
+  @IsEnum(ModificationKind)
+  kind?: ModificationKind;
 }

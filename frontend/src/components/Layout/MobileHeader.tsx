@@ -11,7 +11,6 @@ interface MobileHeaderProps {
 
 // Mappa dei titoli per le pagine
 const pageTitles: Record<string, string> = {
-  '/dashboard': 'Dashboard',
   '/accounts': 'Account',
   '/profile': 'Profilo',
   // Audit pages

@@ -24,7 +24,6 @@ import {
 
 // Menu principale per la navigazione globale (base)
 const baseMainNavItems = [
-  { path: '/dashboard', label: 'Home', icon: LayoutDashboard },
   { path: '/accounts', label: 'Account', icon: Building2 },
   { path: '/settings', label: 'Impostaz.', icon: Settings },
 ];
