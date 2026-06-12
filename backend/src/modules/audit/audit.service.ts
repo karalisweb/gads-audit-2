@@ -488,19 +488,27 @@ export class AuditService {
   }
 
   private async fetchEntityMetricsMap(accountId: string, entityType: string, dateFrom: string, dateTo: string) {
-    const results = await this.dailyMetricRepository
-      .createQueryBuilder('dm')
-      .select('dm.entity_id', 'entityId')
-      .addSelect('COALESCE(SUM(dm.impressions), 0)', 'impressions')
-      .addSelect('COALESCE(SUM(dm.clicks), 0)', 'clicks')
-      .addSelect('COALESCE(SUM(dm.cost_micros), 0)', 'costMicros')
-      .addSelect('COALESCE(SUM(dm.conversions), 0)', 'conversions')
-      .addSelect('COALESCE(SUM(dm.conversions_value), 0)', 'conversionsValue')
-      .where('dm.account_id = :accountId', { accountId })
-      .andWhere('dm.entity_type = :entityType', { entityType })
-      .andWhere('dm.date BETWEEN :dateFrom AND :dateTo', { dateFrom, dateTo })
-      .groupBy('dm.entity_id')
-      .getRawMany();
+    // Dedup per (entity_id, date) tenendo l'import piu' recente, poi aggrega per
+    // entita' (vedi nota in aggregateDailyMetrics sul sovraconteggio tra run).
+    const results = await this.dailyMetricRepository.query(
+      `SELECT
+         entity_id AS "entityId",
+         COALESCE(SUM(impressions), 0) AS impressions,
+         COALESCE(SUM(clicks), 0) AS clicks,
+         COALESCE(SUM(cost_micros), 0) AS "costMicros",
+         COALESCE(SUM(conversions), 0) AS conversions,
+         COALESCE(SUM(conversions_value), 0) AS "conversionsValue"
+       FROM (
+         SELECT DISTINCT ON (entity_id, date)
+           entity_id, impressions, clicks, cost_micros, conversions, conversions_value
+         FROM daily_metrics
+         WHERE account_id = $1 AND entity_type = $2
+           AND date BETWEEN $3 AND $4
+         ORDER BY entity_id, date, created_at DESC
+       ) t
+       GROUP BY entity_id`,
+      [accountId, entityType, dateFrom, dateTo],
+    );
 
     const metricsMap: Record<string, {
       impressions: number; clicks: number; cost: number;
@@ -533,38 +541,54 @@ export class AuditService {
     return metricsMap;
   }
 
+  // NB: daily_metrics contiene una riga per (entita', giorno) PER OGNI run di
+  // import: piu' run che coprono lo stesso giorno => piu' righe identiche.
+  // Sommarle tutte gonfia i totali. Per questo deduplichiamo a una sola riga
+  // per (entity_id, date), tenendo l'import piu' recente (created_at DESC).
   private async aggregateDailyMetrics(accountId: string, dateFrom: string, dateTo: string) {
-    const result = await this.dailyMetricRepository
-      .createQueryBuilder('dm')
-      .select('COALESCE(SUM(dm.impressions), 0)', 'impressions')
-      .addSelect('COALESCE(SUM(dm.clicks), 0)', 'clicks')
-      .addSelect('COALESCE(SUM(dm.cost_micros), 0)', 'costMicros')
-      .addSelect('COALESCE(SUM(dm.conversions), 0)', 'conversions')
-      .addSelect('COALESCE(SUM(dm.conversions_value), 0)', 'conversionsValue')
-      .addSelect('COUNT(*)', 'rowCount')
-      .where('dm.account_id = :accountId', { accountId })
-      .andWhere('dm.entity_type = :entityType', { entityType: 'campaign' })
-      .andWhere('dm.date BETWEEN :dateFrom AND :dateTo', { dateFrom, dateTo })
-      .getRawOne();
+    const rows = await this.dailyMetricRepository.query(
+      `SELECT
+         COALESCE(SUM(impressions), 0) AS impressions,
+         COALESCE(SUM(clicks), 0) AS clicks,
+         COALESCE(SUM(cost_micros), 0) AS "costMicros",
+         COALESCE(SUM(conversions), 0) AS conversions,
+         COALESCE(SUM(conversions_value), 0) AS "conversionsValue",
+         COUNT(*) AS "rowCount"
+       FROM (
+         SELECT DISTINCT ON (entity_id, date)
+           impressions, clicks, cost_micros, conversions, conversions_value
+         FROM daily_metrics
+         WHERE account_id = $1 AND entity_type = 'campaign'
+           AND date BETWEEN $2 AND $3
+         ORDER BY entity_id, date, created_at DESC
+       ) t`,
+      [accountId, dateFrom, dateTo],
+    );
 
-    return this.buildPeriodResult(result);
+    return this.buildPeriodResult(rows[0] || {});
   }
 
   private async aggregateDailyMetricsMulti(accountIds: string[], dateFrom: string, dateTo: string) {
-    const result = await this.dailyMetricRepository
-      .createQueryBuilder('dm')
-      .select('COALESCE(SUM(dm.impressions), 0)', 'impressions')
-      .addSelect('COALESCE(SUM(dm.clicks), 0)', 'clicks')
-      .addSelect('COALESCE(SUM(dm.cost_micros), 0)', 'costMicros')
-      .addSelect('COALESCE(SUM(dm.conversions), 0)', 'conversions')
-      .addSelect('COALESCE(SUM(dm.conversions_value), 0)', 'conversionsValue')
-      .addSelect('COUNT(*)', 'rowCount')
-      .where('dm.account_id IN (:...accountIds)', { accountIds })
-      .andWhere('dm.entity_type = :entityType', { entityType: 'campaign' })
-      .andWhere('dm.date BETWEEN :dateFrom AND :dateTo', { dateFrom, dateTo })
-      .getRawOne();
+    const rows = await this.dailyMetricRepository.query(
+      `SELECT
+         COALESCE(SUM(impressions), 0) AS impressions,
+         COALESCE(SUM(clicks), 0) AS clicks,
+         COALESCE(SUM(cost_micros), 0) AS "costMicros",
+         COALESCE(SUM(conversions), 0) AS conversions,
+         COALESCE(SUM(conversions_value), 0) AS "conversionsValue",
+         COUNT(*) AS "rowCount"
+       FROM (
+         SELECT DISTINCT ON (account_id, entity_id, date)
+           impressions, clicks, cost_micros, conversions, conversions_value
+         FROM daily_metrics
+         WHERE account_id = ANY($1::uuid[]) AND entity_type = 'campaign'
+           AND date BETWEEN $2 AND $3
+         ORDER BY account_id, entity_id, date, created_at DESC
+       ) t`,
+      [accountIds, dateFrom, dateTo],
+    );
 
-    return this.buildPeriodResult(result);
+    return this.buildPeriodResult(rows[0] || {});
   }
 
   private buildPeriodResult(result: Record<string, string>) {

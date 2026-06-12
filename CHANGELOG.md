@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.18.3] - 2026-06-12
+
+### Corretto
+- Metriche di periodo gonfiate - daily_metrics deduplicate per (entita,giorno) tenendo l'import piu recente, niente piu somma tra run multipli
+
+---
+
+
 ## [2.18.2] - 2026-06-12
 
 ### Aggiunto
