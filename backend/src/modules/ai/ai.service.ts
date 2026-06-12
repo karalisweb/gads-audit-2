@@ -121,6 +121,14 @@ export class AIService {
     return new Anthropic({ apiKey });
   }
 
+  // Cache in-memory della sintesi delle chat Report AI, per account.
+  // Rinfrescata automaticamente quando cambia il numero di messaggi
+  // (= sono arrivate nuove chiacchierate), evitando una sintesi LLM per modulo.
+  private readonly chatInsightsCache = new Map<
+    string,
+    { msgCount: number; summary: string }
+  >();
+
   async analyzeModule(
     accountId: string,
     moduleId: number,
@@ -153,6 +161,9 @@ export class AIService {
     // Fetch account strategy context (tipo business, obiettivo, note strategiche)
     const accountStrategyContext = await this.buildAccountStrategyContext(accountId);
 
+    // Fetch sintesi delle chat Report AI (vincoli/preferenze emersi dal dialogo)
+    const reportChatContext = await this.buildReportChatContext(accountId);
+
     // Fetch data based on module requirements
     const { data, stats } = await this.fetchModuleData(
       accountId,
@@ -168,6 +179,7 @@ export class AIService {
     const enrichedSystemPrompt = [
       decisionHistoryContext.systemPrefix,
       accountStrategyContext.systemPrefix,
+      reportChatContext.systemPrefix,
       campaignStrategyContext.systemPrefix,
       moduleConfig.systemPrompt,
     ].filter(Boolean).join('\n\n');
@@ -175,6 +187,7 @@ export class AIService {
     const enrichedUserPrompt = [
       decisionHistoryContext.userPrefix,
       accountStrategyContext.userPrefix,
+      reportChatContext.userPrefix,
       campaignStrategyContext.userPrefix,
       userPrompt,
     ].filter(Boolean).join('\n\n');
@@ -324,8 +337,15 @@ Usa questo contesto per interpretare correttamente i dati che seguono. Le metric
     };
 
     const systemPrefix = `STRATEGIA ACCOUNT - ADATTA TUTTE LE RACCOMANDAZIONI:
-Questo account ha una strategia di business specifica. TUTTE le raccomandazioni devono essere coerenti con il tipo di business, l'obiettivo primario e le note strategiche.
-NON suggerire azioni che contraddicono la strategia. Se l'obiettivo è brand awareness, NON suggerire di tagliare campagne brand. Se l'obiettivo è lead generation, concentrati sulla qualità dei lead e il CPA.`;
+Questo account ha una strategia di business specifica. TUTTE le raccomandazioni devono essere coerenti con il tipo di business, l'obiettivo primario e le note strategiche (il brief del cliente).
+NON suggerire azioni che contraddicono la strategia. Se l'obiettivo è brand awareness, NON suggerire di tagliare campagne brand. Se l'obiettivo è lead generation, concentrati sulla qualità dei lead e il CPA.
+
+FATTIBILITÀ - GENERA SOLO AZIONI REALISTICHE:
+Proponi esclusivamente modifiche e raccomandazioni concretamente attuabili nella realtà di questo cliente, alla luce del brief e della strategia. In particolare:
+- NON proporre azioni che il brief esclude o che sono incompatibili con i vincoli del cliente (budget, stagionalità, settore, area geografica, risorse).
+- NON suggerire interventi generici o teorici: ogni azione deve essere specifica, motivata dai dati e applicabile da subito.
+- Se i dati non bastano a giustificare un'azione fattibile, NON inventarla: ometti la raccomandazione.
+- Preferisci poche azioni ad alto impatto e davvero realizzabili rispetto a lunghe liste di suggerimenti astratti.`;
 
     const parts: string[] = [];
     if (account.customerName) {
@@ -344,6 +364,143 @@ NON suggerire azioni che contraddicono la strategia. Se l'obiettivo è brand awa
     const userPrefix = `CONTESTO STRATEGICO ACCOUNT:\n${parts.join('\n')}\n\nAdatta tutte le raccomandazioni a questa strategia.`;
 
     return { systemPrefix, userPrefix };
+  }
+
+  /**
+   * Costruisce il contesto derivato dalle chat "Report AI" dell'account.
+   * Le chiacchierate col consulente (decisioni, vincoli, preferenze, cosa evitare)
+   * vengono sintetizzate e iniettate in TUTTE le analisi, così le future modifiche
+   * e raccomandazioni tengono conto di quanto emerso nel dialogo con l'utente.
+   */
+  private async buildReportChatContext(
+    accountId: string,
+  ): Promise<{ systemPrefix: string; userPrefix: string }> {
+    try {
+      // Tutti i report dell'account -> i loro messaggi di chat
+      const reports = await this.auditReportRepository.find({
+        where: { accountId },
+        select: ['id'],
+      });
+      if (reports.length === 0) return { systemPrefix: '', userPrefix: '' };
+
+      const reportIds = reports.map((r) => r.id);
+      const msgCount = await this.auditReportMessageRepository.count({
+        where: { reportId: In(reportIds) },
+      });
+      if (msgCount === 0) return { systemPrefix: '', userPrefix: '' };
+
+      // Cache: re-sintetizza solo se sono arrivati nuovi messaggi
+      let summary: string;
+      const cached = this.chatInsightsCache.get(accountId);
+      if (cached && cached.msgCount === msgCount) {
+        summary = cached.summary;
+      } else {
+        const recentMessages = await this.auditReportMessageRepository.find({
+          where: { reportId: In(reportIds) },
+          order: { createdAt: 'DESC' },
+          take: 40,
+        });
+        recentMessages.reverse(); // ordine cronologico
+        summary = await this.synthesizeChatInsights(recentMessages);
+        if (!summary) return { systemPrefix: '', userPrefix: '' };
+        this.chatInsightsCache.set(accountId, { msgCount, summary });
+      }
+
+      const systemPrefix = `CONVERSAZIONI STRATEGICHE COL CLIENTE - TIENINE CONTO:
+Con questo account sono già state fatte delle conversazioni strategiche (chat Report AI). Le decisioni, i vincoli e le preferenze emersi NON vanno contraddetti: le tue modifiche e raccomandazioni devono essere coerenti con quanto già discusso. Se qualcosa è già stato deciso o scartato in chat, non riproporlo.`;
+
+      const userPrefix = `SINTESI DELLE CHAT STRATEGICHE (account):\n${summary}\n\nUsa questi punti come vincoli/preferenze nel generare modifiche e raccomandazioni.`;
+
+      return { systemPrefix, userPrefix };
+    } catch {
+      // La sintesi chat è un arricchimento: in caso di errore non blocca l'analisi
+      return { systemPrefix: '', userPrefix: '' };
+    }
+  }
+
+  /**
+   * Sintetizza i messaggi delle chat Report AI in pochi punti chiave (LLM).
+   * Usa il provider AI attivo. Ritorna stringa vuota se non c'è nulla di utile.
+   */
+  private async synthesizeChatInsights(
+    messages: AuditReportMessage[],
+  ): Promise<string> {
+    const transcript = messages
+      .map((m) => `${m.role === 'user' ? 'CLIENTE' : 'CONSULENTE'}: ${m.content}`)
+      .join('\n')
+      .substring(0, 12000);
+    if (!transcript.trim()) return '';
+
+    const systemPrompt = `Sei un analista Google Ads. Riassumi in modo conciso i punti chiave emersi dalla conversazione strategica tra consulente e cliente su questo account.
+Estrai SOLO ciò che serve a guidare future modifiche e raccomandazioni: decisioni prese, vincoli del cliente (budget, stagionalità, settore, geografia), preferenze, cosa evitare, priorità concordate.
+Output: elenco puntato breve in italiano, massimo ~150 parole. Niente preamboli, solo i punti utili. Se non emerge nulla di rilevante, rispondi con una sola riga: "—".`;
+
+    const text = await this.llmCompleteText(systemPrompt, transcript, 512);
+    const cleaned = (text || '').trim();
+    if (!cleaned || cleaned === '—') return '';
+    return cleaned;
+  }
+
+  /**
+   * Chiamata LLM testuale generica (senza history) sul provider AI attivo.
+   */
+  private async llmCompleteText(
+    systemPrompt: string,
+    userPrompt: string,
+    maxTokens: number,
+  ): Promise<string> {
+    const provider = await this.getActiveProvider();
+
+    if (provider === 'gemini') {
+      const gemini = await this.getGeminiClient();
+      let model = await this.settingsService.getGeminiModel();
+      if (!model) {
+        model = this.configService.get<string>('ai.geminiModel') || 'gemini-3-flash-preview';
+      }
+      const response = await gemini.models.generateContent({
+        model,
+        contents: userPrompt,
+        config: {
+          systemInstruction: systemPrompt,
+          temperature: 0.3,
+          maxOutputTokens: maxTokens,
+        },
+      });
+      return response.text || '';
+    }
+
+    if (provider === 'claude') {
+      const claude = await this.getClaudeClient();
+      let model = await this.settingsService.getClaudeModel();
+      if (!model) {
+        model = this.configService.get<string>('ai.claudeModel') || 'claude-sonnet-4-20250514';
+      }
+      const response = await claude.messages.create({
+        model,
+        max_tokens: maxTokens,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+        temperature: 0.3,
+      });
+      return response.content[0]?.type === 'text' ? response.content[0].text : '';
+    }
+
+    const openai = await this.getOpenAIClient();
+    let model = await this.settingsService.getOpenAIModel();
+    if (!model) {
+      model = this.configService.get<string>('ai.openaiModel') || 'gpt-5.2';
+    }
+    const isGpt5 = model.startsWith('gpt-5');
+    const response = await openai.chat.completions.create({
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      ...(isGpt5 ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
+      temperature: 0.3,
+    });
+    return response.choices[0]?.message?.content || '';
   }
 
   /**
