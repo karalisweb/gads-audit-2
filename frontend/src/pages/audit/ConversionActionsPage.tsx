@@ -167,8 +167,7 @@ function getColumns(accountId: string, onRefresh: () => void): ColumnDef<Convers
     header: 'Conv. 30gg',
     cell: ({ row }) => {
       const r = row.original;
-      const isPrimary = r.primaryForGoal || r.goalBiddable === true;
-      const inactive = r.status === 'ENABLED' && isPrimary && r.recentConversions === 0;
+      const inactive = r.status === 'ENABLED' && r.primaryForGoal && r.recentConversions === 0;
       if (r.recentConversions == null) return <span className="text-muted-foreground">-</span>;
       return <span className={inactive ? 'text-red-500 font-medium' : ''}>{r.recentConversions}</span>;
     },
@@ -194,7 +193,7 @@ function getColumns(accountId: string, onRefresh: () => void): ColumnDef<Convers
 }
 
 function ConversionActionCard({ action, accountId, onRefresh }: { action: ConversionAction; accountId: string; onRefresh: () => void }) {
-  const isPrimary = action.primaryForGoal || action.goalBiddable === true;
+  const isPrimary = action.primaryForGoal;
   const hasIssues = !action.primaryForGoal && action.status === 'ENABLED';
   const lowValue = (action.defaultValue === 0 || action.defaultValue === 1) && action.status === 'ENABLED';
   // Inattiva: primaria ENABLED con 0 conversioni negli ultimi 30gg → tracciamento rotto

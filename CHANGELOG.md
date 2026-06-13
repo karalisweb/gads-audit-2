@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.18.19] - 2026-06-13
+
+### Corretto
+- 'Inattiva' solo sulle azioni primarie per-azione (primaryForGoal), non sull'intera categoria biddable - coincide con 'Inattivo' di Google Ads
+
+---
+
+
 ## [2.18.18] - 2026-06-13
 
 ### Aggiunto

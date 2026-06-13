@@ -6,6 +6,7 @@ Log tecnico delle modifiche al software, auto-generato dal deploy script.
 
 | Versione | Data | Commit |
 |----------|------|--------|
+| 2.18.19 | 2026-06-13 | fix: 'Inattiva' solo sulle azioni primarie per-azione (primaryForGoal), non sull'intera categoria biddable - coincide con 'Inattivo' di Google Ads |
 | 2.18.18 | 2026-06-13 | feat: stato salute conversioni - rileva le 'Inattive' (conversione primaria con 0 conversioni in 30gg = tracciamento rotto); badge rosso + card Inattive + colonna Conv.30gg, l'AI lo segnala come problema grave; script v3.6 importa metrics.all_conversions |
 | 2.18.17 | 2026-06-13 | feat: stato salute conversioni - rileva le 'Inattive' (conversione primaria con 0 conversioni in 30gg = tracciamento rotto); badge rosso + card Inattive + colonna Conv.30gg nell'app, l'AI lo segnala come problema grave; script v3.6 importa metrics.all_conversions |
 | 2.18.16 | 2026-06-13 | feat: rimosso il badge fuorviante 'Non usata' dalle conversioni; le pagine Campagne/Ad Groups/Ads/Keywords/Conversioni partono di default su 'Attivi' (pausa/rimossi nascosti ma accessibili dal filtro stato) |

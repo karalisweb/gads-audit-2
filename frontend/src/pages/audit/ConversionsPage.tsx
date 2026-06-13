@@ -179,7 +179,7 @@ function ConversionActionCard({
 }: {
   action: ConversionAction; accountId: string; onRefresh: () => void;
 }) {
-  const isPrimary = action.primaryForGoal || action.goalBiddable === true;
+  const isPrimary = action.primaryForGoal;
   const hasIssues = !action.primaryForGoal && action.status === 'ENABLED';
   const lowValue = (action.defaultValue === 0 || action.defaultValue === 1) && action.status === 'ENABLED';
   // Inattiva: primaria ENABLED con 0 conversioni negli ultimi 30gg → tracciamento rotto
@@ -397,7 +397,7 @@ export function ConversionsPage() {
       primary: all.filter(a => a.primaryForGoal).length,
       hidden: all.filter(a => a.status === 'HIDDEN').length,
       // Inattive: primarie ENABLED con 0 conversioni negli ultimi 30gg (tracciamento rotto)
-      inactive: all.filter(a => a.status === 'ENABLED' && (a.primaryForGoal || a.goalBiddable === true) && a.recentConversions === 0).length,
+      inactive: all.filter(a => a.status === 'ENABLED' && a.primaryForGoal && a.recentConversions === 0).length,
       lowValue: all.filter(a => (a.defaultValue === 0 || a.defaultValue === 1) && a.status === 'ENABLED').length,
     };
   }, [actionsData]);

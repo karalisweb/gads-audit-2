@@ -1197,10 +1197,11 @@ Adatta le tue raccomandazioni in base a queste preferenze. Non insistere su cate
         primaryForGoal: c.primaryForGoal,
         goalBiddable: c.goalBiddable,
         recentConversions: c.recentConversions,
-        // Inattiva = primaria/biddable ma 0 conversioni recenti: il tracciamento non registra
+        // Inattiva = azione PRIMARIA (primaryForGoal) ma 0 conversioni recenti:
+        // il tracciamento non registra (= "Inattivo" in Google Ads)
         inactive:
           c.status === 'ENABLED' &&
-          (c.primaryForGoal || c.goalBiddable) &&
+          c.primaryForGoal &&
           c.recentConversions != null &&
           c.recentConversions === 0,
         campaignsUsing: c.campaignsUsingCount,
@@ -1794,7 +1795,7 @@ ${conversionActions
   .map((ca) => {
     const isPrimary = ca.goalBiddable != null ? ca.goalBiddable : ca.primaryForGoal;
     const inactive =
-      ca.status === 'ENABLED' && isPrimary && ca.recentConversions === 0;
+      ca.status === 'ENABLED' && ca.primaryForGoal && ca.recentConversions === 0;
     return `- ${ca.name}: status=${ca.status}, tipo=${ca.type}, primaria=${isPrimary ? 'SI' : 'NO'}, conversioni_30gg=${ca.recentConversions ?? 'n/d'}${inactive ? ' [INATTIVA: primaria che non registra]' : ''}, valore=€${parseFloat(ca.defaultValue || '0').toFixed(2)}`;
   })
   .join('\n')}
