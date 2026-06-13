@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.18.9] - 2026-06-13
+
+### Aggiunto
+- Filtro 'Solo entita attive' nelle modifiche (nasconde quelle su campagne/gruppi/annunci/keyword in pausa o rimossi, con risalita al genitore) + vista Per data impostata come default
+
+---
+
+
 ## [2.18.8] - 2026-06-13
 
 ### Aggiunto

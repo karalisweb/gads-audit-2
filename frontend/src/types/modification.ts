@@ -79,6 +79,7 @@ export interface ModificationFilters {
   status?: ModificationStatus;
   priority?: string;
   kind?: ModificationKind;
+  activeOnly?: boolean;
 }
 
 export type ModificationPriority = 'high' | 'medium' | 'low';

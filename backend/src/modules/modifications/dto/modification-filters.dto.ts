@@ -1,5 +1,5 @@
-import { IsOptional, IsString, IsNumber, IsEnum } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsOptional, IsString, IsNumber, IsEnum, IsBoolean } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
 import {
   ModificationStatus,
   ModificationKind,
@@ -45,4 +45,11 @@ export class ModificationFiltersDto {
   @IsOptional()
   @IsEnum(ModificationKind)
   kind?: ModificationKind;
+
+  // Se true, nasconde le modifiche il cui target (campagna/gruppo/annuncio/keyword)
+  // è in pausa o rimosso (incl. genitore spento).
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  activeOnly?: boolean;
 }

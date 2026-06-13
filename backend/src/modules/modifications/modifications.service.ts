@@ -89,6 +89,65 @@ export class ModificationsService {
       });
     }
 
+    // Filtro "solo entità attive": nasconde le modifiche/raccomandazioni il cui
+    // target (campagna/gruppo/annuncio/keyword) è in pausa o rimosso nell'ultimo
+    // import, risalendo anche al genitore (un gruppo in campagna spenta = spento).
+    // Le entità senza stato on/off (negative, conversioni) restano sempre visibili.
+    if (filters.activeOnly) {
+      const runRows = await this.modificationsRepository.manager.query(
+        `SELECT MAX(run_id) AS run_id FROM campaigns WHERE account_id = $1`,
+        [accountId],
+      );
+      const latestRun: string | null = runRows?.[0]?.run_id ?? null;
+
+      if (!latestRun) {
+        // Nessun import: non sappiamo cosa è attivo → mostriamo solo le entità senza stato.
+        queryBuilder.andWhere(
+          "modification.entity_type NOT IN ('campaign','ad_group','ad','keyword')",
+        );
+      } else {
+        queryBuilder.andWhere(
+          `(
+            modification.entity_type NOT IN ('campaign','ad_group','ad','keyword')
+            OR (modification.entity_type = 'campaign' AND EXISTS (
+              SELECT 1 FROM campaigns c
+              WHERE c.account_id = modification.account_id
+                AND c.campaign_id = modification.entity_id
+                AND c.run_id = :latestRun AND c.status = 'ENABLED'))
+            OR (modification.entity_type = 'ad_group' AND EXISTS (
+              SELECT 1 FROM ad_groups ag
+              JOIN campaigns c ON c.campaign_id = ag.campaign_id
+                AND c.account_id = ag.account_id AND c.run_id = ag.run_id
+              WHERE ag.account_id = modification.account_id
+                AND ag.ad_group_id = modification.entity_id
+                AND ag.run_id = :latestRun
+                AND ag.status = 'ENABLED' AND c.status = 'ENABLED'))
+            OR (modification.entity_type = 'ad' AND EXISTS (
+              SELECT 1 FROM ads a
+              JOIN ad_groups ag ON ag.ad_group_id = a.ad_group_id
+                AND ag.account_id = a.account_id AND ag.run_id = a.run_id
+              JOIN campaigns c ON c.campaign_id = ag.campaign_id
+                AND c.account_id = ag.account_id AND c.run_id = ag.run_id
+              WHERE a.account_id = modification.account_id
+                AND a.ad_id = modification.entity_id
+                AND a.run_id = :latestRun
+                AND a.status = 'ENABLED' AND ag.status = 'ENABLED' AND c.status = 'ENABLED'))
+            OR (modification.entity_type = 'keyword' AND EXISTS (
+              SELECT 1 FROM keywords k
+              JOIN ad_groups ag ON ag.ad_group_id = k.ad_group_id
+                AND ag.account_id = k.account_id AND ag.run_id = k.run_id
+              JOIN campaigns c ON c.campaign_id = ag.campaign_id
+                AND c.account_id = ag.account_id AND c.run_id = ag.run_id
+              WHERE k.account_id = modification.account_id
+                AND k.keyword_id = modification.entity_id
+                AND k.run_id = :latestRun
+                AND k.status = 'ENABLED' AND ag.status = 'ENABLED' AND c.status = 'ENABLED'))
+          )`,
+          { latestRun },
+        );
+      }
+    }
+
     const allowedSortFields = [
       'createdAt',
       'entityType',

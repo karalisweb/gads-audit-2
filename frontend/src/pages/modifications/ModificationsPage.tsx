@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Textarea } from '@/components/ui/textarea';
-import { Check, X, AlertCircle, Clock, Loader2, Plus, Eye, Code, ExternalLink, CheckCircle2, XCircle, ChevronDown, ChevronRight, TableIcon, LayoutList, Zap, Shield, Undo2, CalendarDays } from 'lucide-react';
+import { Check, X, AlertCircle, Clock, Loader2, Plus, Eye, Code, ExternalLink, CheckCircle2, XCircle, ChevronDown, ChevronRight, TableIcon, LayoutList, Zap, Shield, Undo2, CalendarDays, PowerOff } from 'lucide-react';
 import { CreateModificationModal } from './CreateModificationModal';
 import {
   getModifications,
@@ -246,6 +246,8 @@ export function ModificationsPage() {
   const [modTypeFilter, setModTypeFilter] = useState<string>('all');
   // Modifiche (alto impatto, applicabili) vs Raccomandazioni (advisory/manuali)
   const [kindFilter, setKindFilter] = useState<'all' | 'modification' | 'recommendation'>('all');
+  // Nasconde le modifiche su campagne/gruppi/annunci in pausa o rimossi
+  const [activeOnly, setActiveOnly] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [selectedModId, setSelectedModId] = useState<string | null>(null);
@@ -258,7 +260,7 @@ export function ModificationsPage() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkRejectDialogOpen, setBulkRejectDialogOpen] = useState(false);
   const [bulkRejectReason, setBulkRejectReason] = useState('');
-  const [viewMode, setViewMode] = useState<'table' | 'grouped' | 'byDate'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'grouped' | 'byDate'>('byDate');
 
   const fetchData = useCallback(async () => {
     if (!accountId) return;
@@ -283,6 +285,7 @@ export function ModificationsPage() {
           kindFilter !== 'all'
             ? (kindFilter as ModificationKind)
             : undefined,
+        activeOnly: activeOnly || undefined,
       };
       const [modsResult, summaryResult] = await Promise.all([
         getModifications(accountId, appliedFilters),
@@ -295,7 +298,7 @@ export function ModificationsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [accountId, filters, statusFilter, priorityFilter, modTypeFilter, kindFilter]);
+  }, [accountId, filters, statusFilter, priorityFilter, modTypeFilter, kindFilter, activeOnly]);
 
   useEffect(() => {
     fetchData();
@@ -958,6 +961,16 @@ export function ModificationsPage() {
             <SelectItem value="conversion.default_value">Valore Default</SelectItem>
           </SelectContent>
         </Select>
+
+        <Button
+          variant={activeOnly ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => { setActiveOnly((v) => !v); setFilters((f) => ({ ...f, page: 1 })); }}
+          title="Nascondi le modifiche su campagne, gruppi e annunci in pausa o rimossi"
+        >
+          <PowerOff className="h-3.5 w-3.5 mr-1.5" />
+          Solo entità attive
+        </Button>
 
         <div className="ml-auto flex items-center gap-2">
           {/* Smart Bulk Approve Buttons */}
