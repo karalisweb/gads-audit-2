@@ -1,6 +1,6 @@
 # KW GADS Audit - Guida Deploy
 
-Versione attuale: **2.18.12**
+Versione attuale: **2.18.13**
 
 ---
 
@@ -156,7 +156,7 @@ La versione va tenuta sincronizzata in:
 |------|-------|---------|
 | `frontend/package.json` | `"version"` | `"2.6.0"` |
 | `deploy.sh` | `APP_VERSION` + header | `APP_VERSION="2.6.0"` |
-| `DEPLOY.md` | Intestazione | `Versione attuale: **2.18.12**` |
+| `DEPLOY.md` | Intestazione | `Versione attuale: **2.18.13**` |
 | **Sidebar UI** | Header app | `v2.6.0` |
 | **Login page** | Footer | `v2.6.0` |
 

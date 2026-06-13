@@ -18,6 +18,11 @@ export async function getSupportedModules(): Promise<SupportedModule[]> {
   return apiClient.get<SupportedModule[]>('/ai/modules');
 }
 
+// Le analisi AI manuali sono abilitate solo se esiste una chat nel Report AI
+export async function getReportHasChat(accountId: string): Promise<{ hasChat: boolean }> {
+  return apiClient.get<{ hasChat: boolean }>(`/ai/report/${accountId}/has-chat`);
+}
+
 export async function createModificationsFromAI(
   data: CreateFromAIRequest,
 ): Promise<CreateFromAIResponse> {

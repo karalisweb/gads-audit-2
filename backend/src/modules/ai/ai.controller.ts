@@ -7,6 +7,7 @@ import {
   Query,
   UseGuards,
   ParseUUIDPipe,
+  BadRequestException,
 } from '@nestjs/common';
 import { AIService } from './ai.service';
 import {
@@ -19,6 +20,29 @@ import { CurrentUser } from '../../common/decorators';
 export class AIController {
   constructor(private readonly aiService: AIService) {}
 
+  // Le analisi avviate manualmente sono abilitate solo dopo che l'utente ha
+  // dato contesto strategico chattando nel Report AI. (Lo scheduler automatico
+  // chiama il service direttamente e non passa di qui, quindi non è bloccato.)
+  private async ensureReportChat(accountId: string): Promise<void> {
+    const hasChat = await this.aiService.reportHasChat(accountId);
+    if (!hasChat) {
+      throw new BadRequestException(
+        "Per lanciare le analisi AI, prima parla con l'AI nella chat del Report AI di questo account: serve a dare contesto strategico. Apri il Report AI, fai almeno una domanda, poi torna a lanciare l'analisi.",
+      );
+    }
+  }
+
+  /**
+   * Indica se le analisi AI manuali sono abilitate (= esiste una chat nel Report AI)
+   * GET /api/ai/report/:accountId/has-chat
+   */
+  @Get('report/:accountId/has-chat')
+  async reportHasChat(
+    @Param('accountId', ParseUUIDPipe) accountId: string,
+  ): Promise<{ hasChat: boolean }> {
+    return { hasChat: await this.aiService.reportHasChat(accountId) };
+  }
+
   /**
    * Analyze a specific module for an account
    * POST /api/ai/analyze/:accountId
@@ -28,6 +52,7 @@ export class AIController {
     @Param('accountId', ParseUUIDPipe) accountId: string,
     @Body() dto: AnalyzeModuleDto,
   ): Promise<AIAnalysisResponse> {
+    await this.ensureReportChat(accountId);
     return this.aiService.analyzeModule(accountId, dto.moduleId, dto.filters);
   }
 
@@ -40,6 +65,7 @@ export class AIController {
     @Param('accountId', ParseUUIDPipe) accountId: string,
     @CurrentUser('id') userId: string,
   ) {
+    await this.ensureReportChat(accountId);
     const { log } = await this.aiService.analyzeAllModules(accountId, userId);
     return log;
   }

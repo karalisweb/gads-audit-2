@@ -164,6 +164,13 @@ export class AIService {
     // Fetch sintesi delle chat Report AI (vincoli/preferenze emersi dal dialogo)
     const reportChatContext = await this.buildReportChatContext(accountId);
 
+    // Contenuto del Report AI per i moduli che ne traggono valore (es. Search Terms:
+    // competitor citati nel report da proporre come keyword negative)
+    const reportContentContext =
+      moduleId === 22
+        ? await this.buildReportContentContext(accountId)
+        : { systemPrefix: '', userPrefix: '' };
+
     // Fetch data based on module requirements
     const { data, stats } = await this.fetchModuleData(
       accountId,
@@ -180,6 +187,7 @@ export class AIService {
       decisionHistoryContext.systemPrefix,
       accountStrategyContext.systemPrefix,
       reportChatContext.systemPrefix,
+      reportContentContext.systemPrefix,
       campaignStrategyContext.systemPrefix,
       moduleConfig.systemPrompt,
     ].filter(Boolean).join('\n\n');
@@ -188,6 +196,7 @@ export class AIService {
       decisionHistoryContext.userPrefix,
       accountStrategyContext.userPrefix,
       reportChatContext.userPrefix,
+      reportContentContext.userPrefix,
       campaignStrategyContext.userPrefix,
       userPrompt,
     ].filter(Boolean).join('\n\n');
@@ -414,6 +423,42 @@ Con questo account sono già state fatte delle conversazioni strategiche (chat R
       return { systemPrefix, userPrefix };
     } catch {
       // La sintesi chat è un arricchimento: in caso di errore non blocca l'analisi
+      return { systemPrefix: '', userPrefix: '' };
+    }
+  }
+
+  /**
+   * True se l'utente ha già scambiato almeno un messaggio nella chat del Report AI
+   * di questo account. Usato per abilitare le analisi AVVIATE MANUALMENTE solo dopo
+   * che è stato dato contesto strategico (lo scheduler automatico non passa di qui).
+   */
+  async reportHasChat(accountId: string): Promise<boolean> {
+    const reports = await this.auditReportRepository.find({
+      where: { accountId },
+      select: ['id'],
+    });
+    if (reports.length === 0) return false;
+    const count = await this.auditReportMessageRepository.count({
+      where: { reportId: In(reports.map((r) => r.id)), role: 'user' },
+    });
+    return count > 0;
+  }
+
+  /**
+   * Contesto col CONTENUTO del Report AI: utile ai moduli che ne traggono valore
+   * (es. Search Terms → competitor citati nel report da mettere in negativa).
+   */
+  private async buildReportContentContext(
+    accountId: string,
+  ): Promise<{ systemPrefix: string; userPrefix: string }> {
+    try {
+      const report = await this.getLatestReport(accountId);
+      if (!report || !report.content) return { systemPrefix: '', userPrefix: '' };
+      const content = report.content.substring(0, 6000);
+      const systemPrefix = `REPORT DI AUDIT STRATEGICO DISPONIBILE: usa le indicazioni e i NOMI citati (in particolare competitor / brand di terzi) per proporre azioni mirate e coerenti con il report.`;
+      const userPrefix = `REPORT AI DELL'ACCOUNT (estratto, contesto strategico):\n${content}`;
+      return { systemPrefix, userPrefix };
+    } catch {
       return { systemPrefix: '', userPrefix: '' };
     }
   }

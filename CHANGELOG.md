@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.18.13] - 2026-06-13
+
+### Aggiunto
+- Analisi AI dei moduli abilitate solo dopo aver chattato nel Report AI (gate backend + bottone disabilitato con tooltip, scheduler non bloccato); Search Terms ora legge il contenuto del Report AI e propone i competitor citati come keyword negative
+
+---
+
+
 ## [2.18.12] - 2026-06-13
 
 ### Aggiunto

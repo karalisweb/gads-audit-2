@@ -880,6 +880,11 @@ SCELTA DEL MATCH TYPE:
 - Localita non target: es. "roma", "milano" se il business e locale
 - Termini settore sbagliato: es. "usato", "fai da te", "noleggio" se non pertinenti
 
+=== COMPETITOR DAL REPORT AI ===
+- Se nel contesto sono presenti il REPORT AI o le CHAT STRATEGICHE, leggi i NOMI dei competitor / brand di terzi citati (concorrenti, marchi rivali, nomi di persone/aziende concorrenti).
+- Se uno di questi competitor compare (anche parzialmente) nei search terms, proponilo come keyword NEGATIVA (preferibilmente PHRASE a livello CAMPAGNA o ACCOUNT).
+- Nella rationale specifica che si tratta di un competitor citato nel report strategico e quali search terms elimina. Questi hanno priorità HIGH se erodono budget senza convertire.
+
 Rispondi SOLO in formato JSON.`,
     userPromptTemplate: `Analizza i termini di ricerca con focus su RAGGRUPPAMENTO INTELLIGENTE e ANTI-CANNIBALIZZAZIONE.
 

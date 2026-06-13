@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { analyzeModule } from '@/api/ai';
+import { analyzeModule, getReportHasChat } from '@/api/ai';
 import type { AIAnalysisResponse } from '@/types/ai';
 
 interface AIAnalysisButtonProps {
@@ -24,6 +24,18 @@ export function AIAnalysisButton({
 }: AIAnalysisButtonProps) {
   // moduleName reserved for future tooltip/accessibility use
   const [isLoading, setIsLoading] = useState(false);
+  // Le analisi sono abilitate solo dopo aver chattato nel Report AI
+  const [hasChat, setHasChat] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    getReportHasChat(accountId)
+      .then((r) => { if (active) setHasChat(r.hasChat); })
+      .catch(() => { if (active) setHasChat(null); }); // su errore non blocchiamo
+    return () => { active = false; };
+  }, [accountId]);
+
+  const blockedNoChat = hasChat === false;
 
   const handleAnalyze = async () => {
     setIsLoading(true);
@@ -33,7 +45,8 @@ export function AIAnalysisButton({
     } catch (error) {
       console.error('AI Analysis failed:', error);
       if (onError) {
-        onError(error instanceof Error ? error : new Error('Analysis failed'));
+        const msg = (error as { message?: string })?.message || 'Analisi fallita';
+        onError(error instanceof Error ? error : new Error(msg));
       }
     } finally {
       setIsLoading(false);
@@ -43,7 +56,8 @@ export function AIAnalysisButton({
   return (
     <Button
       onClick={handleAnalyze}
-      disabled={disabled || isLoading}
+      disabled={disabled || isLoading || blockedNoChat}
+      title={blockedNoChat ? "Parla prima con l'AI nella chat del Report AI per dare contesto strategico, poi potrai lanciare l'analisi." : undefined}
       className={`bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white ${className}`}
     >
       {isLoading ? (
