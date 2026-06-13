@@ -246,7 +246,7 @@ export function ModificationsPage() {
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [modTypeFilter, setModTypeFilter] = useState<string>('all');
   // Modifiche (alto impatto, applicabili) vs Raccomandazioni (advisory/manuali)
-  const [kindFilter, setKindFilter] = useState<'all' | 'modification' | 'recommendation'>('all');
+  const [kindFilter, setKindFilter] = useState<'all' | 'modification' | 'recommendation'>('modification');
   // Nasconde le modifiche su campagne/gruppi/annunci in pausa o rimossi
   const [activeOnly, setActiveOnly] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -262,6 +262,8 @@ export function ModificationsPage() {
   const [bulkRejectDialogOpen, setBulkRejectDialogOpen] = useState(false);
   const [bulkRejectReason, setBulkRejectReason] = useState('');
   const [viewMode, setViewMode] = useState<'table' | 'grouped' | 'byDate'>('byDate');
+  // Vista Per data: giorno aperto/selezionato (le card riflettono i suoi numeri)
+  const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!accountId) return;
@@ -439,6 +441,29 @@ export function ModificationsPage() {
       .map(([dateKey, d]) => ({ dateKey, ...d }));
   }, [data]);
 
+  // Numeri mostrati nelle card: in vista "Per data" riflettono SOLO il giorno
+  // aperto/selezionato (spenti se nessuno); nelle altre viste i totali globali.
+  const displayCounts = useMemo(() => {
+    if (viewMode === 'byDate') {
+      const group = selectedDateKey
+        ? groupedByDate.find((g) => g.dateKey === selectedDateKey)
+        : null;
+      const byStatus: Record<string, number> = {
+        pending: 0, approved: 0, processing: 0, applied: 0, failed: 0, rejected: 0,
+      };
+      let total = 0;
+      if (group) {
+        group.mods.forEach((m) => {
+          byStatus[m.status] = (byStatus[m.status] || 0) + 1;
+          total += 1;
+        });
+      }
+      return { total, byStatus, perDate: true, hasSelection: !!group };
+    }
+    if (!summary) return null;
+    return { total: summary.total, byStatus: summary.byStatus, perDate: false, hasSelection: true };
+  }, [viewMode, selectedDateKey, groupedByDate, summary]);
+
   const handleBulkApproveByGroup = async (ids: string[]) => {
     if (ids.length === 0) return;
     setBulkLoading(true);
@@ -451,16 +476,6 @@ export function ModificationsPage() {
       setBulkLoading(false);
     }
   };
-
-  // Progress bar computed values
-  const progressStats = useMemo(() => {
-    if (!summary) return null;
-    const processed = (summary.byStatus.applied || 0) + (summary.byStatus.rejected || 0) + (summary.byStatus.failed || 0);
-    const pending = (summary.byStatus.pending || 0) + (summary.byStatus.approved || 0) + (summary.byStatus.processing || 0);
-    const total = processed + pending;
-    const percentage = total > 0 ? Math.round((processed / total) * 100) : 0;
-    return { processed, pending, total, percentage };
-  }, [summary]);
 
   // Get selected pending modification IDs
   const getSelectedPendingIds = (): string[] => {
@@ -857,73 +872,64 @@ export function ModificationsPage() {
         ))}
       </div>
 
-      {/* Summary Cards */}
-      {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-          <SummaryCard
-            label="Totale"
-            value={summary.total}
-            onClick={() => setStatusFilter('all')}
-            active={statusFilter === 'all'}
-          />
-          <SummaryCard
-            label="In Attesa"
-            value={summary.byStatus.pending || 0}
-            color="bg-yellow-500"
-            onClick={() => setStatusFilter('pending')}
-            active={statusFilter === 'pending'}
-          />
-          <SummaryCard
-            label="Approvate"
-            value={summary.byStatus.approved || 0}
-            color="bg-blue-500"
-            onClick={() => setStatusFilter('approved')}
-            active={statusFilter === 'approved'}
-          />
-          <SummaryCard
-            label="In Elaborazione"
-            value={summary.byStatus.processing || 0}
-            color="bg-purple-500"
-            onClick={() => setStatusFilter('processing')}
-            active={statusFilter === 'processing'}
-          />
-          <SummaryCard
-            label="Applicate"
-            value={summary.byStatus.applied || 0}
-            color="bg-green-500"
-            onClick={() => setStatusFilter('applied')}
-            active={statusFilter === 'applied'}
-          />
-          <SummaryCard
-            label="Fallite"
-            value={summary.byStatus.failed || 0}
-            color="bg-red-500"
-            onClick={() => setStatusFilter('failed')}
-            active={statusFilter === 'failed'}
-          />
-          <SummaryCard
-            label="Rifiutate"
-            value={summary.byStatus.rejected || 0}
-            color="bg-gray-500"
-            onClick={() => setStatusFilter('rejected')}
-            active={statusFilter === 'rejected'}
-          />
-        </div>
-      )}
-
-      {/* Progress Bar */}
-      {progressStats && progressStats.total > 0 && (
+      {/* Summary Cards: in vista Per data riflettono il giorno aperto */}
+      {displayCounts && (
         <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">
-              Progresso: {progressStats.processed} processate su {progressStats.total}
-            </span>
-            <span className="font-medium text-foreground">{progressStats.percentage}%</span>
-          </div>
-          <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-            <div
-              className="h-full bg-primary rounded-full transition-all duration-500"
-              style={{ width: `${progressStats.percentage}%` }}
+          {displayCounts.perDate && (
+            <p className="text-xs text-muted-foreground">
+              {displayCounts.hasSelection
+                ? 'Numeri del giorno selezionato'
+                : 'Apri un giorno qui sotto per vederne i numeri'}
+            </p>
+          )}
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+            <SummaryCard
+              label="Totale"
+              value={displayCounts.total}
+              onClick={() => setStatusFilter('all')}
+              active={statusFilter === 'all'}
+            />
+            <SummaryCard
+              label="In Attesa"
+              value={displayCounts.byStatus.pending || 0}
+              color="bg-yellow-500"
+              onClick={() => setStatusFilter('pending')}
+              active={statusFilter === 'pending'}
+            />
+            <SummaryCard
+              label="Approvate"
+              value={displayCounts.byStatus.approved || 0}
+              color="bg-blue-500"
+              onClick={() => setStatusFilter('approved')}
+              active={statusFilter === 'approved'}
+            />
+            <SummaryCard
+              label="In Elaborazione"
+              value={displayCounts.byStatus.processing || 0}
+              color="bg-purple-500"
+              onClick={() => setStatusFilter('processing')}
+              active={statusFilter === 'processing'}
+            />
+            <SummaryCard
+              label="Applicate"
+              value={displayCounts.byStatus.applied || 0}
+              color="bg-green-500"
+              onClick={() => setStatusFilter('applied')}
+              active={statusFilter === 'applied'}
+            />
+            <SummaryCard
+              label="Fallite"
+              value={displayCounts.byStatus.failed || 0}
+              color="bg-red-500"
+              onClick={() => setStatusFilter('failed')}
+              active={statusFilter === 'failed'}
+            />
+            <SummaryCard
+              label="Rifiutate"
+              value={displayCounts.byStatus.rejected || 0}
+              color="bg-gray-500"
+              onClick={() => setStatusFilter('rejected')}
+              active={statusFilter === 'rejected'}
             />
           </div>
         </div>
@@ -1145,6 +1151,8 @@ export function ModificationsPage() {
                 modifications={group.mods}
                 pendingCount={group.pendingCount}
                 highPriorityCount={group.highPriorityCount}
+                isOpen={selectedDateKey === group.dateKey}
+                onOpenChange={(open) => setSelectedDateKey(open ? group.dateKey : null)}
                 onApprove={handleApprove}
                 onUnapprove={handleUnapprove}
                 onQuickReject={handleQuickReject}
@@ -1666,6 +1674,8 @@ function DateGroupSection({
   modifications,
   pendingCount,
   highPriorityCount,
+  isOpen,
+  onOpenChange,
   onApprove,
   onUnapprove,
   onQuickReject,
@@ -1677,6 +1687,8 @@ function DateGroupSection({
   modifications: Modification[];
   pendingCount: number;
   highPriorityCount: number;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
   onApprove: (id: string) => void;
   onUnapprove: (id: string) => void;
   onQuickReject: (id: string, reason: string) => void;
@@ -1684,7 +1696,6 @@ function DateGroupSection({
   onViewDetail: (mod: Modification) => void;
   actionLoading: string | null;
 }) {
-  const [isOpen, setIsOpen] = useState(pendingCount > 0);
   const dateLabel = new Date(dateKey + 'T00:00:00').toLocaleDateString('it-IT', {
     weekday: 'long',
     day: '2-digit',
@@ -1693,12 +1704,12 @@ function DateGroupSection({
   });
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+    <Collapsible open={isOpen} onOpenChange={onOpenChange}>
       <CollapsibleTrigger className="w-full">
-        <div className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
+        <div className={`flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors ${isOpen ? 'border-primary ring-1 ring-primary/40' : ''}`}>
           <div className="flex items-center gap-3">
             {isOpen ? (
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              <ChevronDown className="h-4 w-4 text-primary" />
             ) : (
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
             )}

@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.18.11] - 2026-06-13
+
+### Aggiunto
+- Pagina Modifiche piu pulita - tab 'Modifiche' di default, card riassuntive legate al giorno selezionato nella vista Per data (spente finche non apri un giorno), rimossa la barra Progresso
+
+---
+
+
 ## [2.18.10] - 2026-06-13
 
 ### Aggiunto
