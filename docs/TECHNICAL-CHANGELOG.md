@@ -6,6 +6,7 @@ Log tecnico delle modifiche al software, auto-generato dal deploy script.
 
 | Versione | Data | Commit |
 |----------|------|--------|
+| 2.18.6 | 2026-06-13 | fix: l'analisi AI con Gemini falliva con 'Analysis failed' perche il JSON veniva troncato dal thinking di Gemini 3; alzato il budget token a 16k e aggiunto parsing difensivo con errore leggibile in caso di troncamento |
 | 2.18.5 | 2026-06-13 | fix: la chat del report mostra un errore chiaro invece di far sparire il messaggio; il backend rimuove la domanda orfana e rilancia un errore leggibile (es. quota AI esaurita) quando il provider fallisce |
 | 2.18.4 | 2026-06-12 | feat: i rifiuti ora sono permanenti - una modifica rifiutata non viene riproposta dall'AI finche lo stato attuale del dato resta invariato |
 | 2.18.3 | 2026-06-12 | fix: metriche di periodo gonfiate - daily_metrics deduplicate per (entita,giorno) tenendo l'import piu recente, niente piu somma tra run multipli |

@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.18.6] - 2026-06-13
+
+### Corretto
+- L'analisi AI con Gemini falliva con 'Analysis failed' perche il JSON veniva troncato dal thinking di Gemini 3; alzato il budget token a 16k e aggiunto parsing difensivo con errore leggibile in caso di troncamento
+
+---
+
+
 ## [2.18.5] - 2026-06-13
 
 ### Corretto

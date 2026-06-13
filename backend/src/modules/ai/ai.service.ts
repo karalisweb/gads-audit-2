@@ -1322,6 +1322,15 @@ Adatta le tue raccomandazioni in base a queste preferenze. Non insistere su cate
     }
   }
 
+  /** Rimuove eventuali fence markdown ```json ... ``` attorno al JSON. */
+  private stripJsonFences(text: string): string {
+    let t = (text || '').trim();
+    if (t.startsWith('```')) {
+      t = t.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+    }
+    return t;
+  }
+
   private async callGeminiJSON(
     systemPrompt: string,
     userPrompt: string,
@@ -1331,7 +1340,13 @@ Adatta le tue raccomandazioni in base a queste preferenze. Non insistere su cate
     if (!model) {
       model = this.configService.get<string>('ai.geminiModel') || 'gemini-3-flash-preview';
     }
-    const maxTokens = this.configService.get<number>('ai.maxTokens') || 4096;
+    // L'output JSON delle analisi (riepilogo + molte raccomandazioni in italiano) è lungo,
+    // e i modelli Gemini 3 consumano parte del budget in "thinking": con un tetto basso il
+    // JSON viene troncato a metà e JSON.parse fallisce. Diamo un budget ampio.
+    const maxTokens = Math.max(
+      this.configService.get<number>('ai.maxTokens') || 4096,
+      16384,
+    );
 
     try {
       this.logger.log(`Calling Gemini model: ${model}`);
@@ -1352,7 +1367,22 @@ Adatta le tue raccomandazioni in base a queste preferenze. Non insistere su cate
         throw new Error('Empty response from Gemini');
       }
 
-      return this.parseRecommendations(JSON.parse(content));
+      let parsed: any;
+      try {
+        parsed = JSON.parse(this.stripJsonFences(content));
+      } catch (parseErr) {
+        const finish = (response as any)?.candidates?.[0]?.finishReason;
+        this.logger.error(
+          `Gemini JSON non valido (finishReason=${finish ?? 'n/d'}, len=${content.length}): ${(parseErr as Error).message}`,
+        );
+        throw new Error(
+          finish === 'MAX_TOKENS' || finish === 'LENGTH'
+            ? 'Risposta AI troncata (limite token raggiunto). Riprova.'
+            : 'Risposta AI non in formato JSON valido. Riprova.',
+        );
+      }
+
+      return this.parseRecommendations(parsed);
     } catch (error) {
       this.logger.error('Gemini API error:', error);
       throw new BadRequestException(`AI analysis failed: ${error.message}`);
