@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.18.22] - 2026-06-13
+
+### Corretto
+- Rete di sicurezza sui bid - non invia allo script modifiche di offerta con valore non numerico o assurdo (es. l'AI metteva €90/click); protegge il budget
+
+---
+
+
 ## [2.18.21] - 2026-06-13
 
 ### Aggiunto

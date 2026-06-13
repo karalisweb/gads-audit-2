@@ -1,8 +1,10 @@
 /**
  * GADS Audit 2.0 - Google Ads Download Script
  *
+ * VERSIONE: 3.6
+ * DATA: 13/06/2026
  * ACCOUNT: OFFICINA 3MT (7050747943)
- * ULTIMA MODIFICA: 2026-03-04
+ * ULTIMA MODIFICA: 2026-06-13 (v3.6)
  *
  * Questo script estrae dati dall'account Google Ads e li invia all'app di audit
  * tramite HTTPS POST con autenticazione HMAC-SHA256.

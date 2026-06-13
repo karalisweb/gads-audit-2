@@ -6,6 +6,7 @@ Log tecnico delle modifiche al software, auto-generato dal deploy script.
 
 | Versione | Data | Commit |
 |----------|------|--------|
+| 2.18.22 | 2026-06-13 | fix: rete di sicurezza sui bid - non invia allo script modifiche di offerta con valore non numerico o assurdo (es. l'AI metteva €90/click); protegge il budget |
 | 2.18.21 | 2026-06-13 | feat: nelle conversioni raggruppate per origine, le primarie vengono mostrate prima delle secondarie |
 | 2.18.20 | 2026-06-13 | feat: conversioni raggruppabili per Origine (Sito web, Chiamata dagli annunci...) con toggle 'Per origine' attivo di default |
 | 2.18.19 | 2026-06-13 | fix: 'Inattiva' solo sulle azioni primarie per-azione (primaryForGoal), non sull'intera categoria biddable - coincide con 'Inattivo' di Google Ads |

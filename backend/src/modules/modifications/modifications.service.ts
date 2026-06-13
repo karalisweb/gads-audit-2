@@ -368,7 +368,18 @@ export class ModificationsService {
       order: { createdAt: 'ASC' },
     });
 
-    return modifications;
+    // Rete di sicurezza sui BID: non inviare mai allo script una modifica di offerta
+    // con valore non numerico (l'AI a volte ci mette testo) o fuori da un range sano
+    // (es. €90/click). Protegge il budget da valori assurdi auto-applicati.
+    const MAX_CPC_EUR = 20;
+    return modifications.filter((m) => {
+      const t = m.modificationType as string;
+      if (t !== 'ad_group.cpc_bid' && t !== 'keyword.cpc_bid') return true;
+      const micros = Number((m.afterValue as Record<string, unknown>)?.cpcBid);
+      if (!Number.isFinite(micros) || micros <= 0) return false;
+      const euro = micros / 1_000_000;
+      return euro > 0 && euro <= MAX_CPC_EUR;
+    });
   }
 
   async getFailedForAccount(customerId: string) {
