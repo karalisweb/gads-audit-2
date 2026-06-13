@@ -25,9 +25,11 @@ import {
   CheckCircle,
   EyeOff,
   Activity,
+  Radio,
 } from 'lucide-react';
 import { ModifyButton } from '@/components/modifications';
-import { getCampaigns, getAdGroups, getAds, getKeywords, getConversionActions } from '@/api/audit';
+import { getCampaigns, getAdGroups, getAds, getKeywords, getConversionActions, getConversionsByChannel } from '@/api/audit';
+import type { ConversionsByChannelResponse } from '@/api/audit';
 import { usePeriodEntityMetrics } from '@/hooks/usePeriodEntityMetrics';
 import { formatCurrency, formatNumber } from '@/lib/format';
 import type { Campaign, AdGroup, Ad, Keyword, ConversionAction, PaginatedResponse } from '@/types/audit';
@@ -77,6 +79,54 @@ const getOriginLabel = (origin: string) => {
   };
   return labels[origin] || origin.replace(/_/g, ' ');
 };
+
+// Canali di conversione: come è arrivato il contatto (telefono, WhatsApp, mail, form)
+const CHANNEL_META: Record<string, { icon: string; label: string; order: number }> = {
+  phone: { icon: '📞', label: 'Telefono', order: 0 },
+  whatsapp: { icon: '💬', label: 'WhatsApp', order: 1 },
+  mail: { icon: '✉️', label: 'Mail', order: 2 },
+  form: { icon: '📝', label: 'Form', order: 3 },
+  booking: { icon: '📅', label: 'Prenotazione', order: 4 },
+  other: { icon: '🎯', label: 'Altro', order: 5 },
+};
+const channelMeta = (ch: string) => CHANNEL_META[ch] || CHANNEL_META.other;
+const fmtConv = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, ''));
+
+// Aggrega i canali "grezzi" (più azioni possono mappare sullo stesso canale logico)
+function aggregateChannels(
+  channels: Array<{ channel: string; conversions: number }>,
+): Array<{ channel: string; conversions: number }> {
+  const m = new Map<string, number>();
+  for (const c of channels) m.set(c.channel, (m.get(c.channel) || 0) + c.conversions);
+  return Array.from(m.entries())
+    .map(([channel, conversions]) => ({ channel, conversions }))
+    .sort((a, b) => channelMeta(a.channel).order - channelMeta(b.channel).order);
+}
+
+function ChannelChips({
+  channels,
+}: {
+  channels: Array<{ channel: string; conversions: number }>;
+}) {
+  const agg = aggregateChannels(channels);
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {agg.map((c) => {
+        const meta = channelMeta(c.channel);
+        return (
+          <span
+            key={c.channel}
+            className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs"
+            title={meta.label}
+          >
+            <span>{meta.icon}</span>
+            <span className="font-medium">{fmtConv(c.conversions)}</span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -280,6 +330,11 @@ export function ConversionsPage() {
   const [actionsStatusFilter, setActionsStatusFilter] = useState<string>('all');
   const [groupByOrigin, setGroupByOrigin] = useState(true);
 
+  // Conversioni per canale (entità × azione di conversione)
+  const [channelData, setChannelData] = useState<ConversionsByChannelResponse | null>(null);
+  const [channelLoading, setChannelLoading] = useState(true);
+  const [channelEntityType, setChannelEntityType] = useState<'keyword' | 'campaign' | 'ad_group'>('keyword');
+
   // Load performance data
   const loadPerformanceData = useCallback(async () => {
     if (!accountId) return;
@@ -319,8 +374,23 @@ export function ConversionsPage() {
     }
   }, [accountId]);
 
+  // Load conversioni per canale
+  const loadChannelData = useCallback(async () => {
+    if (!accountId) return;
+    setChannelLoading(true);
+    try {
+      const result = await getConversionsByChannel(accountId);
+      setChannelData(result);
+    } catch (err) {
+      console.error('Failed to load conversions by channel:', err);
+    } finally {
+      setChannelLoading(false);
+    }
+  }, [accountId]);
+
   useEffect(() => { loadPerformanceData(); }, [loadPerformanceData]);
   useEffect(() => { loadActions(); }, [loadActions]);
+  useEffect(() => { loadChannelData(); }, [loadChannelData]);
 
   // Calcola KPI e breakdown usando le metriche del PERIODO selezionato
   // (fallback ai valori dello snapshot se non ci sono dati giornalieri).
@@ -416,6 +486,20 @@ export function ConversionsPage() {
       }))
       .sort((x, y) => getOriginLabel(x.origin).localeCompare(getOriginLabel(y.origin)));
   }, [filteredActions]);
+
+  // Conversioni per canale: entità filtrate per tipo selezionato + totali canale
+  const channelEntities = useMemo(() => {
+    if (!channelData?.entities) return [];
+    return channelData.entities.filter((e) => e.entityType === channelEntityType);
+  }, [channelData, channelEntityType]);
+
+  const channelTypeCounts = useMemo(() => {
+    const counts = { keyword: 0, campaign: 0, ad_group: 0 };
+    for (const e of channelData?.entities || []) {
+      if (e.entityType in counts) counts[e.entityType as keyof typeof counts]++;
+    }
+    return counts;
+  }, [channelData]);
 
   // Performance entity counts
   const campaignsWithConv = campaigns.filter((c) => c.conversions > 0);
@@ -630,6 +714,97 @@ export function ConversionsPage() {
             </CardContent>
           </Card>
         </div>
+      </section>
+
+      {/* ─── Sezione 2-bis: Conversioni per Canale ───────────────────── */}
+      <section>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-1">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <Radio className="h-5 w-5" />
+            Da dove arrivano le conversioni
+          </h3>
+          <div className="flex items-center gap-1.5">
+            {([
+              ['keyword', 'Keyword', channelTypeCounts.keyword],
+              ['campaign', 'Campagne', channelTypeCounts.campaign],
+              ['ad_group', 'Ad Groups', channelTypeCounts.ad_group],
+            ] as const).map(([key, label, count]) => (
+              <Button
+                key={key}
+                variant={channelEntityType === key ? 'default' : 'outline'}
+                size="sm"
+                className="h-9"
+                onClick={() => setChannelEntityType(key)}
+              >
+                {label} ({count})
+              </Button>
+            ))}
+          </div>
+        </div>
+        <p className="text-sm text-muted-foreground mb-3">
+          Telefono, WhatsApp, mail o form — e quale {channelEntityType === 'keyword' ? 'keyword' : channelEntityType === 'campaign' ? 'campagna' : 'ad group'} li ha portati (ultimi 30gg).
+        </p>
+
+        {channelLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-14 w-full" />
+            ))}
+          </div>
+        ) : !channelData || channelData.entities.length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center text-sm text-muted-foreground">
+              Nessun dato per canale disponibile.
+              <br />
+              <span className="text-xs">
+                Aggiorna lo script di download dell'account alla versione 3.7 ed esegui un nuovo import.
+              </span>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            {/* Totali per canale su tutto l'account */}
+            {channelData.channelTotals.length > 0 && (
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                {aggregateChannels(channelData.channelTotals).map((c) => {
+                  const meta = channelMeta(c.channel);
+                  return (
+                    <div
+                      key={c.channel}
+                      className="inline-flex items-center gap-2 rounded-lg border bg-card px-3 py-1.5"
+                    >
+                      <span className="text-base">{meta.icon}</span>
+                      <span className="text-sm font-medium">{meta.label}</span>
+                      <span className="text-sm font-bold">{fmtConv(c.conversions)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {channelEntities.length === 0 ? (
+              <div className="text-center py-8 text-sm text-muted-foreground">
+                Nessuna conversione attribuita a livello di {channelEntityType === 'keyword' ? 'keyword' : channelEntityType === 'campaign' ? 'campagna' : 'ad group'}.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {channelEntities.map((e) => (
+                  <Card key={`${e.entityType}-${e.entityId}`}>
+                    <CardContent className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-3">
+                      <div className="min-w-0 flex items-center gap-2">
+                        <Badge variant="secondary" className="text-xs shrink-0">
+                          {fmtConv(e.totalConversions)} conv.
+                        </Badge>
+                        <p className="text-sm font-medium truncate">{e.entityName}</p>
+                      </div>
+                      <ChannelChips channels={e.channels} />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </section>
 
       {/* ─── Sezione 3: Azioni di Conversione ────────────────────────── */}

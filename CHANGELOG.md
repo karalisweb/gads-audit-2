@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.18.25] - 2026-06-13
+
+### Aggiunto
+- Conversioni per canale (entita x azione) - quale keyword/campagna porta telefono/WhatsApp/mail/form; script download v3.7 con dataset conversion_action_metrics
+
+---
+
+
 ## [2.18.24] - 2026-06-13
 
 ### Aggiunto

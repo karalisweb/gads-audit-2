@@ -242,6 +242,35 @@ export async function getConversionActions(
   return apiClient.get<PaginatedResponse<ConversionAction>>(`/audit/accounts/${accountId}/conversion-actions`, params);
 }
 
+// Conversioni per canale (entità × azione di conversione)
+export interface ConversionChannelEntry {
+  name: string;
+  channel: string; // phone | whatsapp | mail | form | booking | other
+  conversions: number;
+}
+export interface ConversionByEntity {
+  entityType: string; // campaign | ad_group | keyword
+  entityId: string;
+  entityName: string;
+  totalConversions: number;
+  channels: ConversionChannelEntry[];
+}
+export interface ConversionsByChannelResponse {
+  entities: ConversionByEntity[];
+  channelTotals: Array<{ channel: string; conversions: number }>;
+}
+
+export async function getConversionsByChannel(
+  accountId: string,
+  filters: { runId?: string; entityType?: string } = {},
+): Promise<ConversionsByChannelResponse> {
+  const params = buildParams(filters as Record<string, unknown>);
+  return apiClient.get<ConversionsByChannelResponse>(
+    `/audit/accounts/${accountId}/conversions-by-channel`,
+    params,
+  );
+}
+
 // Issues Summary
 export interface IssueSummary {
   total: number;

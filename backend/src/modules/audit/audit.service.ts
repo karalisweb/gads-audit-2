@@ -19,6 +19,7 @@ import {
   NegativeKeyword,
   Asset,
   ConversionAction,
+  ConversionActionMetric,
   GeoPerformance,
   DevicePerformance,
   AuditIssue,
@@ -64,6 +65,8 @@ export class AuditService {
     private readonly assetRepository: Repository<Asset>,
     @InjectRepository(ConversionAction)
     private readonly conversionActionRepository: Repository<ConversionAction>,
+    @InjectRepository(ConversionActionMetric)
+    private readonly conversionActionMetricRepository: Repository<ConversionActionMetric>,
     @InjectRepository(GeoPerformance)
     private readonly geoPerformanceRepository: Repository<GeoPerformance>,
     @InjectRepository(DevicePerformance)
@@ -1542,6 +1545,127 @@ export class AuditService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  // =========================================================================
+  // CONVERSIONI PER CANALE (entità × azione di conversione)
+  // =========================================================================
+
+  /**
+   * Classifica il nome di un'azione di conversione in un canale logico.
+   * Permette di mostrare icone/etichette (telefono, WhatsApp, mail, form).
+   */
+  private classifyChannel(name: string): string {
+    const n = (name || '').toLowerCase();
+    if (/whats|\bwa\b|wapp/.test(n)) return 'whatsapp';
+    if (/phone|call|chiamat|tel\b|click_to_call|telefon/.test(n)) return 'phone';
+    if (/mail|email|mailto|posta/.test(n)) return 'mail';
+    if (/form|lead|modulo|submit|invio|contact|contatt/.test(n)) return 'form';
+    if (/calendly|grazie|thank|prenot|book|appoint/.test(n)) return 'booking';
+    return 'other';
+  }
+
+  /**
+   * Conversioni segmentate per entità (keyword / campagna / ad group) × canale,
+   * ultimi 30gg. Restituisce, per ogni entità con conversioni, il dettaglio dei
+   * canali (es. "taxi elmas" → 📞 phone 0.5, 💬 whatsapp 0.67).
+   */
+  async getConversionsByChannel(
+    accountId: string,
+    filters: { runId?: string; entityType?: string } = {},
+  ): Promise<{
+    entities: Array<{
+      entityType: string;
+      entityId: string;
+      entityName: string;
+      totalConversions: number;
+      channels: Array<{
+        name: string;
+        channel: string;
+        conversions: number;
+      }>;
+    }>;
+    channelTotals: Array<{ channel: string; conversions: number }>;
+  }> {
+    const targetRunId = filters.runId || (await this.getLatestRunId(accountId));
+    if (!targetRunId) {
+      return { entities: [], channelTotals: [] };
+    }
+
+    const qb = this.conversionActionMetricRepository
+      .createQueryBuilder('m')
+      .where('m.accountId = :accountId', { accountId })
+      .andWhere('m.runId = :runId', { runId: targetRunId });
+
+    if (filters.entityType) {
+      qb.andWhere('m.entityType = :entityType', {
+        entityType: filters.entityType,
+      });
+    }
+
+    const rows = await qb.getMany();
+
+    // Aggregazione per entità
+    const byEntity = new Map<
+      string,
+      {
+        entityType: string;
+        entityId: string;
+        entityName: string;
+        totalConversions: number;
+        channels: Array<{ name: string; channel: string; conversions: number }>;
+      }
+    >();
+    const channelTotalsMap = new Map<string, number>();
+
+    for (const r of rows) {
+      const conv = Number(r.conversions) || 0;
+      if (conv <= 0) continue;
+      const key = `${r.entityType}:${r.entityId}`;
+      if (!byEntity.has(key)) {
+        byEntity.set(key, {
+          entityType: r.entityType,
+          entityId: r.entityId,
+          entityName: r.entityName || r.entityId,
+          totalConversions: 0,
+          channels: [],
+        });
+      }
+      const e = byEntity.get(key)!;
+      const channel = this.classifyChannel(r.conversionActionName);
+      e.totalConversions += conv;
+      e.channels.push({
+        name: r.conversionActionName,
+        channel,
+        conversions: conv,
+      });
+      channelTotalsMap.set(
+        channel,
+        (channelTotalsMap.get(channel) || 0) + conv,
+      );
+    }
+
+    const entities = Array.from(byEntity.values())
+      .map((e) => ({
+        ...e,
+        totalConversions: Math.round(e.totalConversions * 100) / 100,
+        channels: e.channels
+          .map((c) => ({
+            ...c,
+            conversions: Math.round(c.conversions * 100) / 100,
+          }))
+          .sort((a, b) => b.conversions - a.conversions),
+      }))
+      .sort((a, b) => b.totalConversions - a.totalConversions);
+
+    const channelTotals = Array.from(channelTotalsMap.entries())
+      .map(([channel, conversions]) => ({
+        channel,
+        conversions: Math.round(conversions * 100) / 100,
+      }))
+      .sort((a, b) => b.conversions - a.conversions);
+
+    return { entities, channelTotals };
   }
 
   async getGeoPerformance(accountId: string, runId?: string): Promise<GeoPerformance[]> {

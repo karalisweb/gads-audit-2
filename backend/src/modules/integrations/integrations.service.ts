@@ -21,6 +21,7 @@ import {
   NegativeKeyword,
   Asset,
   ConversionAction,
+  ConversionActionMetric,
   GeoPerformance,
   DevicePerformance,
   DailyMetric,
@@ -218,6 +219,9 @@ export class IntegrationsService {
         break;
       case 'conversion_actions':
         await this.processConversionActions(manager, accountId, runId, data);
+        break;
+      case 'conversion_action_metrics':
+        await this.processConversionActionMetrics(manager, accountId, runId, data);
         break;
       case 'geo_performance':
         await this.processGeoPerformance(manager, accountId, runId, data, dateStart, dateEnd);
@@ -554,6 +558,34 @@ export class IntegrationsService {
           campaignsUsingCount: Number(row.campaigns_using_count || row.campaignsUsingCount || 0),
         },
         ['accountId', 'runId', 'conversionActionId'],
+      );
+    }
+  }
+
+  private async processConversionActionMetrics(
+    manager: EntityManager,
+    accountId: string,
+    runId: string,
+    data: Record<string, unknown>[],
+  ): Promise<void> {
+    for (const row of data) {
+      const entityType = String(row.entity_type || row.entityType || '');
+      const entityId = String(row.entity_id || row.entityId || '');
+      const entityName = String(row.entity_name || row.entityName || '');
+      const name = String(row.conversion_action_name || row.conversionActionName || '');
+      if (!entityType || !entityId || !name) continue;
+      await manager.upsert(
+        ConversionActionMetric,
+        {
+          accountId,
+          runId,
+          entityType,
+          entityId,
+          entityName,
+          conversionActionName: name,
+          conversions: Number(row.conversions) || 0,
+        },
+        ['accountId', 'runId', 'entityType', 'entityId', 'conversionActionName'],
       );
     }
   }

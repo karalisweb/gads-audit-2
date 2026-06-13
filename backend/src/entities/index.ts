@@ -12,6 +12,7 @@ export * from './search-term.entity';
 export * from './negative-keyword.entity';
 export * from './asset.entity';
 export * from './conversion-action.entity';
+export * from './conversion-action-metric.entity';
 export * from './geo-performance.entity';
 export * from './device-performance.entity';
 export * from './audit.entity';

@@ -6,6 +6,7 @@ Log tecnico delle modifiche al software, auto-generato dal deploy script.
 
 | Versione | Data | Commit |
 |----------|------|--------|
+| 2.18.25 | 2026-06-13 | feat: conversioni per canale (entita x azione) - quale keyword/campagna porta telefono/WhatsApp/mail/form; script download v3.7 con dataset conversion_action_metrics |
 | 2.18.24 | 2026-06-13 | feat: breakdown dettagliato del punteggio salute in ogni account (Dashboard) - card espandibile coi 6 fattori, barre e spiegazioni (es. '79% budget senza conversioni') |
 | 2.18.23 | 2026-06-13 | fix: il selettore periodo ora funziona nella pagina Conversioni - KPI (conversioni, valore, costo, CPA, ROAS) e breakdown per entita rispondono al periodo selezionato invece di usare lo snapshot fisso |
 | 2.18.22 | 2026-06-13 | fix: rete di sicurezza sui bid - non invia allo script modifiche di offerta con valore non numerico o assurdo (es. l'AI metteva €90/click); protegge il budget |

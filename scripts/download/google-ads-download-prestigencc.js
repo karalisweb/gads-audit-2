@@ -1,10 +1,10 @@
 /**
  * GADS Audit 2.0 - Google Ads Download Script
  *
- * VERSIONE: 3.6
+ * VERSIONE: 3.7
  * DATA: 13/06/2026
  * ACCOUNT: PRESTIGENCC (6448457990)
- * ULTIMA MODIFICA: 2026-06-13 (v3.6)
+ * ULTIMA MODIFICA: 2026-06-13 (v3.7)
  *
  * Questo script estrae dati dall'account Google Ads e li invia all'app di audit
  * tramite HTTPS POST con autenticazione HMAC-SHA256.
@@ -35,6 +35,7 @@ var CONFIG = {
     'negative_keywords',
     'assets',
     'conversion_actions',
+    'conversion_action_metrics',
     'geo_performance',
     'device_performance',
     'daily_campaigns',
@@ -53,7 +54,7 @@ function main() {
   var runId = generateRunId();
 
   Logger.log('========================================');
-  Logger.log('GADS Audit 2.0 - Download Script (v3.6 - 13/06/2026)');
+  Logger.log('GADS Audit 2.0 - Download Script (v3.7 - 13/06/2026)');
   Logger.log('========================================');
   Logger.log('Account: ' + accountName + ' (' + accountId + ')');
   Logger.log('Run ID: ' + runId);
@@ -96,6 +97,7 @@ function exportDataset(accountId, runId, datasetName, totalDatasets) {
     case 'negative_keywords': data = extractNegativeKeywords(); break;
     case 'assets': data = extractAssets(); break;
     case 'conversion_actions': data = extractConversionActions(); break;
+    case 'conversion_action_metrics': data = extractConversionActionMetrics(); break;
     case 'geo_performance': data = extractGeoPerformance(); break;
     case 'device_performance': data = extractDevicePerformance(); break;
     case 'daily_campaigns': data = extractDailyCampaigns(); break;
@@ -458,6 +460,74 @@ function extractConversionActions() {
   }
 
   return conversions;
+}
+
+
+// v3.7 - Conversioni per ENTITA x CANALE (azione di conversione), ultimi 30gg.
+// Permette di sapere quale keyword/campagna/ad group porta chiamate, WhatsApp, mail, form.
+function extractConversionActionMetrics() {
+  var out = [];
+
+  // Keywords (id composito adGroup~criterion per evitare collisioni di criterion_id)
+  try {
+    var kq = 'SELECT ad_group.id, ad_group_criterion.criterion_id, ' +
+      'ad_group_criterion.keyword.text, segments.conversion_action_name, metrics.conversions ' +
+      'FROM keyword_view WHERE segments.date DURING LAST_30_DAYS AND metrics.conversions > 0';
+    var kr = AdsApp.report(kq).rows();
+    while (kr.hasNext()) {
+      var r = kr.next();
+      var conv = parseFloat(r['metrics.conversions']) || 0;
+      if (conv <= 0) continue;
+      out.push({
+        entity_type: 'keyword',
+        entity_id: String(r['ad_group.id'] || '') + '~' + String(r['ad_group_criterion.criterion_id'] || ''),
+        entity_name: String(r['ad_group_criterion.keyword.text'] || ''),
+        conversion_action_name: r['segments.conversion_action_name'] || '',
+        conversions: conv
+      });
+    }
+  } catch (e) { Logger.log('  > Note: kw conv metrics: ' + e.message); }
+
+  // Campagne (escludi PMax se configurato)
+  try {
+    var cq = 'SELECT campaign.id, campaign.name, segments.conversion_action_name, metrics.conversions ' +
+      'FROM campaign WHERE segments.date DURING LAST_30_DAYS AND metrics.conversions > 0 ' +
+      (CONFIG.EXCLUDE_PMAX ? 'AND campaign.advertising_channel_type != "PERFORMANCE_MAX" ' : '');
+    var cr = AdsApp.report(cq).rows();
+    while (cr.hasNext()) {
+      var r2 = cr.next();
+      var conv2 = parseFloat(r2['metrics.conversions']) || 0;
+      if (conv2 <= 0) continue;
+      out.push({
+        entity_type: 'campaign',
+        entity_id: String(r2['campaign.id'] || ''),
+        entity_name: String(r2['campaign.name'] || ''),
+        conversion_action_name: r2['segments.conversion_action_name'] || '',
+        conversions: conv2
+      });
+    }
+  } catch (e) { Logger.log('  > Note: campaign conv metrics: ' + e.message); }
+
+  // Ad groups
+  try {
+    var aq = 'SELECT ad_group.id, ad_group.name, segments.conversion_action_name, metrics.conversions ' +
+      'FROM ad_group WHERE segments.date DURING LAST_30_DAYS AND metrics.conversions > 0';
+    var ar = AdsApp.report(aq).rows();
+    while (ar.hasNext()) {
+      var r3 = ar.next();
+      var conv3 = parseFloat(r3['metrics.conversions']) || 0;
+      if (conv3 <= 0) continue;
+      out.push({
+        entity_type: 'ad_group',
+        entity_id: String(r3['ad_group.id'] || ''),
+        entity_name: String(r3['ad_group.name'] || ''),
+        conversion_action_name: r3['segments.conversion_action_name'] || '',
+        conversions: conv3
+      });
+    }
+  } catch (e) { Logger.log('  > Note: ad_group conv metrics: ' + e.message); }
+
+  return out;
 }
 
 function extractGeoPerformance() {

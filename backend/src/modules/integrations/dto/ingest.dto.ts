@@ -67,7 +67,8 @@ export type DatasetName =
   | 'daily_ad_groups'
   | 'daily_keywords'
   | 'daily_ads'
-  | 'daily_search_terms';
+  | 'daily_search_terms'
+  | 'conversion_action_metrics';
 
 export const VALID_DATASETS: DatasetName[] = [
   'campaigns',
@@ -85,6 +86,7 @@ export const VALID_DATASETS: DatasetName[] = [
   'daily_keywords',
   'daily_ads',
   'daily_search_terms',
+  'conversion_action_metrics',
 ];
 
 // Mapping from daily dataset names to entity types

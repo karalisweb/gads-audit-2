@@ -265,6 +265,18 @@ export class AuditController {
     });
   }
 
+  @Get('accounts/:accountId/conversions-by-channel')
+  async getConversionsByChannel(
+    @Param('accountId', ParseUUIDPipe) accountId: string,
+    @Query('runId') runId?: string,
+    @Query('entityType') entityType?: string,
+  ) {
+    return this.auditService.getConversionsByChannel(accountId, {
+      runId,
+      entityType,
+    });
+  }
+
   // =========================================================================
   // GEO & DEVICE PERFORMANCE
   // =========================================================================
