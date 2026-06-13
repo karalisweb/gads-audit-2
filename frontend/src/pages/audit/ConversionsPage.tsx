@@ -179,13 +179,14 @@ function ConversionActionCard({
 }: {
   action: ConversionAction; accountId: string; onRefresh: () => void;
 }) {
+  const isPrimary = action.primaryForGoal || action.goalBiddable === true;
   const hasIssues = !action.primaryForGoal && action.status === 'ENABLED';
-  // "Non usata" disattivato: campaignsUsingCount non è calcolato dallo script (sempre 0) → badge fuorviante
-  const notUsed = false;
   const lowValue = (action.defaultValue === 0 || action.defaultValue === 1) && action.status === 'ENABLED';
+  // Inattiva: primaria ENABLED con 0 conversioni negli ultimi 30gg → tracciamento rotto
+  const inactive = action.status === 'ENABLED' && isPrimary && action.recentConversions === 0;
 
   return (
-    <div className={`border rounded-lg bg-card p-4 ${hasIssues || notUsed || lowValue ? 'border-orange-300' : ''}`}>
+    <div className={`border rounded-lg bg-card p-4 ${inactive ? 'border-red-400' : hasIssues || lowValue ? 'border-orange-300' : ''}`}>
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -201,9 +202,9 @@ function ConversionActionCard({
                 Secondaria
               </Badge>
             )}
-            {notUsed && (
-              <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">
-                Non usata
+            {inactive && (
+              <Badge variant="destructive" className="text-xs">
+                Inattiva · 0 conv. 30gg
               </Badge>
             )}
           </div>
@@ -232,9 +233,9 @@ function ConversionActionCard({
               </p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Campagne</p>
-              <p className={`text-sm font-medium ${notUsed ? 'text-orange-600' : ''}`}>
-                {action.campaignsUsingCount}
+              <p className="text-xs text-muted-foreground">Conv. 30gg</p>
+              <p className={`text-sm font-medium ${inactive ? 'text-red-500' : ''}`}>
+                {action.recentConversions != null ? action.recentConversions : '-'}
               </p>
             </div>
           </div>
@@ -388,14 +389,15 @@ export function ConversionsPage() {
 
   // Conversion actions stats
   const actionStats = useMemo(() => {
-    if (!actionsData?.data) return { total: 0, enabled: 0, primary: 0, hidden: 0, notUsed: 0, lowValue: 0 };
+    if (!actionsData?.data) return { total: 0, enabled: 0, primary: 0, hidden: 0, inactive: 0, lowValue: 0 };
     const all = actionsData.data;
     return {
       total: actionsData.meta.total,
       enabled: all.filter(a => a.status === 'ENABLED').length,
       primary: all.filter(a => a.primaryForGoal).length,
       hidden: all.filter(a => a.status === 'HIDDEN').length,
-      notUsed: all.filter(a => a.campaignsUsingCount === 0 && a.status === 'ENABLED').length,
+      // Inattive: primarie ENABLED con 0 conversioni negli ultimi 30gg (tracciamento rotto)
+      inactive: all.filter(a => a.status === 'ENABLED' && (a.primaryForGoal || a.goalBiddable === true) && a.recentConversions === 0).length,
       lowValue: all.filter(a => (a.defaultValue === 0 || a.defaultValue === 1) && a.status === 'ENABLED').length,
     };
   }, [actionsData]);
@@ -510,6 +512,19 @@ export function ConversionsPage() {
               <CardContent>
                 <div className={`text-2xl font-bold ${hasHiddenActions ? 'text-red-600' : ''}`}>
                   {actionStats.hidden}
+                </div>
+              </CardContent>
+            </Card>
+            <Card className={actionStats.inactive > 0 ? 'border-red-400' : ''}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs font-medium flex items-center gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5 text-red-600" />
+                  Inattive
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${actionStats.inactive > 0 ? 'text-red-600' : ''}`}>
+                  {actionStats.inactive}
                 </div>
               </CardContent>
             </Card>

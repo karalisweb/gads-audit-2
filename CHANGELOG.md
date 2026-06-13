@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.18.17] - 2026-06-13
+
+### Aggiunto
+- Stato salute conversioni - rileva le 'Inattive' (conversione primaria con 0 conversioni in 30gg = tracciamento rotto); badge rosso + card Inattive + colonna Conv.30gg nell'app, l'AI lo segnala come problema grave; script v3.6 importa metrics.all_conversions
+
+---
+
+
 ## [2.18.16] - 2026-06-13
 
 ### Aggiunto

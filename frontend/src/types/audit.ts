@@ -340,6 +340,8 @@ export interface ConversionAction {
   defaultValue: number | null;
   alwaysUseDefaultValue: boolean;
   primaryForGoal: boolean;
+  goalBiddable?: boolean | null;
+  recentConversions?: number | null;
   campaignsUsingCount: number;
   importedAt: string;
 }

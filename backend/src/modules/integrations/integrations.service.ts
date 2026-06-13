@@ -547,6 +547,10 @@ export class IntegrationsService {
             (row.goal_biddable ?? row.goalBiddable) != null
               ? Boolean(row.goal_biddable ?? row.goalBiddable)
               : undefined,
+          recentConversions:
+            (row.recent_conversions ?? row.recentConversions) != null
+              ? Number(row.recent_conversions ?? row.recentConversions)
+              : undefined,
           campaignsUsingCount: Number(row.campaigns_using_count || row.campaignsUsingCount || 0),
         },
         ['accountId', 'runId', 'conversionActionId'],

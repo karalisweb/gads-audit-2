@@ -388,7 +388,6 @@ function extractConversionActions() {
   function toBool(v) { return v === true || v === 'true' || v === 'TRUE' || v === '1'; }
 
   // Mappa (category|origin) -> biddable dal LIVELLO OBIETTIVO (customer_conversion_goal).
-  // toBool perche' AdsApp.report puo' restituire un booleano (non la stringa 'true').
   var goalBiddable = {};
   try {
     var goalRows = AdsApp.report(
@@ -402,6 +401,22 @@ function extractConversionActions() {
     }
   } catch (e) {
     Logger.log('  > Note: Could not extract conversion goals: ' + e.message);
+  }
+
+  // Conversioni registrate negli ultimi 30 giorni per azione -> rileva le "Inattive"
+  // (azione primaria ENABLED con 0 conversioni = tracciamento che non registra).
+  var recentConv = {};
+  try {
+    var mRows = AdsApp.report(
+      'SELECT conversion_action.id, metrics.all_conversions ' +
+      'FROM conversion_action WHERE segments.date DURING LAST_30_DAYS'
+    ).rows();
+    while (mRows.hasNext()) {
+      var m = mRows.next();
+      recentConv[m['conversion_action.id']] = parseFloat(m['metrics.all_conversions']) || 0;
+    }
+  } catch (e) {
+    Logger.log('  > Note: Could not extract recent conversions: ' + e.message);
   }
 
   var query = 'SELECT ' +
@@ -421,9 +436,10 @@ function extractConversionActions() {
   var rows = AdsApp.report(query).rows();
   while (rows.hasNext()) {
     var row = rows.next();
+    var caId = row['conversion_action.id'];
     var goalKey = row['conversion_action.category'] + '|' + row['conversion_action.origin'];
     conversions.push({
-      conversion_action_id: row['conversion_action.id'],
+      conversion_action_id: caId,
       name: row['conversion_action.name'],
       status: row['conversion_action.status'],
       type: row['conversion_action.type'],
@@ -434,6 +450,7 @@ function extractConversionActions() {
       always_use_default_value: toBool(row['conversion_action.value_settings.always_use_default_value']),
       primary_for_goal: toBool(row['conversion_action.primary_for_goal']),
       goal_biddable: goalBiddable[goalKey] === true,
+      recent_conversions: recentConv[caId] != null ? recentConv[caId] : null,
       campaigns_using_count: 0
     });
   }

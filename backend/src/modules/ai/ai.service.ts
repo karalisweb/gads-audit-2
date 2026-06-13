@@ -1196,6 +1196,13 @@ Adatta le tue raccomandazioni in base a queste preferenze. Non insistere su cate
         defaultValue: c.defaultValue,
         primaryForGoal: c.primaryForGoal,
         goalBiddable: c.goalBiddable,
+        recentConversions: c.recentConversions,
+        // Inattiva = primaria/biddable ma 0 conversioni recenti: il tracciamento non registra
+        inactive:
+          c.status === 'ENABLED' &&
+          (c.primaryForGoal || c.goalBiddable) &&
+          c.recentConversions != null &&
+          c.recentConversions === 0,
         campaignsUsing: c.campaignsUsingCount,
       }));
     }
@@ -1782,12 +1789,14 @@ ${enabledCampaigns
   .join('\n')}
 
 AZIONI DI CONVERSIONE (${conversionActions.length}):
-(primaria = l'obiettivo è biddable, cioè Google ottimizza/fa offerte verso questa conversione)
+(primaria = l'obiettivo è biddable, cioè Google ottimizza/fa offerte verso questa conversione. INATTIVA = primaria con 0 conversioni in 30gg → tracciamento rotto, problema grave)
 ${conversionActions
-  .map(
-    (ca) =>
-      `- ${ca.name}: status=${ca.status}, tipo=${ca.type}, primaria=${(ca.goalBiddable != null ? ca.goalBiddable : ca.primaryForGoal) ? 'SI' : 'NO'}, valore=€${parseFloat(ca.defaultValue || '0').toFixed(2)}`,
-  )
+  .map((ca) => {
+    const isPrimary = ca.goalBiddable != null ? ca.goalBiddable : ca.primaryForGoal;
+    const inactive =
+      ca.status === 'ENABLED' && isPrimary && ca.recentConversions === 0;
+    return `- ${ca.name}: status=${ca.status}, tipo=${ca.type}, primaria=${isPrimary ? 'SI' : 'NO'}, conversioni_30gg=${ca.recentConversions ?? 'n/d'}${inactive ? ' [INATTIVA: primaria che non registra]' : ''}, valore=€${parseFloat(ca.defaultValue || '0').toFixed(2)}`;
+  })
   .join('\n')}
 
 PROBLEMI RILEVATI (${auditIssues.length} totali):

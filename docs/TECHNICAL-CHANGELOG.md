@@ -6,6 +6,7 @@ Log tecnico delle modifiche al software, auto-generato dal deploy script.
 
 | Versione | Data | Commit |
 |----------|------|--------|
+| 2.18.17 | 2026-06-13 | feat: stato salute conversioni - rileva le 'Inattive' (conversione primaria con 0 conversioni in 30gg = tracciamento rotto); badge rosso + card Inattive + colonna Conv.30gg nell'app, l'AI lo segnala come problema grave; script v3.6 importa metrics.all_conversions |
 | 2.18.16 | 2026-06-13 | feat: rimosso il badge fuorviante 'Non usata' dalle conversioni; le pagine Campagne/Ad Groups/Ads/Keywords/Conversioni partono di default su 'Attivi' (pausa/rimossi nascosti ma accessibili dal filtro stato) |
 | 2.18.15 | 2026-06-13 | fix: lo script di apply non riceve piu le raccomandazioni advisory (solo modifiche eseguibili); corretto il riconoscimento delle negative (level minuscolo + campo keyword) e il parsing booleano delle conversioni (AdsApp.report torna booleani, non stringhe 'true') |
 | 2.18.14 | 2026-06-13 | fix: la home 'Da fare oggi' contava urgenti su entita spente che la pagina Modifiche nasconde (incoerenza); ora conta solo modifiche su entita attive + la home si aggiorna quando torni sulla finestra |

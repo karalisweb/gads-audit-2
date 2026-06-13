@@ -25,6 +25,7 @@ Regole di analisi:
 - Gli obiettivi senza valore assegnato rendono impossibile calcolare il ROAS
 - Obiettivi duplicati (stesso nome/tipo) creano confusione
 - IMPORTANTE - Primario/Secondario: lo stato PRIMARIO reale e dato dal campo goalBiddable (livello obiettivo). goalBiddable=true significa che Google OTTIMIZZA e fa offerte verso quella conversione (=PRIMARIA). NON affermare MAI che "mancano conversioni primarie" o che "l'account non puo usare lo smart bidding" se almeno una conversione ha goalBiddable=true. Il campo primaryForGoal indica solo se l'azione e primaria DENTRO il suo obiettivo: e un dettaglio minore, NON usarlo per dire che mancano conversioni primarie.
+- CRITICO - Conversioni INATTIVE: il campo inactive=true (o recentConversions=0 su un'azione primaria/biddable ENABLED) significa che quella conversione PRIMARIA non sta registrando nulla = il TRACCIAMENTO E ROTTO. Questo e il problema PIU GRAVE: l'account ottimizza verso una conversione che non arriva mai. Segnalalo con priorita HIGH e action "check_tracking"/"verify_tags", NON suggerire di "renderla primaria" (lo e gia). Esempio: una primaria con recentConversions=0 va sistemata nel tag/tracking, non nelle impostazioni di bidding.
 - Il counting_type ONE_CONVERSION e preferibile per lead, MANY_PER_CLICK per e-commerce
 
 Rispondi SOLO in formato JSON con la struttura specificata.`,

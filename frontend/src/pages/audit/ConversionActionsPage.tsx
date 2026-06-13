@@ -163,15 +163,14 @@ function getColumns(accountId: string, onRefresh: () => void): ColumnDef<Convers
     ),
   },
   {
-    accessorKey: 'campaignsUsingCount',
-    header: 'Campagne',
+    accessorKey: 'recentConversions',
+    header: 'Conv. 30gg',
     cell: ({ row }) => {
-      const count = row.original.campaignsUsingCount;
-      return count === 0 ? (
-        <span className="text-orange-600">{count}</span>
-      ) : (
-        <span>{count}</span>
-      );
+      const r = row.original;
+      const isPrimary = r.primaryForGoal || r.goalBiddable === true;
+      const inactive = r.status === 'ENABLED' && isPrimary && r.recentConversions === 0;
+      if (r.recentConversions == null) return <span className="text-muted-foreground">-</span>;
+      return <span className={inactive ? 'text-red-500 font-medium' : ''}>{r.recentConversions}</span>;
     },
   },
   {
@@ -195,13 +194,14 @@ function getColumns(accountId: string, onRefresh: () => void): ColumnDef<Convers
 }
 
 function ConversionActionCard({ action, accountId, onRefresh }: { action: ConversionAction; accountId: string; onRefresh: () => void }) {
+  const isPrimary = action.primaryForGoal || action.goalBiddable === true;
   const hasIssues = !action.primaryForGoal && action.status === 'ENABLED';
-  // "Non usata" disattivato: campaignsUsingCount non è calcolato dallo script (sempre 0) → badge fuorviante
-  const notUsed = false;
   const lowValue = (action.defaultValue === 0 || action.defaultValue === 1) && action.status === 'ENABLED';
+  // Inattiva: primaria ENABLED con 0 conversioni negli ultimi 30gg → tracciamento rotto
+  const inactive = action.status === 'ENABLED' && isPrimary && action.recentConversions === 0;
 
   return (
-    <div className={`border rounded-lg bg-card p-4 ${hasIssues || notUsed || lowValue ? 'border-orange-300' : ''}`}>
+    <div className={`border rounded-lg bg-card p-4 ${inactive ? 'border-red-400' : hasIssues || lowValue ? 'border-orange-300' : ''}`}>
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -217,9 +217,9 @@ function ConversionActionCard({ action, accountId, onRefresh }: { action: Conver
                 Secondaria
               </Badge>
             )}
-            {notUsed && (
-              <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">
-                Non usata
+            {inactive && (
+              <Badge variant="destructive" className="text-xs">
+                Inattiva · 0 conv. 30gg
               </Badge>
             )}
           </div>

@@ -62,6 +62,12 @@ export class ConversionAction {
   @Column({ name: 'goal_biddable', nullable: true })
   goalBiddable: boolean;
 
+  // Conversioni registrate negli ultimi 30 giorni (metrics.all_conversions).
+  // Serve a rilevare le azioni "Inattive": primaria ENABLED con 0 conversioni
+  // recenti = il tracciamento non sta registrando (problema reale dell'account).
+  @Column({ name: 'recent_conversions', type: 'real', nullable: true })
+  recentConversions: number;
+
   @Column({ name: 'campaigns_using_count', default: 0 })
   campaignsUsingCount: number;
 
