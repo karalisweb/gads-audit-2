@@ -573,7 +573,8 @@ export class IntegrationsService {
       const entityId = String(row.entity_id || row.entityId || '');
       const entityName = String(row.entity_name || row.entityName || '');
       const name = String(row.conversion_action_name || row.conversionActionName || '');
-      if (!entityType || !entityId || !name) continue;
+      const date = String(row.date || row.segments_date || '');
+      if (!entityType || !entityId || !name || !date) continue;
       await manager.upsert(
         ConversionActionMetric,
         {
@@ -583,9 +584,17 @@ export class IntegrationsService {
           entityId,
           entityName,
           conversionActionName: name,
+          date,
           conversions: Number(row.conversions) || 0,
         },
-        ['accountId', 'runId', 'entityType', 'entityId', 'conversionActionName'],
+        [
+          'accountId',
+          'runId',
+          'entityType',
+          'entityId',
+          'conversionActionName',
+          'date',
+        ],
       );
     }
   }

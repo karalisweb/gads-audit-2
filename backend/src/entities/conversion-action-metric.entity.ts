@@ -13,8 +13,8 @@ import {
  * Permette di vedere quale keyword/campagna porta quale canale.
  */
 @Entity('conversion_action_metrics')
-@Unique(['accountId', 'runId', 'entityType', 'entityId', 'conversionActionName'])
-@Index(['accountId', 'runId', 'entityType'])
+@Unique(['accountId', 'runId', 'entityType', 'entityId', 'conversionActionName', 'date'])
+@Index(['accountId', 'entityType', 'date'])
 export class ConversionActionMetric {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -39,6 +39,10 @@ export class ConversionActionMetric {
   // Nome dell'azione di conversione (= canale): click_phone, click_whatsapp, "Calls from ads", ...
   @Column({ name: 'conversion_action_name', length: 255 })
   conversionActionName: string;
+
+  // Giorno a cui si riferisce la conversione (segments.date) → filtro per periodo
+  @Column({ name: 'date', type: 'date' })
+  date: string;
 
   @Column({ name: 'conversions', type: 'real', default: 0 })
   conversions: number;

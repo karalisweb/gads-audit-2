@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.18.27] - 2026-06-13
+
+### Aggiunto
+- Conversioni per canale rispettano il periodo selezionato - dataset segmentato per giorno (segments.date), dedup per import piu recente; script download v3.8
+
+---
+
+
 ## [2.18.26] - 2026-06-13
 
 ### Corretto

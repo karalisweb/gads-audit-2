@@ -262,7 +262,7 @@ export interface ConversionsByChannelResponse {
 
 export async function getConversionsByChannel(
   accountId: string,
-  filters: { runId?: string; entityType?: string } = {},
+  filters: { dateFrom?: string; dateTo?: string } = {},
 ): Promise<ConversionsByChannelResponse> {
   const params = buildParams(filters as Record<string, unknown>);
   return apiClient.get<ConversionsByChannelResponse>(

@@ -1,10 +1,10 @@
 /**
  * GADS Audit 2.0 - Google Ads Download Script
  *
- * VERSIONE: 3.7
+ * VERSIONE: 3.8
  * DATA: 13/06/2026
  * ACCOUNT: OFFICINA 3MT (7050747943)
- * ULTIMA MODIFICA: 2026-06-13 (v3.7)
+ * ULTIMA MODIFICA: 2026-06-13 (v3.8)
  *
  * Questo script estrae dati dall'account Google Ads e li invia all'app di audit
  * tramite HTTPS POST con autenticazione HMAC-SHA256.
@@ -75,7 +75,7 @@ function main() {
   var runId = generateRunId();
 
   Logger.log('========================================');
-  Logger.log('GADS Audit 2.0 - Download Script (v3.7 - 13/06/2026)');
+  Logger.log('GADS Audit 2.0 - Download Script (v3.8 - 13/06/2026)');
   Logger.log('========================================');
   Logger.log('Account: ' + accountName + ' (' + accountId + ')');
   Logger.log('Run ID: ' + runId);
@@ -848,15 +848,15 @@ function extractConversionActions() {
 }
 
 
-// v3.7 - Conversioni per ENTITA x CANALE (azione di conversione), ultimi 30gg.
-// Permette di sapere quale keyword/campagna/ad group porta chiamate, WhatsApp, mail, form.
+// v3.8 - Conversioni per ENTITA x CANALE x GIORNO (segments.date), ultimi 30gg.
+// Il giorno permette di filtrare per periodo nell'app. Una riga per (entita, canale, giorno).
 function extractConversionActionMetrics() {
   var out = [];
 
   // Keywords (id composito adGroup~criterion per evitare collisioni di criterion_id)
   try {
     var kq = 'SELECT ad_group.id, ad_group_criterion.criterion_id, ' +
-      'ad_group_criterion.keyword.text, segments.conversion_action_name, metrics.conversions ' +
+      'ad_group_criterion.keyword.text, segments.date, segments.conversion_action_name, metrics.conversions ' +
       'FROM keyword_view WHERE segments.date DURING LAST_30_DAYS AND metrics.conversions > 0';
     var kr = AdsApp.report(kq).rows();
     while (kr.hasNext()) {
@@ -867,6 +867,7 @@ function extractConversionActionMetrics() {
         entity_type: 'keyword',
         entity_id: String(r['ad_group.id'] || '') + '~' + String(r['ad_group_criterion.criterion_id'] || ''),
         entity_name: String(r['ad_group_criterion.keyword.text'] || ''),
+        date: r['segments.date'] || '',
         conversion_action_name: r['segments.conversion_action_name'] || '',
         conversions: conv
       });
@@ -875,7 +876,7 @@ function extractConversionActionMetrics() {
 
   // Campagne (escludi PMax se configurato)
   try {
-    var cq = 'SELECT campaign.id, campaign.name, segments.conversion_action_name, metrics.conversions ' +
+    var cq = 'SELECT campaign.id, campaign.name, segments.date, segments.conversion_action_name, metrics.conversions ' +
       'FROM campaign WHERE segments.date DURING LAST_30_DAYS AND metrics.conversions > 0 ' +
       (CONFIG.EXCLUDE_PMAX ? 'AND campaign.advertising_channel_type != "PERFORMANCE_MAX" ' : '');
     var cr = AdsApp.report(cq).rows();
@@ -887,6 +888,7 @@ function extractConversionActionMetrics() {
         entity_type: 'campaign',
         entity_id: String(r2['campaign.id'] || ''),
         entity_name: String(r2['campaign.name'] || ''),
+        date: r2['segments.date'] || '',
         conversion_action_name: r2['segments.conversion_action_name'] || '',
         conversions: conv2
       });
@@ -895,7 +897,7 @@ function extractConversionActionMetrics() {
 
   // Ad groups
   try {
-    var aq = 'SELECT ad_group.id, ad_group.name, segments.conversion_action_name, metrics.conversions ' +
+    var aq = 'SELECT ad_group.id, ad_group.name, segments.date, segments.conversion_action_name, metrics.conversions ' +
       'FROM ad_group WHERE segments.date DURING LAST_30_DAYS AND metrics.conversions > 0';
     var ar = AdsApp.report(aq).rows();
     while (ar.hasNext()) {
@@ -906,6 +908,7 @@ function extractConversionActionMetrics() {
         entity_type: 'ad_group',
         entity_id: String(r3['ad_group.id'] || ''),
         entity_name: String(r3['ad_group.name'] || ''),
+        date: r3['segments.date'] || '',
         conversion_action_name: r3['segments.conversion_action_name'] || '',
         conversions: conv3
       });

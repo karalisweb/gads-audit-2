@@ -1568,12 +1568,17 @@ export class AuditService {
 
   /**
    * Conversioni segmentate per entità (keyword / campagna / ad group) × canale,
-   * ultimi 30gg. Restituisce, per ogni entità con conversioni, il dettaglio dei
-   * canali (es. "taxi elmas" → 📞 phone 0.5, 💬 whatsapp 0.67).
+   * filtrabili per periodo (dateFrom/dateTo). Restituisce, per ogni entità con
+   * conversioni, il dettaglio dei canali (es. "taxi elmas" → 📞 0.5, 💬 0.67).
+   *
+   * Come daily_metrics, conversion_action_metrics ha una riga per
+   * (entità, canale, giorno) PER OGNI run: deduplichiamo a una sola riga per
+   * (entity_type, entity_id, conversion_action_name, date) tenendo l'import più
+   * recente, poi sommiamo sul range richiesto.
    */
   async getConversionsByChannel(
     accountId: string,
-    filters: { runId?: string; entityType?: string } = {},
+    filters: { dateFrom?: string; dateTo?: string; entityType?: string } = {},
   ): Promise<{
     entities: Array<{
       entityType: string;
@@ -1588,23 +1593,38 @@ export class AuditService {
     }>;
     channelTotals: Array<{ channel: string; conversions: number }>;
   }> {
-    const targetRunId = filters.runId || (await this.getLatestRunId(accountId));
-    if (!targetRunId) {
-      return { entities: [], channelTotals: [] };
+    const params: unknown[] = [accountId];
+    let dateClause = '';
+    if (filters.dateFrom && filters.dateTo) {
+      params.push(filters.dateFrom, filters.dateTo);
+      dateClause = `AND date BETWEEN $2 AND $3`;
     }
 
-    const qb = this.conversionActionMetricRepository
-      .createQueryBuilder('m')
-      .where('m.accountId = :accountId', { accountId })
-      .andWhere('m.runId = :runId', { runId: targetRunId });
-
-    if (filters.entityType) {
-      qb.andWhere('m.entityType = :entityType', {
-        entityType: filters.entityType,
-      });
-    }
-
-    const rows = await qb.getMany();
+    // Dedup per (entity_type, entity_id, conversion_action_name, date) tenendo
+    // l'import più recente (imported_at DESC), poi aggrega sul periodo.
+    const rows: Array<{
+      entityType: string;
+      entityId: string;
+      entityName: string;
+      conversionActionName: string;
+      conversions: string;
+    }> = await this.conversionActionMetricRepository.query(
+      `SELECT
+         entity_type AS "entityType",
+         entity_id AS "entityId",
+         MAX(entity_name) AS "entityName",
+         conversion_action_name AS "conversionActionName",
+         COALESCE(SUM(conversions), 0) AS conversions
+       FROM (
+         SELECT DISTINCT ON (entity_type, entity_id, conversion_action_name, date)
+           entity_type, entity_id, entity_name, conversion_action_name, conversions
+         FROM conversion_action_metrics
+         WHERE account_id = $1 ${dateClause}
+         ORDER BY entity_type, entity_id, conversion_action_name, date, imported_at DESC
+       ) t
+       GROUP BY entity_type, entity_id, conversion_action_name`,
+      params,
+    );
 
     // Aggregazione per entità
     const byEntity = new Map<

@@ -268,12 +268,12 @@ export class AuditController {
   @Get('accounts/:accountId/conversions-by-channel')
   async getConversionsByChannel(
     @Param('accountId', ParseUUIDPipe) accountId: string,
-    @Query('runId') runId?: string,
-    @Query('entityType') entityType?: string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
   ) {
     return this.auditService.getConversionsByChannel(accountId, {
-      runId,
-      entityType,
+      dateFrom,
+      dateTo,
     });
   }
 

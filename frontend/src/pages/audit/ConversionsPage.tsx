@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useOutletContext } from 'react-router-dom';
+import type { AuditLayoutContext } from '@/components/Layout/AuditLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -312,6 +313,7 @@ function ConversionActionCard({
 
 export function ConversionsPage() {
   const { accountId } = useParams<{ accountId: string }>();
+  const { period } = useOutletContext<AuditLayoutContext>();
 
   // Performance data
   const [isLoading, setIsLoading] = useState(true);
@@ -374,19 +376,22 @@ export function ConversionsPage() {
     }
   }, [accountId]);
 
-  // Load conversioni per canale
+  // Load conversioni per canale (rispetta il periodo selezionato nell'header)
   const loadChannelData = useCallback(async () => {
     if (!accountId) return;
     setChannelLoading(true);
     try {
-      const result = await getConversionsByChannel(accountId);
+      const result = await getConversionsByChannel(accountId, {
+        dateFrom: period.dateFrom,
+        dateTo: period.dateTo,
+      });
       setChannelData(result);
     } catch (err) {
       console.error('Failed to load conversions by channel:', err);
     } finally {
       setChannelLoading(false);
     }
-  }, [accountId]);
+  }, [accountId, period.dateFrom, period.dateTo]);
 
   useEffect(() => { loadPerformanceData(); }, [loadPerformanceData]);
   useEffect(() => { loadActions(); }, [loadActions]);
@@ -742,7 +747,7 @@ export function ConversionsPage() {
           </div>
         </div>
         <p className="text-sm text-muted-foreground mb-3">
-          Telefono, WhatsApp, mail o form — e quale {channelEntityType === 'keyword' ? 'keyword' : channelEntityType === 'campaign' ? 'campagna' : 'ad group'} li ha portati (ultimi 30gg).
+          Telefono, WhatsApp, mail o form — e quale {channelEntityType === 'keyword' ? 'keyword' : channelEntityType === 'campaign' ? 'campagna' : 'ad group'} li ha portati (periodo selezionato).
         </p>
 
         {channelLoading ? (
@@ -754,10 +759,10 @@ export function ConversionsPage() {
         ) : !channelData || channelData.entities.length === 0 ? (
           <Card>
             <CardContent className="py-8 text-center text-sm text-muted-foreground">
-              Nessun dato per canale disponibile.
+              Nessun dato per canale nel periodo selezionato.
               <br />
               <span className="text-xs">
-                Aggiorna lo script di download dell'account alla versione 3.7 ed esegui un nuovo import.
+                Assicurati che lo script di download dell'account sia alla versione 3.8 (o successiva) e di aver eseguito un import. Prova ad allargare il periodo.
               </span>
             </CardContent>
           </Card>
