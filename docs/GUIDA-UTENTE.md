@@ -234,6 +234,7 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 | Versione | Data | Descrizione |
 |----------|------|-------------|
+| 2.18.20 | 13 Giugno 2026 | Conversioni raggruppabili per Origine (Sito web, Chiamata dagli annunci...) con toggle 'Per origine' attivo di default |
 | 2.18.19 | 13 Giugno 2026 | 'Inattiva' solo sulle azioni primarie per-azione (primaryForGoal), non sull'intera categoria biddable - coincide con 'Inattivo' di Google Ads |
 | 2.18.18 | 13 Giugno 2026 | Stato salute conversioni - rileva le 'Inattive' (conversione primaria con 0 conversioni in 30gg = tracciamento rotto); badge rosso + card Inattive + colonna Conv.30gg, l'AI lo segnala come problema grave; script v3.6 importa metrics.all_conversions |
 | 2.18.17 | 13 Giugno 2026 | Stato salute conversioni - rileva le 'Inattive' (conversione primaria con 0 conversioni in 30gg = tracciamento rotto); badge rosso + card Inattive + colonna Conv.30gg nell'app, l'AI lo segnala come problema grave; script v3.6 importa metrics.all_conversions |
@@ -282,4 +283,4 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 ---
 
-*Ultimo aggiornamento: 13 Giugno 2026 | Versione app: 2.18.19*
+*Ultimo aggiornamento: 13 Giugno 2026 | Versione app: 2.18.20*

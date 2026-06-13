@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.18.20] - 2026-06-13
+
+### Aggiunto
+- Conversioni raggruppabili per Origine (Sito web, Chiamata dagli annunci...) con toggle 'Per origine' attivo di default
+
+---
+
+
 ## [2.18.19] - 2026-06-13
 
 ### Corretto

@@ -72,7 +72,7 @@ function main() {
   var runId = generateRunId();
 
   Logger.log('========================================');
-  Logger.log('GADS Audit 2.0 - Download Script');
+  Logger.log('GADS Audit 2.0 - Download Script (v3.6 - 13/06/2026)');
   Logger.log('========================================');
   Logger.log('Account: ' + accountName + ' (' + accountId + ')');
   Logger.log('Run ID: ' + runId);

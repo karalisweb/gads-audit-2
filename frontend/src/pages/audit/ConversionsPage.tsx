@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
@@ -274,6 +275,7 @@ export function ConversionsPage() {
   const [actionsLoading, setActionsLoading] = useState(true);
   const [actionsSearch, setActionsSearch] = useState('');
   const [actionsStatusFilter, setActionsStatusFilter] = useState<string>('all');
+  const [groupByOrigin, setGroupByOrigin] = useState(true);
 
   // Load performance data
   const loadPerformanceData = useCallback(async () => {
@@ -415,6 +417,19 @@ export function ConversionsPage() {
     }
     return result;
   }, [actionsData, actionsStatusFilter, actionsSearch]);
+
+  // Raggruppamento per Origine Conversione (Sito web, Chiamata dagli annunci, ...)
+  const actionsByOrigin = useMemo(() => {
+    const groups = new Map<string, ConversionAction[]>();
+    for (const a of filteredActions) {
+      const key = a.origin || 'ALTRO';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(a);
+    }
+    return Array.from(groups.entries())
+      .map(([origin, actions]) => ({ origin, actions }))
+      .sort((x, y) => getOriginLabel(x.origin).localeCompare(getOriginLabel(y.origin)));
+  }, [filteredActions]);
 
   // Performance entity counts
   const campaignsWithConv = campaigns.filter((c) => c.conversions > 0);
@@ -639,6 +654,14 @@ export function ConversionsPage() {
             Azioni di Conversione
           </h3>
           <div className="flex items-center gap-3">
+            <Button
+              variant={groupByOrigin ? 'default' : 'outline'}
+              size="sm"
+              className="h-9"
+              onClick={() => setGroupByOrigin((v) => !v)}
+            >
+              Per origine
+            </Button>
             <Select value={actionsStatusFilter} onValueChange={setActionsStatusFilter}>
               <SelectTrigger className="w-36 h-9">
                 <SelectValue placeholder="Stato" />
@@ -664,6 +687,34 @@ export function ConversionsPage() {
             {Array.from({ length: 3 }).map((_, i) => (
               <Skeleton key={i} className="h-20 w-full" />
             ))}
+          </div>
+        ) : groupByOrigin ? (
+          <div className="space-y-4">
+            {actionsByOrigin.map((group) => (
+              <div key={group.origin}>
+                <div className="flex items-center gap-2 mb-2">
+                  <h4 className="text-sm font-semibold text-foreground">
+                    {getOriginLabel(group.origin)}
+                  </h4>
+                  <Badge variant="outline" className="text-xs">{group.actions.length}</Badge>
+                </div>
+                <div className="space-y-2">
+                  {group.actions.map((action) => (
+                    <ConversionActionCard
+                      key={action.id}
+                      action={action}
+                      accountId={accountId!}
+                      onRefresh={loadActions}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+            {filteredActions.length === 0 && (
+              <div className="text-center py-12 text-muted-foreground">
+                Nessuna azione di conversione trovata
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-2">
