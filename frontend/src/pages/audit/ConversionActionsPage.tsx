@@ -248,9 +248,9 @@ function ConversionActionCard({ action, accountId, onRefresh }: { action: Conver
               </p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Campagne</p>
-              <p className={`text-sm font-medium ${notUsed ? 'text-orange-600' : ''}`}>
-                {action.campaignsUsingCount}
+              <p className="text-xs text-muted-foreground">Conv. 30gg</p>
+              <p className={`text-sm font-medium ${inactive ? 'text-red-500' : ''}`}>
+                {action.recentConversions != null ? action.recentConversions : '-'}
               </p>
             </div>
           </div>
