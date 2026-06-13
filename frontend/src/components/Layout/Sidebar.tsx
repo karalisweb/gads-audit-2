@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { GadsIcon } from '@/components/icons/GadsIcon';
 
-const APP_VERSION = '2.18.13';
+const APP_VERSION = '2.18.14';
 
 // Zona 2 - Navigazione Principale (base)
 const baseNavItems = [

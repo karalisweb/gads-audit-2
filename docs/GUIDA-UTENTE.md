@@ -234,6 +234,7 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 | Versione | Data | Descrizione |
 |----------|------|-------------|
+| 2.18.14 | 13 Giugno 2026 | La home 'Da fare oggi' contava urgenti su entita spente che la pagina Modifiche nasconde (incoerenza); ora conta solo modifiche su entita attive + la home si aggiorna quando torni sulla finestra |
 | 2.18.13 | 13 Giugno 2026 | Analisi AI dei moduli abilitate solo dopo aver chattato nel Report AI (gate backend + bottone disabilitato con tooltip, scheduler non bloccato); Search Terms ora legge il contenuto del Report AI e propone i competitor citati come keyword negative |
 | 2.18.12 | 13 Giugno 2026 | Modifiche meno rumore - 'Solo entita attive' e 'Da lavorare' attivi di default, la vista Per data apre il giorno piu recente con le sue card accese, rimossi i bottoni smart-bulk |
 | 2.18.11 | 13 Giugno 2026 | Pagina Modifiche piu pulita - tab 'Modifiche' di default, card riassuntive legate al giorno selezionato nella vista Per data (spente finche non apri un giorno), rimossa la barra Progresso |
@@ -276,4 +277,4 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 ---
 
-*Ultimo aggiornamento: 13 Giugno 2026 | Versione app: 2.18.13*
+*Ultimo aggiornamento: 13 Giugno 2026 | Versione app: 2.18.14*

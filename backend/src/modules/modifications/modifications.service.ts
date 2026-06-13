@@ -1491,6 +1491,39 @@ export class ModificationsService {
       // Solo pending fresche: le piu' vecchie di 14 giorni sono basate su audit
       // vecchi e non hanno piu' senso da applicare -> escluse dal "da fare"
       .andWhere("m.created_at >= now() - interval '14 days'")
+      // Solo modifiche su ENTITÀ ATTIVE: coerente con la pagina Modifiche (che di
+      // default mostra solo le attive). Evita di contare nel "da fare" urgenti su
+      // campagne/gruppi/annunci/keyword in pausa che l'utente non vede e non può chiudere.
+      .andWhere(
+        `(
+          m.entity_type NOT IN ('campaign','ad_group','ad','keyword')
+          OR (m.entity_type = 'campaign' AND EXISTS (
+            SELECT 1 FROM campaigns c
+            WHERE c.account_id = m.account_id AND c.campaign_id = m.entity_id
+              AND c.run_id = (SELECT MAX(run_id) FROM campaigns cc WHERE cc.account_id = m.account_id)
+              AND c.status = 'ENABLED'))
+          OR (m.entity_type = 'ad_group' AND EXISTS (
+            SELECT 1 FROM ad_groups ag
+            JOIN campaigns c ON c.campaign_id = ag.campaign_id AND c.account_id = ag.account_id AND c.run_id = ag.run_id
+            WHERE ag.account_id = m.account_id AND ag.ad_group_id = m.entity_id
+              AND ag.run_id = (SELECT MAX(run_id) FROM campaigns cc WHERE cc.account_id = m.account_id)
+              AND ag.status = 'ENABLED' AND c.status = 'ENABLED'))
+          OR (m.entity_type = 'ad' AND EXISTS (
+            SELECT 1 FROM ads a2
+            JOIN ad_groups ag ON ag.ad_group_id = a2.ad_group_id AND ag.account_id = a2.account_id AND ag.run_id = a2.run_id
+            JOIN campaigns c ON c.campaign_id = ag.campaign_id AND c.account_id = ag.account_id AND c.run_id = ag.run_id
+            WHERE a2.account_id = m.account_id AND a2.ad_id = m.entity_id
+              AND a2.run_id = (SELECT MAX(run_id) FROM campaigns cc WHERE cc.account_id = m.account_id)
+              AND a2.status = 'ENABLED' AND ag.status = 'ENABLED' AND c.status = 'ENABLED'))
+          OR (m.entity_type = 'keyword' AND EXISTS (
+            SELECT 1 FROM keywords k
+            JOIN ad_groups ag ON ag.ad_group_id = k.ad_group_id AND ag.account_id = k.account_id AND ag.run_id = k.run_id
+            JOIN campaigns c ON c.campaign_id = ag.campaign_id AND c.account_id = ag.account_id AND c.run_id = ag.run_id
+            WHERE k.account_id = m.account_id AND k.keyword_id = m.entity_id
+              AND k.run_id = (SELECT MAX(run_id) FROM campaigns cc WHERE cc.account_id = m.account_id)
+              AND k.status = 'ENABLED' AND ag.status = 'ENABLED' AND c.status = 'ENABLED'))
+        )`,
+      )
       .groupBy('a.id')
       .addGroupBy('a.customerName')
       .addGroupBy('a.customerId')

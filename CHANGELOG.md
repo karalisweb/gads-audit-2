@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.18.14] - 2026-06-13
+
+### Corretto
+- La home 'Da fare oggi' contava urgenti su entita spente che la pagina Modifiche nasconde (incoerenza); ora conta solo modifiche su entita attive + la home si aggiorna quando torni sulla finestra
+
+---
+
+
 ## [2.18.13] - 2026-06-13
 
 ### Aggiunto

@@ -117,6 +117,21 @@ export function AccountsPage() {
     loadAccounts();
   }, []);
 
+  // Aggiorna i conteggi quando si torna sulla scheda/finestra (es. dopo aver
+  // approvato modifiche in un account), così la home non resta indietro.
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') loadAccounts();
+    };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const loadAccounts = async () => {
     setIsLoading(true);
     try {
