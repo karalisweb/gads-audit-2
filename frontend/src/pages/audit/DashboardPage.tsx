@@ -12,7 +12,8 @@ import { Button } from '@/components/ui/button';
 import type { KpiData } from '@/types/audit';
 import type { ModificationSummary } from '@/types';
 import { getEntityTypeLabel } from '@/types/modification';
-import { AlertTriangle, AlertCircle, Info, TrendingDown, TrendingUp, Target, Layers, Wallet, BarChart3, Brain, Loader2, CheckCircle2, XCircle, Clock, Wrench } from 'lucide-react';
+import { AlertTriangle, AlertCircle, Info, TrendingDown, TrendingUp, Target, Layers, Wallet, BarChart3, Brain, Loader2, CheckCircle2, XCircle, Clock, Wrench, ChevronDown } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   LineChart,
   Line,
@@ -147,32 +148,61 @@ export function DashboardPage() {
 
       {/* Health Score + Problems Row */}
       <div className="grid gap-3 md:grid-cols-2">
-        {/* Health Score Card */}
+        {/* Health Score Card (espandibile: breakdown dettagliato dei 6 fattori) */}
         {healthScore && (
           <Card className="bg-card border-border">
             <CardContent className="py-3 px-4">
-              <div className="flex items-center gap-4">
-                <div className={`w-14 h-14 rounded-full flex items-center justify-center ${
-                  healthScore.score >= 75 ? 'bg-green-500' :
-                  healthScore.score >= 50 ? 'bg-yellow-500' :
-                  healthScore.score >= 25 ? 'bg-orange-500' : 'bg-red-500'
-                }`}>
-                  <span className="text-xl font-bold text-white">{healthScore.score}</span>
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-muted-foreground">Health Score</p>
-                  <div className="grid grid-cols-3 gap-2 mt-1">
-                    {Object.entries(healthScore.breakdown).map(([key, item]) => (
-                      <div key={key} className="text-xs">
-                        <span className="text-muted-foreground">{formatBreakdownLabel(key)}: </span>
-                        <span className={`font-medium ${item.score >= item.max * 0.7 ? 'text-green-600' : item.score >= item.max * 0.4 ? 'text-yellow-600' : 'text-red-600'}`}>
-                          {item.score}/{item.max}
-                        </span>
-                      </div>
-                    ))}
+              <Collapsible>
+                <div className="flex items-center gap-4">
+                  <div className={`w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    healthScore.score >= 75 ? 'bg-green-500' :
+                    healthScore.score >= 50 ? 'bg-yellow-500' :
+                    healthScore.score >= 25 ? 'bg-orange-500' : 'bg-red-500'
+                  }`}>
+                    <span className="text-xl font-bold text-white">{healthScore.score}</span>
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-muted-foreground">Health Score (su 100)</p>
+                    <div className="grid grid-cols-3 gap-2 mt-1">
+                      {Object.entries(healthScore.breakdown).map(([key, item]) => (
+                        <div key={key} className="text-xs">
+                          <span className="text-muted-foreground">{formatBreakdownLabel(key)}: </span>
+                          <span className={`font-medium ${item.score >= item.max * 0.7 ? 'text-green-600' : item.score >= item.max * 0.4 ? 'text-yellow-600' : 'text-red-600'}`}>
+                            {item.score}/{item.max}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 px-2 text-xs flex-shrink-0 self-start">
+                      Dettagli <ChevronDown className="h-4 w-4 ml-1" />
+                    </Button>
+                  </CollapsibleTrigger>
                 </div>
-              </div>
+                <CollapsibleContent>
+                  <div className="mt-3 pt-3 border-t border-border space-y-3">
+                    {Object.entries(healthScore.breakdown).map(([key, item]) => {
+                      const pct = item.max > 0 ? (item.score / item.max) * 100 : 0;
+                      const barColor = pct >= 70 ? 'bg-green-500' : pct >= 40 ? 'bg-yellow-500' : 'bg-red-500';
+                      return (
+                        <div key={key}>
+                          <div className="flex items-center justify-between text-sm mb-1">
+                            <span className="font-medium text-foreground">{fullBreakdownLabel(key)}</span>
+                            <span className={`font-medium ${pct >= 70 ? 'text-green-600' : pct >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>
+                              {item.score}/{item.max} pt
+                            </span>
+                          </div>
+                          <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div className={`h-full ${barColor} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">{item.detail}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             </CardContent>
           </Card>
         )}
@@ -657,6 +687,19 @@ function formatBreakdownLabel(key: string): string {
     impressionShare: 'Impr. Share',
     accountStructure: 'Struttura',
     issueSeverity: 'Problemi',
+  };
+  return labels[key] || key;
+}
+
+// Etichette estese per il breakdown dettagliato del punteggio
+function fullBreakdownLabel(key: string): string {
+  const labels: Record<string, string> = {
+    qualityScore: 'Quality Score keyword (max 20)',
+    wastedSpend: 'Spreco budget — search terms senza conversioni (max 20)',
+    negativeCoverage: 'Copertura keyword negative (max 15)',
+    impressionShare: 'Impression Share (max 15)',
+    accountStructure: 'Struttura account — ad group per campagna (max 15)',
+    issueSeverity: 'Problemi critici / alti aperti (max 15)',
   };
   return labels[key] || key;
 }

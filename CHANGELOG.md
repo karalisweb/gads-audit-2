@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.18.24] - 2026-06-13
+
+### Aggiunto
+- Breakdown dettagliato del punteggio salute in ogni account (Dashboard) - card espandibile coi 6 fattori, barre e spiegazioni (es. '79% budget senza conversioni')
+
+---
+
+
 ## [2.18.23] - 2026-06-13
 
 ### Corretto
