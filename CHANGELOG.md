@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.18.10] - 2026-06-13
+
+### Aggiunto
+- Le raccomandazioni mostrano l'azione (es. 'Migliora Quality Score', 'Riscrivi annunci') + l'obiettivo + la motivazione AI, invece dell'etichetta fuorviante 'Stato Gruppo' e del finto before->after
+
+---
+
+
 ## [2.18.9] - 2026-06-13
 
 ### Aggiunto

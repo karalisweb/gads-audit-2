@@ -234,6 +234,7 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 | Versione | Data | Descrizione |
 |----------|------|-------------|
+| 2.18.10 | 13 Giugno 2026 | Le raccomandazioni mostrano l'azione (es. 'Migliora Quality Score', 'Riscrivi annunci') + l'obiettivo + la motivazione AI, invece dell'etichetta fuorviante 'Stato Gruppo' e del finto before->after |
 | 2.18.9 | 13 Giugno 2026 | Filtro 'Solo entita attive' nelle modifiche (nasconde quelle su campagne/gruppi/annunci/keyword in pausa o rimossi, con risalita al genitore) + vista Per data impostata come default |
 | 2.18.8 | 13 Giugno 2026 | Pulsante 'Riporta in Attesa' per annullare un'approvazione fatta per sbaglio (da Approvata torna In Attesa) + nuova vista delle modifiche raggruppata per data (sessione di audit) |
 | 2.18.7 | 13 Giugno 2026 | Importato il livello obiettivo (customer_conversion_goal.biddable) come goal_biddable sulle conversioni; l'AI ora valuta Primario/Secondario da questo invece che da primary_for_goal, niente piu falsi 'assenza di conversioni primarie' |
@@ -272,4 +273,4 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 ---
 
-*Ultimo aggiornamento: 13 Giugno 2026 | Versione app: 2.18.9*
+*Ultimo aggiornamento: 13 Giugno 2026 | Versione app: 2.18.10*

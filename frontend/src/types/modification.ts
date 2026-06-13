@@ -171,6 +171,45 @@ export function getModificationTypeLabel(type: ModificationType): string {
   return labels[type] || type;
 }
 
+// Etichetta leggibile per le RACCOMANDAZIONI (advisory): l'azione vive in
+// afterValue.action e descrive cosa fare a mano (non un cambio eseguibile).
+export function getActionLabel(action?: string | null): string {
+  if (!action) return 'Raccomandazione';
+  const labels: Record<string, string> = {
+    restructure: 'Ristruttura / riscrivi annunci',
+    restructure_ad_group: 'Ristruttura il gruppo di annunci',
+    optimize: 'Ottimizza',
+    optimize_quality: 'Migliora il Quality Score',
+    improve_quality: 'Migliora la qualità',
+    improve_quality_score: 'Migliora il Quality Score',
+    optimize_landing_page: 'Ottimizza la landing page',
+    improve_ctr: 'Migliora il CTR',
+    improve_conversion_rate: 'Migliora il tasso di conversione',
+    improve_relevance: 'Migliora la pertinenza',
+    improve_ad_relevance: 'Migliora la pertinenza degli annunci',
+    scale: 'Scala (aumenta investimento)',
+    merge: 'Unifica / consolida',
+    consolidate_urls: 'Consolida gli URL',
+    enable_tracking: 'Attiva il tracciamento',
+    check_tracking: 'Verifica il tracciamento',
+    verify_tags: 'Verifica i tag',
+    check_implementation: 'Verifica l’implementazione',
+    enable_consent_mode: 'Attiva il Consent Mode',
+    optimize_for_calls: 'Ottimizza per le chiamate',
+    optimize_for_leads: 'Ottimizza per i lead',
+    add_call_extension: 'Aggiungi estensione di chiamata',
+    add_message_extension: 'Aggiungi estensione messaggio',
+    optimize_schedule: 'Ottimizza la pianificazione oraria',
+    add_schedule: 'Imposta una pianificazione oraria',
+    create_variant: 'Crea una variante dell’annuncio',
+    add_keyword_to_headline: 'Inserisci la keyword nei titoli',
+    set_bid_modifier: 'Imposta aggiustamento offerte',
+    exclude: 'Escludi',
+    add_negative: 'Aggiungi keyword negativa',
+  };
+  return labels[action] || action.replace(/_/g, ' ');
+}
+
 export function getEntityTypeLabel(type: ModificationEntityType): string {
   const labels: Record<ModificationEntityType, string> = {
     campaign: 'Campagna',

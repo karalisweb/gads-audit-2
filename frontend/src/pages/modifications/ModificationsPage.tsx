@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Textarea } from '@/components/ui/textarea';
-import { Check, X, AlertCircle, Clock, Loader2, Plus, Eye, Code, ExternalLink, CheckCircle2, XCircle, ChevronDown, ChevronRight, TableIcon, LayoutList, Zap, Shield, Undo2, CalendarDays, PowerOff } from 'lucide-react';
+import { Check, X, AlertCircle, Clock, Loader2, Plus, Eye, Code, ExternalLink, CheckCircle2, XCircle, ChevronDown, ChevronRight, TableIcon, LayoutList, Zap, Shield, Undo2, CalendarDays, PowerOff, Lightbulb } from 'lucide-react';
 import { CreateModificationModal } from './CreateModificationModal';
 import {
   getModifications,
@@ -52,6 +52,7 @@ import {
   getStatusColor,
   getStatusLabel,
   getModificationTypeLabel,
+  getActionLabel,
   getEntityTypeLabel,
   getPriorityLabel,
   getPriorityColor,
@@ -553,16 +554,27 @@ export function ModificationsPage() {
     {
       accessorKey: 'entityType',
       header: 'Tipo',
-      cell: ({ row }) => (
-        <div>
-          <p className="font-medium">
-            {getEntityTypeLabel(row.original.entityType)}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {getModificationTypeLabel(row.original.modificationType)}
-          </p>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const mod = row.original;
+        const isRec = mod.kind === 'recommendation';
+        return (
+          <div>
+            <p className="font-medium">
+              {getEntityTypeLabel(mod.entityType)}
+            </p>
+            {isRec ? (
+              <p className="text-xs text-amber-600 flex items-center gap-1">
+                <Lightbulb className="h-3 w-3 flex-shrink-0" />
+                {getActionLabel((mod.afterValue as { action?: string })?.action)}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {getModificationTypeLabel(mod.modificationType)}
+              </p>
+            )}
+          </div>
+        );
+      },
     },
     {
       accessorKey: 'entityName',
@@ -589,11 +601,20 @@ export function ModificationsPage() {
         const aiNotes = parseNotes(mod.notes);
         const beforeStr = formatValue(mod.beforeValue);
         const afterStr = formatValue(mod.afterValue);
+        const isRec = mod.kind === 'recommendation';
+        const recGoal = (mod.afterValue as { suggestedValue?: string })?.suggestedValue;
 
         return (
           <div className="text-sm max-w-[350px] space-y-1">
-            {/* Before → After compatto */}
-            {beforeStr !== '-' ? (
+            {/* Raccomandazione: mostra l'obiettivo, non un finto before→after */}
+            {isRec ? (
+              recGoal ? (
+                <div className="flex items-start gap-1.5 flex-wrap">
+                  <span className="text-muted-foreground shrink-0">Obiettivo:</span>
+                  <span className="font-medium text-foreground break-words whitespace-normal">{recGoal}</span>
+                </div>
+              ) : null
+            ) : beforeStr !== '-' ? (
               <div className="flex items-start gap-1.5 flex-wrap">
                 <span className="text-muted-foreground break-words whitespace-normal">{beforeStr}</span>
                 <span className="text-muted-foreground shrink-0">→</span>
@@ -1741,6 +1762,10 @@ function GroupedModificationRow({
   const isLoading = actionLoading === mod.id;
   const beforeStr = formatValue(mod.beforeValue);
   const afterStr = formatValue(mod.afterValue);
+  const isRec = mod.kind === 'recommendation';
+  const recAction = getActionLabel((mod.afterValue as { action?: string })?.action);
+  const recGoal = (mod.afterValue as { suggestedValue?: string })?.suggestedValue;
+  const recNotes = parseNotes(mod.notes);
 
   return (
     <div className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/30 transition-colors">
@@ -1761,14 +1786,34 @@ function GroupedModificationRow({
         <p className="text-sm font-medium text-foreground truncate">
           {mod.entityName || mod.entityId}
         </p>
-        <div className="text-xs text-muted-foreground mt-0.5">
-          <span>{getModificationTypeLabel(mod.modificationType)}</span>
-          {beforeStr !== '-' && (
-            <span className="ml-2">
-              {beforeStr.slice(0, 40)} → <span className="text-primary">{afterStr.slice(0, 40)}</span>
-            </span>
-          )}
-        </div>
+        {isRec ? (
+          <div className="text-xs mt-0.5 space-y-0.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="inline-flex items-center gap-1 font-medium text-amber-600">
+                <Lightbulb className="h-3 w-3" /> {recAction}
+              </span>
+              {recGoal && (
+                <span className="text-muted-foreground">
+                  · Obiettivo: <span className="text-foreground">{recGoal}</span>
+                </span>
+              )}
+            </div>
+            {recNotes?.rationale && (
+              <p className="text-muted-foreground line-clamp-2 whitespace-normal">
+                {recNotes.rationale}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="text-xs text-muted-foreground mt-0.5">
+            <span>{getModificationTypeLabel(mod.modificationType)}</span>
+            {beforeStr !== '-' && (
+              <span className="ml-2">
+                {beforeStr.slice(0, 40)} → <span className="text-primary">{afterStr.slice(0, 40)}</span>
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Actions */}
@@ -1867,6 +1912,9 @@ function MobileModificationCard({
   const beforeStr = formatValue(mod.beforeValue);
   const afterStr = formatValue(mod.afterValue);
   const aiNotes = parseNotes(mod.notes);
+  const isRec = mod.kind === 'recommendation';
+  const recAction = getActionLabel((mod.afterValue as { action?: string })?.action);
+  const recGoal = (mod.afterValue as { suggestedValue?: string })?.suggestedValue;
 
   return (
     <div className="border rounded-lg bg-card p-4 space-y-3">
@@ -1890,14 +1938,29 @@ function MobileModificationCard({
         <p className="font-medium text-sm text-foreground">
           {mod.entityName || mod.entityId}
         </p>
-        <p className="text-xs text-muted-foreground">
-          {getModificationTypeLabel(mod.modificationType)}
-        </p>
+        {isRec ? (
+          <p className="text-xs text-amber-600 flex items-center gap-1">
+            <Lightbulb className="h-3 w-3 flex-shrink-0" /> {recAction}
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            {getModificationTypeLabel(mod.modificationType)}
+          </p>
+        )}
       </div>
 
-      {/* Before → After */}
+      {/* Modifica: before → After · Raccomandazione: obiettivo */}
       <div className="bg-muted/50 rounded-lg p-3 space-y-1">
-        {beforeStr !== '-' ? (
+        {isRec ? (
+          recGoal ? (
+            <p className="text-sm">
+              <span className="text-muted-foreground">Obiettivo: </span>
+              <span className="font-medium text-foreground">{recGoal}</span>
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">Consiglio da valutare (vedi dettagli)</p>
+          )
+        ) : beforeStr !== '-' ? (
           <div className="text-sm">
             <span className="text-muted-foreground">{beforeStr.slice(0, 60)}{beforeStr.length > 60 ? '...' : ''}</span>
             <span className="text-muted-foreground mx-1">→</span>
