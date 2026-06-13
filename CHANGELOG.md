@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.18.5] - 2026-06-13
+
+### Corretto
+- La chat del report mostra un errore chiaro invece di far sparire il messaggio; il backend rimuove la domanda orfana e rilancia un errore leggibile (es. quota AI esaurita) quando il provider fallisce
+
+---
+
+
 ## [2.18.4] - 2026-06-12
 
 ### Aggiunto

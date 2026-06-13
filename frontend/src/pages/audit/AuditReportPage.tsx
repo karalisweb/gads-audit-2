@@ -95,6 +95,7 @@ export function AuditReportPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [chatInput, setChatInput] = useState('');
+  const [chatError, setChatError] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -212,6 +213,7 @@ export function AuditReportPage() {
 
     const userMessage = chatInput.trim();
     setChatInput('');
+    setChatError(null);
     setIsSending(true);
 
     const tempUserMsg: ReportMessage = {
@@ -235,7 +237,14 @@ export function AuditReportPage() {
       });
     } catch (err) {
       console.error('Failed to send message:', err);
+      // Il backend non ha salvato la risposta (e ha rimosso la domanda orfana):
+      // togliamo il messaggio temporaneo, ripristiniamo il testo e mostriamo l'errore.
       setMessages((prev) => prev.filter((m) => m.id !== tempUserMsg.id));
+      const apiErr = err as { message?: string; statusCode?: number };
+      setChatError(
+        apiErr?.message || "L'AI non è riuscita a rispondere. Riprova tra poco.",
+      );
+      setChatInput(userMessage);
     } finally {
       setIsSending(false);
     }
@@ -596,11 +605,22 @@ export function AuditReportPage() {
               </p>
             )}
 
+            {/* Errore chat */}
+            {chatError && (
+              <div className="mb-3 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <span>{chatError}</span>
+              </div>
+            )}
+
             {/* Input */}
             <form onSubmit={handleSendMessage} className="flex gap-2">
               <Input
                 value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
+                onChange={(e) => {
+                  setChatInput(e.target.value);
+                  if (chatError) setChatError(null);
+                }}
                 placeholder="Es: Come posso migliorare il CTR? Quale strategia suggerisci per le conversioni?"
                 disabled={isSending}
                 className="flex-1"

@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, ServiceUnavailableException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
@@ -1897,75 +1897,100 @@ REGOLE:
     const provider = await this.getActiveProvider();
     let assistantContent: string;
 
-    if (provider === 'gemini') {
-      const gemini = await this.getGeminiClient();
-      let model = await this.settingsService.getGeminiModel();
-      if (!model) {
-        model = this.configService.get<string>('ai.geminiModel') || 'gemini-3-flash-preview';
-      }
+    try {
+      if (provider === 'gemini') {
+        const gemini = await this.getGeminiClient();
+        let model = await this.settingsService.getGeminiModel();
+        if (!model) {
+          model = this.configService.get<string>('ai.geminiModel') || 'gemini-3-flash-preview';
+        }
 
-      const history = historyMessages.map(m => ({
-        role: m.role === 'assistant' ? 'model' as const : 'user' as const,
-        parts: [{ text: m.content }],
-      }));
+        const history = historyMessages.map(m => ({
+          role: m.role === 'assistant' ? 'model' as const : 'user' as const,
+          parts: [{ text: m.content }],
+        }));
 
-      const chat = gemini.chats.create({
-        model,
-        config: {
-          systemInstruction: systemPrompt,
+        const chat = gemini.chats.create({
+          model,
+          config: {
+            systemInstruction: systemPrompt,
+            temperature: 0.4,
+            maxOutputTokens: 4096,
+          },
+          history,
+        });
+
+        const response = await chat.sendMessage({ message: userMessage });
+        assistantContent = response.text || 'Mi dispiace, non sono riuscito a generare una risposta.';
+      } else if (provider === 'claude') {
+        const claude = await this.getClaudeClient();
+        let model = await this.settingsService.getClaudeModel();
+        if (!model) {
+          model = this.configService.get<string>('ai.claudeModel') || 'claude-sonnet-4-20250514';
+        }
+
+        const claudeMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [
+          ...historyMessages,
+          { role: 'user', content: userMessage },
+        ];
+
+        const response = await claude.messages.create({
+          model,
+          max_tokens: 4096,
+          system: systemPrompt,
+          messages: claudeMessages,
           temperature: 0.4,
-          maxOutputTokens: 4096,
-        },
-        history,
-      });
+        });
 
-      const response = await chat.sendMessage({ message: userMessage });
-      assistantContent = response.text || 'Mi dispiace, non sono riuscito a generare una risposta.';
-    } else if (provider === 'claude') {
-      const claude = await this.getClaudeClient();
-      let model = await this.settingsService.getClaudeModel();
-      if (!model) {
-        model = this.configService.get<string>('ai.claudeModel') || 'claude-sonnet-4-20250514';
+        assistantContent = response.content[0]?.type === 'text'
+          ? response.content[0].text
+          : 'Mi dispiace, non sono riuscito a generare una risposta.';
+      } else {
+        const openai = await this.getOpenAIClient();
+        let model = await this.settingsService.getOpenAIModel();
+        if (!model) {
+          model = this.configService.get<string>('ai.openaiModel') || 'gpt-5.2';
+        }
+
+        const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+          { role: 'system', content: systemPrompt },
+          ...historyMessages,
+          { role: 'user', content: userMessage },
+        ];
+
+        const isGpt5 = model.startsWith('gpt-5');
+        const response = await openai.chat.completions.create({
+          model,
+          messages,
+          ...(isGpt5 ? { max_completion_tokens: 4096 } : { max_tokens: 4096 }),
+          temperature: 0.4,
+        });
+
+        assistantContent = response.choices[0]?.message?.content || 'Mi dispiace, non sono riuscito a generare una risposta.';
       }
+    } catch (err: any) {
+      // L'AI non ha risposto: rimuovi il messaggio utente appena salvato per non
+      // lasciare una domanda orfana (senza risposta) nel thread del report.
+      await this.auditReportMessageRepository.delete(userMsg.id);
 
-      const claudeMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [
-        ...historyMessages,
-        { role: 'user', content: userMessage },
-      ];
+      const status = err?.status ?? err?.code ?? err?.response?.status;
+      const rawMessage = typeof err?.message === 'string' ? err.message : '';
+      const isQuota =
+        status === 429 || /quota|rate limit|RESOURCE_EXHAUSTED/i.test(rawMessage);
 
-      const response = await claude.messages.create({
-        model,
-        max_tokens: 4096,
-        system: systemPrompt,
-        messages: claudeMessages,
-        temperature: 0.4,
-      });
+      this.logger.error(
+        `chatWithReport: errore AI (provider=${provider}, status=${status ?? 'n/d'})`,
+        rawMessage,
+      );
 
-      assistantContent = response.content[0]?.type === 'text'
-        ? response.content[0].text
-        : 'Mi dispiace, non sono riuscito a generare una risposta.';
-    } else {
-      const openai = await this.getOpenAIClient();
-      let model = await this.settingsService.getOpenAIModel();
-      if (!model) {
-        model = this.configService.get<string>('ai.openaiModel') || 'gpt-5.2';
+      if (isQuota) {
+        throw new ServiceUnavailableException(
+          'Quota AI esaurita al momento. Riprova tra qualche minuto oppure cambia provider in Impostazioni > AI.',
+        );
       }
-
-      const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
-        { role: 'system', content: systemPrompt },
-        ...historyMessages,
-        { role: 'user', content: userMessage },
-      ];
-
-      const isGpt5 = model.startsWith('gpt-5');
-      const response = await openai.chat.completions.create({
-        model,
-        messages,
-        ...(isGpt5 ? { max_completion_tokens: 4096 } : { max_tokens: 4096 }),
-        temperature: 0.4,
-      });
-
-      assistantContent = response.choices[0]?.message?.content || 'Mi dispiace, non sono riuscito a generare una risposta.';
+      throw new ServiceUnavailableException(
+        "L'AI non è riuscita a rispondere. Riprova tra poco.",
+      );
     }
 
     // Save assistant message

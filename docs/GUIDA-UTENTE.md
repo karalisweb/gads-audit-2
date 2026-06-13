@@ -234,6 +234,7 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 | Versione | Data | Descrizione |
 |----------|------|-------------|
+| 2.18.5 | 13 Giugno 2026 | La chat del report mostra un errore chiaro invece di far sparire il messaggio; il backend rimuove la domanda orfana e rilancia un errore leggibile (es. quota AI esaurita) quando il provider fallisce |
 | 2.18.4 | 12 Giugno 2026 | I rifiuti ora sono permanenti - una modifica rifiutata non viene riproposta dall'AI finche lo stato attuale del dato resta invariato |
 | 2.18.3 | 12 Giugno 2026 | Metriche di periodo gonfiate - daily_metrics deduplicate per (entita,giorno) tenendo l'import piu recente, niente piu somma tra run multipli |
 | 2.18.2 | 12 Giugno 2026 | Card account legate al periodo selezionato con confronto (default 7gg+confronta); Da fare oggi solo modifiche urgenti, rimosse raccomandazioni dalla home |
@@ -267,4 +268,4 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 ---
 
-*Ultimo aggiornamento: 12 Giugno 2026 | Versione app: 2.18.4*
+*Ultimo aggiornamento: 13 Giugno 2026 | Versione app: 2.18.5*
