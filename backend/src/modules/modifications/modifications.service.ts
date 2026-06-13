@@ -89,6 +89,13 @@ export class ModificationsService {
       });
     }
 
+    // Filtro "da lavorare": solo modifiche non ancora concluse.
+    if (filters.actionableOnly) {
+      queryBuilder.andWhere(
+        "modification.status IN ('pending','approved','processing')",
+      );
+    }
+
     // Filtro "solo entità attive": nasconde le modifiche/raccomandazioni il cui
     // target (campagna/gruppo/annuncio/keyword) è in pausa o rimosso nell'ultimo
     // import, risalendo anche al genitore (un gruppo in campagna spenta = spento).

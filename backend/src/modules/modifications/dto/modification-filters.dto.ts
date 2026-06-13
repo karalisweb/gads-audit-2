@@ -52,4 +52,11 @@ export class ModificationFiltersDto {
   @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   activeOnly?: boolean;
+
+  // Se true, mostra solo le modifiche "da lavorare" (pending/approved/processing),
+  // nascondendo quelle già concluse (applied/failed/rejected/cancelled).
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  actionableOnly?: boolean;
 }

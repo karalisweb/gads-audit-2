@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Textarea } from '@/components/ui/textarea';
-import { Check, X, AlertCircle, Clock, Loader2, Plus, Eye, Code, ExternalLink, CheckCircle2, XCircle, ChevronDown, ChevronRight, TableIcon, LayoutList, Zap, Shield, Undo2, CalendarDays, PowerOff, Lightbulb } from 'lucide-react';
+import { Check, X, AlertCircle, Clock, Loader2, Plus, Eye, Code, ExternalLink, CheckCircle2, XCircle, ChevronDown, ChevronRight, TableIcon, LayoutList, Undo2, CalendarDays, PowerOff, Lightbulb } from 'lucide-react';
 import { CreateModificationModal } from './CreateModificationModal';
 import {
   getModifications,
@@ -242,13 +242,13 @@ export function ModificationsPage() {
     sortBy: 'createdAt',
     sortOrder: 'DESC',
   });
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('todo');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [modTypeFilter, setModTypeFilter] = useState<string>('all');
   // Modifiche (alto impatto, applicabili) vs Raccomandazioni (advisory/manuali)
   const [kindFilter, setKindFilter] = useState<'all' | 'modification' | 'recommendation'>('modification');
-  // Nasconde le modifiche su campagne/gruppi/annunci in pausa o rimossi
-  const [activeOnly, setActiveOnly] = useState(false);
+  // Nasconde le modifiche su campagne/gruppi/annunci in pausa o rimossi (ON di default)
+  const [activeOnly, setActiveOnly] = useState(true);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [selectedModId, setSelectedModId] = useState<string | null>(null);
@@ -273,9 +273,10 @@ export function ModificationsPage() {
       const appliedFilters: ModificationFilters = {
         ...filters,
         status:
-          statusFilter !== 'all'
+          statusFilter !== 'all' && statusFilter !== 'todo'
             ? (statusFilter as ModificationStatus)
             : undefined,
+        actionableOnly: statusFilter === 'todo' ? true : undefined,
         priority:
           priorityFilter !== 'all'
             ? priorityFilter
@@ -381,20 +382,6 @@ export function ModificationsPage() {
     }
   };
 
-  // Computed: pending high priority and negative keyword counts for smart bulk actions
-  const pendingGroupCounts = useMemo(() => {
-    if (!data) return { highPriority: 0, negativeKeywords: 0, highPriorityIds: [] as string[], negativeKeywordIds: [] as string[] };
-    const pendingMods = data.data.filter(m => m.status === 'pending');
-    const highPriority = pendingMods.filter(m => m.priority === 'high');
-    const negativeKeywords = pendingMods.filter(m => m.modificationType === 'negative_keyword.add');
-    return {
-      highPriority: highPriority.length,
-      negativeKeywords: negativeKeywords.length,
-      highPriorityIds: highPriority.map(m => m.id),
-      negativeKeywordIds: negativeKeywords.map(m => m.id),
-    };
-  }, [data]);
-
   // Group data by entityType for grouped view
   const groupedData = useMemo(() => {
     if (!data) return [];
@@ -464,18 +451,14 @@ export function ModificationsPage() {
     return { total: summary.total, byStatus: summary.byStatus, perDate: false, hasSelection: true };
   }, [viewMode, selectedDateKey, groupedByDate, summary]);
 
-  const handleBulkApproveByGroup = async (ids: string[]) => {
-    if (ids.length === 0) return;
-    setBulkLoading(true);
-    try {
-      await bulkApproveModifications(ids);
-      fetchData();
-    } catch (err) {
-      console.error('Error bulk approving group:', err);
-    } finally {
-      setBulkLoading(false);
-    }
-  };
+  // Vista Per data: apri di default il giorno più recente (e accendine le card).
+  // Si riapplica al cambio dati; l'utente può comunque chiudere il giorno aperto.
+  useEffect(() => {
+    if (viewMode !== 'byDate' || groupedByDate.length === 0) return;
+    const valid = selectedDateKey && groupedByDate.some((g) => g.dateKey === selectedDateKey);
+    if (!valid) setSelectedDateKey(groupedByDate[0].dateKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupedByDate, viewMode]);
 
   // Get selected pending modification IDs
   const getSelectedPendingIds = (): string[] => {
@@ -942,6 +925,7 @@ export function ModificationsPage() {
             <SelectValue placeholder="Filtra per stato" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="todo">Da lavorare</SelectItem>
             <SelectItem value="all">Tutti gli stati</SelectItem>
             <SelectItem value="pending">In Attesa</SelectItem>
             <SelectItem value="approved">Approvate</SelectItem>
@@ -1000,32 +984,6 @@ export function ModificationsPage() {
         </Button>
 
         <div className="ml-auto flex items-center gap-2">
-          {/* Smart Bulk Approve Buttons */}
-          {pendingGroupCounts.highPriority > 0 && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-red-600 border-red-200 hover:bg-red-50"
-              onClick={() => handleBulkApproveByGroup(pendingGroupCounts.highPriorityIds)}
-              disabled={bulkLoading}
-            >
-              <Zap className="h-3.5 w-3.5 mr-1" />
-              Approva {pendingGroupCounts.highPriority} alta priorità
-            </Button>
-          )}
-          {pendingGroupCounts.negativeKeywords > 0 && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-blue-600 border-blue-200 hover:bg-blue-50"
-              onClick={() => handleBulkApproveByGroup(pendingGroupCounts.negativeKeywordIds)}
-              disabled={bulkLoading}
-            >
-              <Shield className="h-3.5 w-3.5 mr-1" />
-              Approva {pendingGroupCounts.negativeKeywords} negative
-            </Button>
-          )}
-
           {/* View Mode Toggle */}
           <div className="flex border rounded-lg overflow-hidden">
             <button

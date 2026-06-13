@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.18.12] - 2026-06-13
+
+### Aggiunto
+- Modifiche meno rumore - 'Solo entita attive' e 'Da lavorare' attivi di default, la vista Per data apre il giorno piu recente con le sue card accese, rimossi i bottoni smart-bulk
+
+---
+
+
 ## [2.18.11] - 2026-06-13
 
 ### Aggiunto
