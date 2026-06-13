@@ -1150,6 +1150,7 @@ Adatta le tue raccomandazioni in base a queste preferenze. Non insistere su cate
         countingType: c.countingType,
         defaultValue: c.defaultValue,
         primaryForGoal: c.primaryForGoal,
+        goalBiddable: c.goalBiddable,
         campaignsUsing: c.campaignsUsingCount,
       }));
     }
@@ -1736,10 +1737,11 @@ ${enabledCampaigns
   .join('\n')}
 
 AZIONI DI CONVERSIONE (${conversionActions.length}):
+(primaria = l'obiettivo è biddable, cioè Google ottimizza/fa offerte verso questa conversione)
 ${conversionActions
   .map(
     (ca) =>
-      `- ${ca.name}: status=${ca.status}, tipo=${ca.type}, primaria=${ca.primaryForGoal ? 'SI' : 'NO'}, valore=€${parseFloat(ca.defaultValue || '0').toFixed(2)}`,
+      `- ${ca.name}: status=${ca.status}, tipo=${ca.type}, primaria=${(ca.goalBiddable != null ? ca.goalBiddable : ca.primaryForGoal) ? 'SI' : 'NO'}, valore=€${parseFloat(ca.defaultValue || '0').toFixed(2)}`,
   )
   .join('\n')}
 

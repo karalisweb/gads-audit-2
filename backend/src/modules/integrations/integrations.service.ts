@@ -542,6 +542,11 @@ export class IntegrationsService {
           defaultValue: row.default_value != null ? String(row.default_value) : undefined,
           alwaysUseDefaultValue: Boolean(row.always_use_default_value || row.alwaysUseDefaultValue),
           primaryForGoal: Boolean(row.primary_for_goal || row.primaryForGoal),
+          // null se lo script di download non invia ancora il campo (resta da ri-scaricare)
+          goalBiddable:
+            (row.goal_biddable ?? row.goalBiddable) != null
+              ? Boolean(row.goal_biddable ?? row.goalBiddable)
+              : undefined,
           campaignsUsingCount: Number(row.campaigns_using_count || row.campaignsUsingCount || 0),
         },
         ['accountId', 'runId', 'conversionActionId'],

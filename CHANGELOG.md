@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.18.7] - 2026-06-13
+
+### Aggiunto
+- Importato il livello obiettivo (customer_conversion_goal.biddable) come goal_biddable sulle conversioni; l'AI ora valuta Primario/Secondario da questo invece che da primary_for_goal, niente piu falsi 'assenza di conversioni primarie'
+
+---
+
+
 ## [2.18.6] - 2026-06-13
 
 ### Corretto

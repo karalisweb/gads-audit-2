@@ -385,13 +385,59 @@ function extractAssets() {
 
 function extractConversionActions() {
   var conversions = [];
-  var query = 'SELECT conversion_action.id, conversion_action.name, conversion_action.status, conversion_action.type, conversion_action.category, conversion_action.origin, conversion_action.counting_type, conversion_action.value_settings.default_value, conversion_action.value_settings.always_use_default_value, conversion_action.primary_for_goal FROM conversion_action WHERE conversion_action.status != "REMOVED"';
+
+  // Mappa (category|origin) -> biddable dal LIVELLO OBIETTIVO (customer_conversion_goal).
+  // E' QUESTO che determina Primario/Secondario nel modello "obiettivi" di Google,
+  // non conversion_action.primary_for_goal (che e' solo il primario "dentro" l'obiettivo).
+  var goalBiddable = {};
+  try {
+    var goalRows = AdsApp.report(
+      'SELECT customer_conversion_goal.category, customer_conversion_goal.origin, ' +
+      'customer_conversion_goal.biddable FROM customer_conversion_goal'
+    ).rows();
+    while (goalRows.hasNext()) {
+      var g = goalRows.next();
+      goalBiddable[g['customer_conversion_goal.category'] + '|' + g['customer_conversion_goal.origin']] =
+        g['customer_conversion_goal.biddable'] === 'true';
+    }
+  } catch (e) {
+    Logger.log('  > Note: Could not extract conversion goals: ' + e.message);
+  }
+
+  var query = 'SELECT ' +
+    'conversion_action.id, ' +
+    'conversion_action.name, ' +
+    'conversion_action.status, ' +
+    'conversion_action.type, ' +
+    'conversion_action.category, ' +
+    'conversion_action.origin, ' +
+    'conversion_action.counting_type, ' +
+    'conversion_action.value_settings.default_value, ' +
+    'conversion_action.value_settings.always_use_default_value, ' +
+    'conversion_action.primary_for_goal ' +
+    'FROM conversion_action ' +
+    'WHERE conversion_action.status != "REMOVED"';
 
   var rows = AdsApp.report(query).rows();
   while (rows.hasNext()) {
     var row = rows.next();
-    conversions.push({ conversion_action_id: row['conversion_action.id'], name: row['conversion_action.name'], status: row['conversion_action.status'], type: row['conversion_action.type'], category: row['conversion_action.category'], origin: row['conversion_action.origin'], counting_type: row['conversion_action.counting_type'], default_value: parseFloat(row['conversion_action.value_settings.default_value']) || null, always_use_default_value: row['conversion_action.value_settings.always_use_default_value'] === 'true', primary_for_goal: row['conversion_action.primary_for_goal'] === 'true', campaigns_using_count: 0 });
+    var goalKey = row['conversion_action.category'] + '|' + row['conversion_action.origin'];
+    conversions.push({
+      conversion_action_id: row['conversion_action.id'],
+      name: row['conversion_action.name'],
+      status: row['conversion_action.status'],
+      type: row['conversion_action.type'],
+      category: row['conversion_action.category'],
+      origin: row['conversion_action.origin'],
+      counting_type: row['conversion_action.counting_type'],
+      default_value: parseFloat(row['conversion_action.value_settings.default_value']) || null,
+      always_use_default_value: row['conversion_action.value_settings.always_use_default_value'] === 'true',
+      primary_for_goal: row['conversion_action.primary_for_goal'] === 'true',
+      goal_biddable: goalBiddable[goalKey] === true,
+      campaigns_using_count: 0
+    });
   }
+
   return conversions;
 }
 

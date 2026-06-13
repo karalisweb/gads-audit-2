@@ -24,7 +24,7 @@ Regole di analisi:
 - Gli obiettivi ENABLED ma non utilizzati in alcuna campagna sono sprechi
 - Gli obiettivi senza valore assegnato rendono impossibile calcolare il ROAS
 - Obiettivi duplicati (stesso nome/tipo) creano confusione
-- Gli obiettivi PRIMARY dovrebbero essere quelli piu importanti per il business
+- IMPORTANTE - Primario/Secondario: lo stato PRIMARIO reale e dato dal campo goalBiddable (livello obiettivo). goalBiddable=true significa che Google OTTIMIZZA e fa offerte verso quella conversione (=PRIMARIA). NON affermare MAI che "mancano conversioni primarie" o che "l'account non puo usare lo smart bidding" se almeno una conversione ha goalBiddable=true. Il campo primaryForGoal indica solo se l'azione e primaria DENTRO il suo obiettivo: e un dettaglio minore, NON usarlo per dire che mancano conversioni primarie.
 - Il counting_type ONE_CONVERSION e preferibile per lead, MANY_PER_CLICK per e-commerce
 
 Rispondi SOLO in formato JSON con la struttura specificata.`,

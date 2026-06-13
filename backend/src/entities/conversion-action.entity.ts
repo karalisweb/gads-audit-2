@@ -55,6 +55,13 @@ export class ConversionAction {
   @Column({ name: 'primary_for_goal', nullable: true })
   primaryForGoal: boolean;
 
+  // Livello OBIETTIVO (customer_conversion_goal.biddable): true = l'obiettivo è
+  // primario, cioè Google ottimizza/fa offerte verso questa conversione.
+  // È il vero segnale "Primario/Secondario" nel modello obiettivi di Google,
+  // distinto da primaryForGoal (primario DENTRO l'obiettivo).
+  @Column({ name: 'goal_biddable', nullable: true })
+  goalBiddable: boolean;
+
   @Column({ name: 'campaigns_using_count', default: 0 })
   campaignsUsingCount: number;
 
