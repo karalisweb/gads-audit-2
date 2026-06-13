@@ -385,10 +385,10 @@ function extractAssets() {
 
 function extractConversionActions() {
   var conversions = [];
+  function toBool(v) { return v === true || v === 'true' || v === 'TRUE' || v === '1'; }
 
   // Mappa (category|origin) -> biddable dal LIVELLO OBIETTIVO (customer_conversion_goal).
-  // E' QUESTO che determina Primario/Secondario nel modello "obiettivi" di Google,
-  // non conversion_action.primary_for_goal (che e' solo il primario "dentro" l'obiettivo).
+  // toBool perche' AdsApp.report puo' restituire un booleano (non la stringa 'true').
   var goalBiddable = {};
   try {
     var goalRows = AdsApp.report(
@@ -398,7 +398,7 @@ function extractConversionActions() {
     while (goalRows.hasNext()) {
       var g = goalRows.next();
       goalBiddable[g['customer_conversion_goal.category'] + '|' + g['customer_conversion_goal.origin']] =
-        g['customer_conversion_goal.biddable'] === 'true';
+        toBool(g['customer_conversion_goal.biddable']);
     }
   } catch (e) {
     Logger.log('  > Note: Could not extract conversion goals: ' + e.message);
@@ -431,8 +431,8 @@ function extractConversionActions() {
       origin: row['conversion_action.origin'],
       counting_type: row['conversion_action.counting_type'],
       default_value: parseFloat(row['conversion_action.value_settings.default_value']) || null,
-      always_use_default_value: row['conversion_action.value_settings.always_use_default_value'] === 'true',
-      primary_for_goal: row['conversion_action.primary_for_goal'] === 'true',
+      always_use_default_value: toBool(row['conversion_action.value_settings.always_use_default_value']),
+      primary_for_goal: toBool(row['conversion_action.primary_for_goal']),
       goal_biddable: goalBiddable[goalKey] === true,
       campaigns_using_count: 0
     });
@@ -850,7 +850,7 @@ function applyKeywordFinalUrl(mod) {
 }
 
 function addNegativeKeyword(mod) {
-  var text = mod.afterValue.text; var mt = mod.afterValue.matchType || 'BROAD'; var level = mod.afterValue.level || 'CAMPAIGN';
+  var text = mod.afterValue.text || mod.afterValue.keyword; var mt = mod.afterValue.matchType || 'BROAD'; var level = (mod.afterValue.level || 'CAMPAIGN').toUpperCase();
   var parsed = parseEntityId(mod.entityId);
 
   // If entityId contains adGroupId~criterionId, use AD_GROUP level

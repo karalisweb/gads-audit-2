@@ -360,6 +360,10 @@ export class ModificationsService {
       where: {
         accountId: account.id,
         status: ModificationStatus.APPROVED,
+        // Solo modifiche ESEGUIBILI: le raccomandazioni advisory (restructure,
+        // check_tracking, ecc.) non hanno payload applicabile e farebbero fallire
+        // lo script. Restano "approvate" come promemoria ma non vengono inviate.
+        kind: ModificationKind.MODIFICATION,
       },
       order: { createdAt: 'ASC' },
     });

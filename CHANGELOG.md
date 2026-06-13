@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.18.15] - 2026-06-13
+
+### Corretto
+- Lo script di apply non riceve piu le raccomandazioni advisory (solo modifiche eseguibili); corretto il riconoscimento delle negative (level minuscolo + campo keyword) e il parsing booleano delle conversioni (AdsApp.report torna booleani, non stringhe 'true')
+
+---
+
+
 ## [2.18.14] - 2026-06-13
 
 ### Corretto
