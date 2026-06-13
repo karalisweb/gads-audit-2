@@ -6,6 +6,7 @@ Log tecnico delle modifiche al software, auto-generato dal deploy script.
 
 | Versione | Data | Commit |
 |----------|------|--------|
+| 2.18.21 | 2026-06-13 | feat: nelle conversioni raggruppate per origine, le primarie vengono mostrate prima delle secondarie |
 | 2.18.20 | 2026-06-13 | feat: conversioni raggruppabili per Origine (Sito web, Chiamata dagli annunci...) con toggle 'Per origine' attivo di default |
 | 2.18.19 | 2026-06-13 | fix: 'Inattiva' solo sulle azioni primarie per-azione (primaryForGoal), non sull'intera categoria biddable - coincide con 'Inattivo' di Google Ads |
 | 2.18.18 | 2026-06-13 | feat: stato salute conversioni - rileva le 'Inattive' (conversione primaria con 0 conversioni in 30gg = tracciamento rotto); badge rosso + card Inattive + colonna Conv.30gg, l'AI lo segnala come problema grave; script v3.6 importa metrics.all_conversions |

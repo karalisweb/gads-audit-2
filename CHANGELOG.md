@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.18.21] - 2026-06-13
+
+### Aggiunto
+- Nelle conversioni raggruppate per origine, le primarie vengono mostrate prima delle secondarie
+
+---
+
+
 ## [2.18.20] - 2026-06-13
 
 ### Aggiunto

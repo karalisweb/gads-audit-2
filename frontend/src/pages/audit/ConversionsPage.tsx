@@ -427,7 +427,11 @@ export function ConversionsPage() {
       groups.get(key)!.push(a);
     }
     return Array.from(groups.entries())
-      .map(([origin, actions]) => ({ origin, actions }))
+      .map(([origin, actions]) => ({
+        origin,
+        // Prima le primarie, poi le secondarie
+        actions: actions.slice().sort((a, b) => (b.primaryForGoal ? 1 : 0) - (a.primaryForGoal ? 1 : 0)),
+      }))
       .sort((x, y) => getOriginLabel(x.origin).localeCompare(getOriginLabel(y.origin)));
   }, [filteredActions]);
 
