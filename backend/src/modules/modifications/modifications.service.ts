@@ -177,6 +177,32 @@ export class ModificationsService {
     return this.modificationsRepository.save(modification);
   }
 
+  /**
+   * Annulla un'approvazione: riporta una modifica da APPROVED a PENDING
+   * (utile quando si approva per sbaglio). Non tocca quelle già in
+   * elaborazione o applicate dallo script.
+   */
+  async unapprove(id: string, userId: string) {
+    const modification = await this.findOne(id);
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+
+    if (!user || user.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Only admins can change modifications');
+    }
+
+    if (modification.status !== ModificationStatus.APPROVED) {
+      throw new BadRequestException(
+        'Only approved modifications can be moved back to pending',
+      );
+    }
+
+    modification.status = ModificationStatus.PENDING;
+    modification.approvedById = null as unknown as string;
+    modification.approvedAt = null as unknown as Date;
+
+    return this.modificationsRepository.save(modification);
+  }
+
   async reject(id: string, userId: string, reason: string) {
     const modification = await this.findOne(id);
     const user = await this.usersRepository.findOne({ where: { id: userId } });

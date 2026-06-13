@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.18.8] - 2026-06-13
+
+### Aggiunto
+- Pulsante 'Riporta in Attesa' per annullare un'approvazione fatta per sbaglio (da Approvata torna In Attesa) + nuova vista delle modifiche raggruppata per data (sessione di audit)
+
+---
+
+
 ## [2.18.7] - 2026-06-13
 
 ### Aggiunto

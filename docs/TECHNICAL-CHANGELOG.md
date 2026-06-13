@@ -6,6 +6,7 @@ Log tecnico delle modifiche al software, auto-generato dal deploy script.
 
 | Versione | Data | Commit |
 |----------|------|--------|
+| 2.18.8 | 2026-06-13 | feat: pulsante 'Riporta in Attesa' per annullare un'approvazione fatta per sbaglio (da Approvata torna In Attesa) + nuova vista delle modifiche raggruppata per data (sessione di audit) |
 | 2.18.7 | 2026-06-13 | feat: importato il livello obiettivo (customer_conversion_goal.biddable) come goal_biddable sulle conversioni; l'AI ora valuta Primario/Secondario da questo invece che da primary_for_goal, niente piu falsi 'assenza di conversioni primarie' |
 | 2.18.6 | 2026-06-13 | fix: l'analisi AI con Gemini falliva con 'Analysis failed' perche il JSON veniva troncato dal thinking di Gemini 3; alzato il budget token a 16k e aggiunto parsing difensivo con errore leggibile in caso di troncamento |
 | 2.18.5 | 2026-06-13 | fix: la chat del report mostra un errore chiaro invece di far sparire il messaggio; il backend rimuove la domanda orfana e rilancia un errore leggibile (es. quota AI esaurita) quando il provider fallisce |

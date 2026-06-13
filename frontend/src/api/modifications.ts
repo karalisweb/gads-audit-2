@@ -79,6 +79,11 @@ export async function cancelModification(id: string): Promise<Modification> {
   return apiClient.post<Modification>(`/modifications/${id}/cancel`);
 }
 
+// Riporta una modifica approvata di nuovo "In Attesa" (annulla approvazione)
+export async function unapproveModification(id: string): Promise<Modification> {
+  return apiClient.post<Modification>(`/modifications/${id}/unapprove`);
+}
+
 // Bulk approve modifications
 export async function bulkApproveModifications(
   ids: string[],

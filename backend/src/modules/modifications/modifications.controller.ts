@@ -82,6 +82,15 @@ export class ModificationsController {
     return this.modificationsService.cancel(id, userId);
   }
 
+  @Post(':id/unapprove')
+  @HttpCode(HttpStatus.OK)
+  async unapprove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.modificationsService.unapprove(id, userId);
+  }
+
   @Post('bulk-approve')
   @HttpCode(HttpStatus.OK)
   async bulkApprove(

@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Textarea } from '@/components/ui/textarea';
-import { Check, X, AlertCircle, Clock, Loader2, Plus, Eye, Code, ExternalLink, CheckCircle2, XCircle, ChevronDown, ChevronRight, TableIcon, LayoutList, Zap, Shield } from 'lucide-react';
+import { Check, X, AlertCircle, Clock, Loader2, Plus, Eye, Code, ExternalLink, CheckCircle2, XCircle, ChevronDown, ChevronRight, TableIcon, LayoutList, Zap, Shield, Undo2, CalendarDays } from 'lucide-react';
 import { CreateModificationModal } from './CreateModificationModal';
 import {
   getModifications,
@@ -36,6 +36,7 @@ import {
   approveModification,
   rejectModification,
   cancelModification,
+  unapproveModification,
   bulkApproveModifications,
   bulkRejectModifications,
 } from '@/api/modifications';
@@ -257,7 +258,7 @@ export function ModificationsPage() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkRejectDialogOpen, setBulkRejectDialogOpen] = useState(false);
   const [bulkRejectReason, setBulkRejectReason] = useState('');
-  const [viewMode, setViewMode] = useState<'table' | 'grouped'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'grouped' | 'byDate'>('table');
 
   const fetchData = useCallback(async () => {
     if (!accountId) return;
@@ -307,6 +308,19 @@ export function ModificationsPage() {
       fetchData();
     } catch (err) {
       console.error('Error approving:', err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Annulla un'approvazione fatta per sbaglio: torna "In Attesa"
+  const handleUnapprove = async (id: string) => {
+    setActionLoading(id);
+    try {
+      await unapproveModification(id);
+      fetchData();
+    } catch (err) {
+      console.error('Error unapproving:', err);
     } finally {
       setActionLoading(null);
     }
@@ -395,6 +409,30 @@ export function ModificationsPage() {
       entityType,
       ...data,
     }));
+  }, [data]);
+
+  // Raggruppa per DATA di creazione (proxy della sessione di audit).
+  // Nota: raggruppa la pagina corrente; con la paginazione un giorno
+  // può estendersi su più pagine.
+  const groupedByDate = useMemo(() => {
+    if (!data) return [];
+    const groups = new Map<string, { mods: Modification[]; pendingCount: number; highPriorityCount: number }>();
+    data.data.forEach(mod => {
+      const d = new Date(mod.createdAt);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      if (!groups.has(key)) {
+        groups.set(key, { mods: [], pendingCount: 0, highPriorityCount: 0 });
+      }
+      const group = groups.get(key)!;
+      group.mods.push(mod);
+      if (mod.status === 'pending') {
+        group.pendingCount++;
+        if (mod.priority === 'high') group.highPriorityCount++;
+      }
+    });
+    return Array.from(groups.entries())
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([dateKey, d]) => ({ dateKey, ...d }));
   }, [data]);
 
   const handleBulkApproveByGroup = async (ids: string[]) => {
@@ -712,9 +750,25 @@ export function ModificationsPage() {
 
         if (mod.status === 'approved') {
           return (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              In attesa script
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                <Clock className="h-4 w-4" />
+                In attesa script
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => handleUnapprove(mod.id)}
+                disabled={isLoading}
+                title="Annulla approvazione: riporta In Attesa"
+              >
+                {isLoading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Undo2 className="h-3.5 w-3.5" />
+                )}
+              </Button>
             </div>
           );
         }
@@ -944,9 +998,16 @@ export function ModificationsPage() {
             <button
               onClick={() => setViewMode('grouped')}
               className={`p-2 transition-colors ${viewMode === 'grouped' ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted text-muted-foreground'}`}
-              title="Vista raggruppata"
+              title="Vista raggruppata per tipo"
             >
               <LayoutList className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('byDate')}
+              className={`p-2 transition-colors ${viewMode === 'byDate' ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted text-muted-foreground'}`}
+              title="Vista per data (sessione di audit)"
+            >
+              <CalendarDays className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -1014,7 +1075,7 @@ export function ModificationsPage() {
           />
         )}
 
-        {/* Grouped View */}
+        {/* Grouped View (per tipo) */}
         {viewMode === 'grouped' && data && (
           <div className="space-y-3">
             {groupedData.map((group) => (
@@ -1025,6 +1086,7 @@ export function ModificationsPage() {
                 pendingCount={group.pendingCount}
                 highPriorityCount={group.highPriorityCount}
                 onApprove={handleApprove}
+                onUnapprove={handleUnapprove}
                 onQuickReject={handleQuickReject}
                 onOpenRejectDialog={openRejectDialog}
                 onViewDetail={(mod) => { setDetailModification(mod); setDetailModalOpen(true); }}
@@ -1034,6 +1096,55 @@ export function ModificationsPage() {
             {groupedData.length === 0 && (
               <div className="text-center py-12 text-muted-foreground">
                 Nessuna modifica trovata con i filtri attuali
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* By-Date View (sessione di audit) */}
+        {viewMode === 'byDate' && data && (
+          <div className="space-y-3">
+            {groupedByDate.map((group) => (
+              <DateGroupSection
+                key={group.dateKey}
+                dateKey={group.dateKey}
+                modifications={group.mods}
+                pendingCount={group.pendingCount}
+                highPriorityCount={group.highPriorityCount}
+                onApprove={handleApprove}
+                onUnapprove={handleUnapprove}
+                onQuickReject={handleQuickReject}
+                onOpenRejectDialog={openRejectDialog}
+                onViewDetail={(mod) => { setDetailModification(mod); setDetailModalOpen(true); }}
+                actionLoading={actionLoading}
+              />
+            ))}
+            {groupedByDate.length === 0 && (
+              <div className="text-center py-12 text-muted-foreground">
+                Nessuna modifica trovata con i filtri attuali
+              </div>
+            )}
+            {data.meta && data.meta.totalPages > 1 && (
+              <div className="flex items-center justify-between pt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={(filters.page || 1) <= 1}
+                  onClick={() => setFilters(f => ({ ...f, page: (f.page || 1) - 1 }))}
+                >
+                  Precedente
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Pagina {filters.page || 1} / {data.meta.totalPages} · raggruppamento per data sulla pagina corrente
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={(filters.page || 1) >= data.meta.totalPages}
+                  onClick={() => setFilters(f => ({ ...f, page: (f.page || 1) + 1 }))}
+                >
+                  Successiva
+                </Button>
               </div>
             )}
           </div>
@@ -1049,6 +1160,7 @@ export function ModificationsPage() {
                 key={mod.id}
                 mod={mod}
                 onApprove={handleApprove}
+                onUnapprove={handleUnapprove}
                 onQuickReject={handleQuickReject}
                 onOpenRejectDialog={openRejectDialog}
                 onViewDetail={(m) => { setDetailModification(m); setDetailModalOpen(true); }}
@@ -1443,6 +1555,7 @@ function GroupedEntitySection({
   pendingCount,
   highPriorityCount,
   onApprove,
+  onUnapprove,
   onQuickReject,
   onOpenRejectDialog,
   onViewDetail,
@@ -1453,6 +1566,7 @@ function GroupedEntitySection({
   pendingCount: number;
   highPriorityCount: number;
   onApprove: (id: string) => void;
+  onUnapprove: (id: string) => void;
   onQuickReject: (id: string, reason: string) => void;
   onOpenRejectDialog: (id: string) => void;
   onViewDetail: (mod: Modification) => void;
@@ -1496,6 +1610,92 @@ function GroupedEntitySection({
               key={mod.id}
               mod={mod}
               onApprove={onApprove}
+              onUnapprove={onUnapprove}
+              onQuickReject={onQuickReject}
+              onOpenRejectDialog={onOpenRejectDialog}
+              onViewDetail={onViewDetail}
+              actionLoading={actionLoading}
+            />
+          ))}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+// =========================================================================
+// Date Group Section (raggruppamento per giorno / sessione di audit)
+// =========================================================================
+
+function DateGroupSection({
+  dateKey,
+  modifications,
+  pendingCount,
+  highPriorityCount,
+  onApprove,
+  onUnapprove,
+  onQuickReject,
+  onOpenRejectDialog,
+  onViewDetail,
+  actionLoading,
+}: {
+  dateKey: string;
+  modifications: Modification[];
+  pendingCount: number;
+  highPriorityCount: number;
+  onApprove: (id: string) => void;
+  onUnapprove: (id: string) => void;
+  onQuickReject: (id: string, reason: string) => void;
+  onOpenRejectDialog: (id: string) => void;
+  onViewDetail: (mod: Modification) => void;
+  actionLoading: string | null;
+}) {
+  const [isOpen, setIsOpen] = useState(pendingCount > 0);
+  const dateLabel = new Date(dateKey + 'T00:00:00').toLocaleDateString('it-IT', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <CollapsibleTrigger className="w-full">
+        <div className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
+          <div className="flex items-center gap-3">
+            {isOpen ? (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            )}
+            <CalendarDays className="h-4 w-4 text-muted-foreground" />
+            <span className="font-semibold text-foreground capitalize">
+              {dateLabel}
+            </span>
+            <Badge variant="outline" className="text-xs">
+              {modifications.length}
+            </Badge>
+            {pendingCount > 0 && (
+              <Badge className="bg-yellow-100 text-yellow-800 text-xs">
+                {pendingCount} in attesa
+              </Badge>
+            )}
+            {highPriorityCount > 0 && (
+              <Badge className="bg-red-100 text-red-800 text-xs">
+                {highPriorityCount} urgenti
+              </Badge>
+            )}
+          </div>
+        </div>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="mt-1 space-y-1 pl-4 border-l-2 border-border ml-2">
+          {modifications.map((mod) => (
+            <GroupedModificationRow
+              key={mod.id}
+              mod={mod}
+              onApprove={onApprove}
+              onUnapprove={onUnapprove}
               onQuickReject={onQuickReject}
               onOpenRejectDialog={onOpenRejectDialog}
               onViewDetail={onViewDetail}
@@ -1511,6 +1711,7 @@ function GroupedEntitySection({
 function GroupedModificationRow({
   mod,
   onApprove,
+  onUnapprove,
   onQuickReject,
   onOpenRejectDialog,
   onViewDetail,
@@ -1518,6 +1719,7 @@ function GroupedModificationRow({
 }: {
   mod: Modification;
   onApprove: (id: string) => void;
+  onUnapprove: (id: string) => void;
   onQuickReject: (id: string, reason: string) => void;
   onOpenRejectDialog: (id: string) => void;
   onViewDetail: (mod: Modification) => void;
@@ -1610,6 +1812,18 @@ function GroupedModificationRow({
             </DropdownMenu>
           </>
         )}
+        {mod.status === 'approved' && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => onUnapprove(mod.id)}
+            disabled={isLoading}
+            title="Annulla approvazione: riporta In Attesa"
+          >
+            {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5" />}
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -1622,6 +1836,7 @@ function GroupedModificationRow({
 function MobileModificationCard({
   mod,
   onApprove,
+  onUnapprove,
   onQuickReject,
   onOpenRejectDialog,
   onViewDetail,
@@ -1629,6 +1844,7 @@ function MobileModificationCard({
 }: {
   mod: Modification;
   onApprove: (id: string) => void;
+  onUnapprove: (id: string) => void;
   onQuickReject: (id: string, reason: string) => void;
   onOpenRejectDialog: (id: string) => void;
   onViewDetail: (mod: Modification) => void;
@@ -1756,6 +1972,20 @@ function MobileModificationCard({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+      )}
+
+      {/* Approved: annulla approvazione */}
+      {mod.status === 'approved' && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full h-8 text-xs text-muted-foreground"
+          onClick={() => onUnapprove(mod.id)}
+          disabled={isLoading}
+        >
+          {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Undo2 className="h-4 w-4 mr-1" />}
+          Riporta In Attesa
+        </Button>
       )}
 
       {/* View Detail button */}
