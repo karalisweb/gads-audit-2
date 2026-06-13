@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { ModifyButton } from '@/components/modifications';
 import { getCampaigns, getAdGroups, getAds, getKeywords, getConversionActions } from '@/api/audit';
+import { usePeriodEntityMetrics } from '@/hooks/usePeriodEntityMetrics';
 import { formatCurrency, formatNumber } from '@/lib/format';
 import type { Campaign, AdGroup, Ad, Keyword, ConversionAction, PaginatedResponse } from '@/types/audit';
 
@@ -264,11 +265,13 @@ export function ConversionsPage() {
 
   // Performance data
   const [isLoading, setIsLoading] = useState(true);
-  const [perfStats, setPerfStats] = useState<ConversionStats | null>(null);
-  const [campaigns, setCampaigns] = useState<EntityWithConversions[]>([]);
-  const [adGroups, setAdGroups] = useState<EntityWithConversions[]>([]);
-  const [ads, setAds] = useState<EntityWithConversions[]>([]);
-  const [keywords, setKeywords] = useState<EntityWithConversions[]>([]);
+  // Dati grezzi delle entità (per nomi/id); i numeri si calcolano dal periodo selezionato
+  const [rawPerf, setRawPerf] = useState<{ campaigns: Campaign[]; adGroups: AdGroup[]; ads: Ad[]; keywords: Keyword[] }>({ campaigns: [], adGroups: [], ads: [], keywords: [] });
+  // Metriche per periodo (rispondono al selettore + Confronta dell'header)
+  const campMetrics = usePeriodEntityMetrics('campaign');
+  const agMetrics = usePeriodEntityMetrics('ad_group');
+  const adMetrics = usePeriodEntityMetrics('ad');
+  const kwMetrics = usePeriodEntityMetrics('keyword');
 
   // Conversion actions data
   const [actionsData, setActionsData] = useState<PaginatedResponse<ConversionAction> | null>(null);
@@ -289,82 +292,12 @@ export function ConversionsPage() {
         getKeywords(accountId, { limit: 500, sortBy: 'conversions', sortOrder: 'DESC' }),
       ]);
 
-      const processedCampaigns: EntityWithConversions[] = campaignsData.data.map((c: Campaign) => {
-        const conv = parseFloat(c.conversions) || 0;
-        const value = parseFloat(c.conversionsValue) || 0;
-        const cost = parseFloat(c.costMicros) || 0;
-        const clicks = parseFloat(c.clicks) || 0;
-        return {
-          id: c.campaignId, name: c.campaignName,
-          conversions: conv, conversionsValue: value, cost,
-          cpa: conv > 0 ? cost / conv : 0,
-          roas: cost > 0 ? (value * 1000000) / cost : 0,
-          convRate: clicks > 0 ? (conv / clicks) * 100 : 0, clicks,
-        };
+      setRawPerf({
+        campaigns: campaignsData.data,
+        adGroups: adGroupsData.data,
+        ads: adsData.data,
+        keywords: keywordsData.data,
       });
-
-      const processedAdGroups: EntityWithConversions[] = adGroupsData.data.map((ag: AdGroup) => {
-        const conv = parseFloat(ag.conversions) || 0;
-        const value = parseFloat(ag.conversionsValue) || 0;
-        const cost = parseFloat(ag.costMicros) || 0;
-        const clicks = parseFloat(ag.clicks) || 0;
-        return {
-          id: ag.adGroupId, name: ag.adGroupName, parentName: ag.campaignName,
-          conversions: conv, conversionsValue: value, cost,
-          cpa: conv > 0 ? cost / conv : 0,
-          roas: cost > 0 ? (value * 1000000) / cost : 0,
-          convRate: clicks > 0 ? (conv / clicks) * 100 : 0, clicks,
-        };
-      });
-
-      const processedAds: EntityWithConversions[] = adsData.data.map((ad: Ad) => {
-        const conv = parseFloat(ad.conversions) || 0;
-        const value = parseFloat(ad.conversionsValue) || 0;
-        const cost = parseFloat(ad.costMicros) || 0;
-        const clicks = parseFloat(ad.clicks) || 0;
-        const firstHeadline = ad.headlines?.[0];
-        const headlineText = firstHeadline
-          ? (typeof firstHeadline === 'object' ? firstHeadline.text : firstHeadline)
-          : null;
-        const adName = headlineText || ad.adGroupName || `Annuncio ${ad.adId}`;
-        return {
-          id: ad.adId, name: adName, parentName: `${ad.campaignName} → ${ad.adGroupName}`,
-          conversions: conv, conversionsValue: value, cost,
-          cpa: conv > 0 ? cost / conv : 0,
-          roas: cost > 0 ? (value * 1000000) / cost : 0,
-          convRate: clicks > 0 ? (conv / clicks) * 100 : 0, clicks,
-        };
-      });
-
-      const processedKeywords: EntityWithConversions[] = keywordsData.data.map((kw: Keyword) => {
-        const conv = parseFloat(kw.conversions) || 0;
-        const value = parseFloat(kw.conversionsValue) || 0;
-        const cost = parseFloat(kw.costMicros) || 0;
-        const clicks = parseFloat(kw.clicks) || 0;
-        return {
-          id: kw.keywordId, name: kw.keywordText,
-          parentName: `${kw.campaignName} → ${kw.adGroupName}`,
-          conversions: conv, conversionsValue: value, cost,
-          cpa: conv > 0 ? cost / conv : 0,
-          roas: cost > 0 ? (value * 1000000) / cost : 0,
-          convRate: clicks > 0 ? (conv / clicks) * 100 : 0, clicks,
-        };
-      });
-
-      const totalConversions = processedCampaigns.reduce((sum, c) => sum + c.conversions, 0);
-      const totalConversionsValue = processedCampaigns.reduce((sum, c) => sum + c.conversionsValue, 0);
-      const totalCost = processedCampaigns.reduce((sum, c) => sum + c.cost, 0);
-
-      setPerfStats({
-        totalConversions, totalConversionsValue, totalCost,
-        avgCpa: totalConversions > 0 ? totalCost / totalConversions : 0,
-        avgRoas: totalCost > 0 ? (totalConversionsValue * 1000000) / totalCost : 0,
-      });
-
-      setCampaigns(processedCampaigns);
-      setAdGroups(processedAdGroups);
-      setAds(processedAds);
-      setKeywords(processedKeywords);
     } catch (err) {
       console.error('Failed to load conversions:', err);
     } finally {
@@ -388,6 +321,55 @@ export function ConversionsPage() {
 
   useEffect(() => { loadPerformanceData(); }, [loadPerformanceData]);
   useEffect(() => { loadActions(); }, [loadActions]);
+
+  // Calcola KPI e breakdown usando le metriche del PERIODO selezionato
+  // (fallback ai valori dello snapshot se non ci sono dati giornalieri).
+  const { perfStats, campaigns, adGroups, ads, keywords } = useMemo(() => {
+    const campaigns: EntityWithConversions[] = rawPerf.campaigns.map((c) => {
+      const pm = campMetrics.getEntityMetrics(c.campaignId);
+      const conv = pm ? pm.conversions : parseFloat(c.conversions) || 0;
+      const value = pm ? pm.conversionsValue : parseFloat(c.conversionsValue) || 0;
+      const cost = pm ? pm.cost * 1_000_000 : parseFloat(c.costMicros) || 0;
+      const clicks = pm ? pm.clicks : parseFloat(c.clicks) || 0;
+      return { id: c.campaignId, name: c.campaignName, conversions: conv, conversionsValue: value, cost, cpa: conv > 0 ? cost / conv : 0, roas: cost > 0 ? (value * 1_000_000) / cost : 0, convRate: clicks > 0 ? (conv / clicks) * 100 : 0, clicks };
+    });
+    const adGroups: EntityWithConversions[] = rawPerf.adGroups.map((ag) => {
+      const pm = agMetrics.getEntityMetrics(ag.adGroupId);
+      const conv = pm ? pm.conversions : parseFloat(ag.conversions) || 0;
+      const value = pm ? pm.conversionsValue : parseFloat(ag.conversionsValue) || 0;
+      const cost = pm ? pm.cost * 1_000_000 : parseFloat(ag.costMicros) || 0;
+      const clicks = pm ? pm.clicks : parseFloat(ag.clicks) || 0;
+      return { id: ag.adGroupId, name: ag.adGroupName, parentName: ag.campaignName, conversions: conv, conversionsValue: value, cost, cpa: conv > 0 ? cost / conv : 0, roas: cost > 0 ? (value * 1_000_000) / cost : 0, convRate: clicks > 0 ? (conv / clicks) * 100 : 0, clicks };
+    });
+    const ads: EntityWithConversions[] = rawPerf.ads.map((ad) => {
+      const pm = adMetrics.getEntityMetrics(ad.adId);
+      const conv = pm ? pm.conversions : parseFloat(ad.conversions) || 0;
+      const value = pm ? pm.conversionsValue : parseFloat(ad.conversionsValue) || 0;
+      const cost = pm ? pm.cost * 1_000_000 : parseFloat(ad.costMicros) || 0;
+      const clicks = pm ? pm.clicks : parseFloat(ad.clicks) || 0;
+      const fh = ad.headlines?.[0];
+      const headlineText = fh ? (typeof fh === 'object' ? fh.text : fh) : null;
+      const adName = headlineText || ad.adGroupName || `Annuncio ${ad.adId}`;
+      return { id: ad.adId, name: adName, parentName: `${ad.campaignName} → ${ad.adGroupName}`, conversions: conv, conversionsValue: value, cost, cpa: conv > 0 ? cost / conv : 0, roas: cost > 0 ? (value * 1_000_000) / cost : 0, convRate: clicks > 0 ? (conv / clicks) * 100 : 0, clicks };
+    });
+    const keywords: EntityWithConversions[] = rawPerf.keywords.map((kw) => {
+      const pm = kwMetrics.getEntityMetrics(kw.keywordId);
+      const conv = pm ? pm.conversions : parseFloat(kw.conversions) || 0;
+      const value = pm ? pm.conversionsValue : parseFloat(kw.conversionsValue) || 0;
+      const cost = pm ? pm.cost * 1_000_000 : parseFloat(kw.costMicros) || 0;
+      const clicks = pm ? pm.clicks : parseFloat(kw.clicks) || 0;
+      return { id: kw.keywordId, name: kw.keywordText, parentName: `${kw.campaignName} → ${kw.adGroupName}`, conversions: conv, conversionsValue: value, cost, cpa: conv > 0 ? cost / conv : 0, roas: cost > 0 ? (value * 1_000_000) / cost : 0, convRate: clicks > 0 ? (conv / clicks) * 100 : 0, clicks };
+    });
+    const totalConversions = campaigns.reduce((s, c) => s + c.conversions, 0);
+    const totalConversionsValue = campaigns.reduce((s, c) => s + c.conversionsValue, 0);
+    const totalCost = campaigns.reduce((s, c) => s + c.cost, 0);
+    const perfStats: ConversionStats = {
+      totalConversions, totalConversionsValue, totalCost,
+      avgCpa: totalConversions > 0 ? totalCost / totalConversions : 0,
+      avgRoas: totalCost > 0 ? (totalConversionsValue * 1_000_000) / totalCost : 0,
+    };
+    return { perfStats, campaigns, adGroups, ads, keywords };
+  }, [rawPerf, campMetrics.getEntityMetrics, agMetrics.getEntityMetrics, adMetrics.getEntityMetrics, kwMetrics.getEntityMetrics]);
 
   // Conversion actions stats
   const actionStats = useMemo(() => {

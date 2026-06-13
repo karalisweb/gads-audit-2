@@ -234,6 +234,7 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 | Versione | Data | Descrizione |
 |----------|------|-------------|
+| 2.18.23 | 13 Giugno 2026 | Il selettore periodo ora funziona nella pagina Conversioni - KPI (conversioni, valore, costo, CPA, ROAS) e breakdown per entita rispondono al periodo selezionato invece di usare lo snapshot fisso |
 | 2.18.22 | 13 Giugno 2026 | Rete di sicurezza sui bid - non invia allo script modifiche di offerta con valore non numerico o assurdo (es. l'AI metteva €90/click); protegge il budget |
 | 2.18.21 | 13 Giugno 2026 | Nelle conversioni raggruppate per origine, le primarie vengono mostrate prima delle secondarie |
 | 2.18.20 | 13 Giugno 2026 | Conversioni raggruppabili per Origine (Sito web, Chiamata dagli annunci...) con toggle 'Per origine' attivo di default |
@@ -285,4 +286,4 @@ Tutti gli utenti attivi con accesso alla piattaforma vedono i dati di tutti gli 
 
 ---
 
-*Ultimo aggiornamento: 13 Giugno 2026 | Versione app: 2.18.22*
+*Ultimo aggiornamento: 13 Giugno 2026 | Versione app: 2.18.23*

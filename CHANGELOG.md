@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.18.23] - 2026-06-13
+
+### Corretto
+- Il selettore periodo ora funziona nella pagina Conversioni - KPI (conversioni, valore, costo, CPA, ROAS) e breakdown per entita rispondono al periodo selezionato invece di usare lo snapshot fisso
+
+---
+
+
 ## [2.18.22] - 2026-06-13
 
 ### Corretto
