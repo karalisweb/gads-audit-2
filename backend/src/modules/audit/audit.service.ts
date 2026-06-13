@@ -1558,7 +1558,8 @@ export class AuditService {
   private classifyChannel(name: string): string {
     const n = (name || '').toLowerCase();
     if (/whats|\bwa\b|wapp/.test(n)) return 'whatsapp';
-    if (/phone|call|chiamat|tel\b|click_to_call|telefon/.test(n)) return 'phone';
+    // \btel cattura "TelMobile", "TelFisso", "Tel", "telefono"; evita "hotel"
+    if (/phone|call|chiamat|\btel|click_to_call|telefon|cellul/.test(n)) return 'phone';
     if (/mail|email|mailto|posta/.test(n)) return 'mail';
     if (/form|lead|modulo|submit|invio|contact|contatt/.test(n)) return 'form';
     if (/calendly|grazie|thank|prenot|book|appoint/.test(n)) return 'booking';
@@ -1616,7 +1617,6 @@ export class AuditService {
         channels: Array<{ name: string; channel: string; conversions: number }>;
       }
     >();
-    const channelTotalsMap = new Map<string, number>();
 
     for (const r of rows) {
       const conv = Number(r.conversions) || 0;
@@ -1639,10 +1639,6 @@ export class AuditService {
         channel,
         conversions: conv,
       });
-      channelTotalsMap.set(
-        channel,
-        (channelTotalsMap.get(channel) || 0) + conv,
-      );
     }
 
     const entities = Array.from(byEntity.values())
@@ -1658,6 +1654,20 @@ export class AuditService {
       }))
       .sort((a, b) => b.totalConversions - a.totalConversions);
 
+    // Totali per canale sull'account: calcolati su UN SOLO livello per non
+    // contare la stessa conversione tre volte (campagna ⊃ ad group ⊃ keyword).
+    // Preferenza campaign > ad_group > keyword (campaign è il più completo).
+    const totalsLevel = ['campaign', 'ad_group', 'keyword'].find((lvl) =>
+      rows.some((r) => r.entityType === lvl && Number(r.conversions) > 0),
+    );
+    const channelTotalsMap = new Map<string, number>();
+    for (const r of rows) {
+      if (r.entityType !== totalsLevel) continue;
+      const conv = Number(r.conversions) || 0;
+      if (conv <= 0) continue;
+      const channel = this.classifyChannel(r.conversionActionName);
+      channelTotalsMap.set(channel, (channelTotalsMap.get(channel) || 0) + conv);
+    }
     const channelTotals = Array.from(channelTotalsMap.entries())
       .map(([channel, conversions]) => ({
         channel,

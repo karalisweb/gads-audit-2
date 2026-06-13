@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.18.26] - 2026-06-13
+
+### Corretto
+- Conversioni per canale - classifica TelMobile/TelFisso come telefono e calcola i totali per canale su un solo livello (no triplo conteggio campaign/ad_group/keyword)
+
+---
+
+
 ## [2.18.25] - 2026-06-13
 
 ### Aggiunto
