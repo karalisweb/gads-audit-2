@@ -1,8 +1,10 @@
 /**
  * GADS Audit 2.0 - Google Ads Download Script
  *
+ * VERSIONE: 3.5
+ * DATA: 13/06/2026
  * ACCOUNT: MASSIMO BORIO (8164965072)
- * ULTIMA MODIFICA: 2026-03-04
+ * ULTIMA MODIFICA: 2026-06-13 (fix negative competitor + parsing conversioni)
  *
  * Questo script estrae dati dall'account Google Ads e li invia all'app di audit
  * tramite HTTPS POST con autenticazione HMAC-SHA256.
@@ -72,7 +74,7 @@ function main() {
   var runId = generateRunId();
 
   Logger.log('========================================');
-  Logger.log('GADS Audit 2.0 - Download Script');
+  Logger.log('GADS Audit 2.0 - Download Script (v3.5 - 13/06/2026)');
   Logger.log('========================================');
   Logger.log('Account: ' + accountName + ' (' + accountId + ')');
   Logger.log('Run ID: ' + runId);

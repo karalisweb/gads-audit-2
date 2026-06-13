@@ -5,6 +5,14 @@ Formato basato su [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.18.16] - 2026-06-13
+
+### Aggiunto
+- Rimosso il badge fuorviante 'Non usata' dalle conversioni; le pagine Campagne/Ad Groups/Ads/Keywords/Conversioni partono di default su 'Attivi' (pausa/rimossi nascosti ma accessibili dal filtro stato)
+
+---
+
+
 ## [2.18.15] - 2026-06-13
 
 ### Corretto

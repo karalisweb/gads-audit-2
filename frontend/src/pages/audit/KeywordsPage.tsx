@@ -499,7 +499,7 @@ export function KeywordsPage() {
     sortOrder: 'DESC',
   });
   const [searchInput, setSearchInput] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('ENABLED');
   const [openCards, setOpenCards] = useState<Set<string>>(new Set());
   const { hasData: hasPeriodData, getEntityMetrics, getEntityChanges, hasChanges } = usePeriodEntityMetrics('keyword');
 

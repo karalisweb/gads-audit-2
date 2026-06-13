@@ -454,7 +454,7 @@ export function AdGroupsPage() {
   const [data, setData] = useState<PaginatedResponse<AdGroupWithAds> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const campaignIdFilter = searchParams.get('campaignId');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('ENABLED');
   const [openCards, setOpenCards] = useState<Set<string>>(new Set());
   const { hasData: hasPeriodData, getEntityMetrics, getEntityChanges, hasChanges } = usePeriodEntityMetrics('ad_group');
 

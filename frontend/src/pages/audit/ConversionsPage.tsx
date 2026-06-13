@@ -180,7 +180,8 @@ function ConversionActionCard({
   action: ConversionAction; accountId: string; onRefresh: () => void;
 }) {
   const hasIssues = !action.primaryForGoal && action.status === 'ENABLED';
-  const notUsed = action.campaignsUsingCount === 0 && action.status === 'ENABLED';
+  // "Non usata" disattivato: campaignsUsingCount non è calcolato dallo script (sempre 0) → badge fuorviante
+  const notUsed = false;
   const lowValue = (action.defaultValue === 0 || action.defaultValue === 1) && action.status === 'ENABLED';
 
   return (
@@ -509,19 +510,6 @@ export function ConversionsPage() {
               <CardContent>
                 <div className={`text-2xl font-bold ${hasHiddenActions ? 'text-red-600' : ''}`}>
                   {actionStats.hidden}
-                </div>
-              </CardContent>
-            </Card>
-            <Card className={actionStats.notUsed > 0 ? 'border-orange-300' : ''}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xs font-medium flex items-center gap-1.5">
-                  <AlertTriangle className="h-3.5 w-3.5 text-orange-600" />
-                  Non usate
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className={`text-2xl font-bold ${actionStats.notUsed > 0 ? 'text-orange-600' : ''}`}>
-                  {actionStats.notUsed}
                 </div>
               </CardContent>
             </Card>

@@ -196,7 +196,8 @@ function getColumns(accountId: string, onRefresh: () => void): ColumnDef<Convers
 
 function ConversionActionCard({ action, accountId, onRefresh }: { action: ConversionAction; accountId: string; onRefresh: () => void }) {
   const hasIssues = !action.primaryForGoal && action.status === 'ENABLED';
-  const notUsed = action.campaignsUsingCount === 0 && action.status === 'ENABLED';
+  // "Non usata" disattivato: campaignsUsingCount non è calcolato dallo script (sempre 0) → badge fuorviante
+  const notUsed = false;
   const lowValue = (action.defaultValue === 0 || action.defaultValue === 1) && action.status === 'ENABLED';
 
   return (
@@ -282,7 +283,7 @@ export function ConversionActionsPage() {
   });
   const [searchInput, setSearchInput] = useState('');
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('ENABLED');
 
   const loadData = useCallback(async () => {
     if (!accountId) return;
@@ -405,19 +406,6 @@ export function ConversionActionsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.primary}</div>
-          </CardContent>
-        </Card>
-        <Card className={stats.notUsed > 0 ? 'border-orange-300' : ''}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-orange-600" />
-              Non usate
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${stats.notUsed > 0 ? 'text-orange-600' : ''}`}>
-              {stats.notUsed}
-            </div>
           </CardContent>
         </Card>
         <Card className={stats.lowValue > 0 ? 'border-orange-300' : ''}>
